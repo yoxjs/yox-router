@@ -4,7 +4,11 @@
   "description": "yox-router",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "server": "webpack-dev-server --hot --inline",
+    "test": "jasmine JASMINE_CONFIG_PATH=test/jasmine.json",
+    "dev": "WEBPACK_ENV=dev webpack --progress --watch",
+    "source": "WEBPACK_ENV=source webpack",
+    "release": "WEBPACK_ENV=release webpack"
   },
   "repository": {
     "type": "git",
