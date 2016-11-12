@@ -6,11 +6,6 @@
 </head>
 <body>
     <div id="app"></div>
-    <script id="template" type="plain/text">
-
-      <div></div>
-
-    </script>
     <script src="./yox.js"></script>
     <script src="../dist/yox-router.js"></script>
     <script>
@@ -24,11 +19,15 @@
                 <button on-click="register()">
                   register
                 </button>
+                {{stringify(this)}}
               </div>
             `,
             methods: {
               register: function () {
-                console.log('register')
+                this.route({
+                  name: 'register',
+                  query: { age: 10 }
+                })
               }
             }
           },
@@ -39,41 +38,67 @@
                 <button on-click="login()">
                   login
                 </button>
+                {{stringify(this)}}
               </div>
             `,
             methods: {
               login: function () {
-                console.log('login')
+                this.route('/login')
               }
             }
           },
-          login: {
+          login: function (resolve) {
+            setTimeout(
+              function () {
+                resolve({
+                  template: `
+                    <div>
+                      <h1>login</h1>
+                      <button on-click="index()">
+                        index
+                      </button>
+                      {{stringify(this)}}
+                    </div>
+                  `,
+                  methods: {
+                    index: function () {
+                      this.route('/index')
+                    }
+                  }
+                })
+              },
+              1000
+            )
+          },
+          profile: {
             template: `
               <div>
-                <h1>login</h1>
-                <button on-click="index()">
-                  index
-                </button>
+                <h1>profile</h1>
+                {{stringify(this)}}
               </div>
             `,
-            methods: {
-              index: function () {
-                console.log('index')
-              }
-            }
           }
         })
 
         YoxRouter.map({
           '/index': {
-            name: 'index'
+            component: 'index'
           },
           '/register': {
-            name: 'register'
+            name: 'register',
+            component: 'register'
           },
           '/login': {
-            name: 'login'
+            component: 'login'
+          },
+          '/profile/:id': {
+            name: 'profile',
+            component: 'profile'
           }
+        })
+
+        Yox.filter('stringify', function (data) {
+          return JSON.stringify(data)
         })
 
         YoxRouter.start(document.getElementById('app'))

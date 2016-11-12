@@ -2,32 +2,28 @@
 let utils
 let create
 
-const PREFIX = '!'
-const DIVIDER = '/'
-
-
-
-
-
+const PREFIX_HASH = '!'
+const PREFIX_PARAM = ':'
+const DIVIDER_PATH = '/'
+const DIVIDER_QUERY = '&'
 
 /**
- * 解析 GET 参数
+ * 把 GET 参数解析成对象
  *
  * @param {string} query
- * @return {object}
+ * @return {Object}
  */
 function parseQuery(query) {
   let result = { }
-  if (utils.is.string(query) && query.indexOf('=') >= 0) {
+  if (utils.is.string(query)) {
     utils.array.each(
-      query.split('&'),
+      query.split(DIVIDER_QUERY),
       function (item) {
-        let terms = item.split('=')
-        if (terms.length === 2) {
-          let key = terms[0]
-          if (key) {
-            result[key] = decodeURIComponent(terms[1])
-          }
+        let [ key, value ] = item.split('=')
+        if (key) {
+          result[key] = utils.is.string(value)
+            ? decodeURIComponent(value)
+            : true
         }
       }
     )
@@ -35,6 +31,12 @@ function parseQuery(query) {
   return result
 }
 
+/**
+ * 把对象解析成 key1=value1&key2=value2
+ *
+ * @param {Object} query
+ * @return {string}
+ */
 function stringifyQuery(query) {
   let result = [ ]
   utils.object.each(
@@ -45,7 +47,7 @@ function stringifyQuery(query) {
       )
     }
   )
-  return result.join('&')
+  return result.join(DIVIDER_QUERY)
 }
 
 /**
@@ -53,18 +55,18 @@ function stringifyQuery(query) {
  *
  * @param {string} realpath
  * @param {string} path
- * @return {object}
+ * @return {Object}
  */
 function parseParams(realpath, path) {
 
   let result = { }
 
-  let terms = realpath.split(DIVIDER)
+  let terms = realpath.split(DIVIDER_PATH)
   utils.array.each(
-    path.split(DIVIDER),
+    path.split(DIVIDER_PATH),
     function (item, index) {
-      if (item.startsWith(':')) {
-        result[item.slice(1)] = terms[index]
+      if (item.startsWith(PREFIX_PARAM)) {
+        result[item.slice(PREFIX_PARAM.length)] = terms[index]
       }
     }
   )
@@ -83,16 +85,16 @@ function getPath(realpath) {
 
   let result
 
-  let terms = realpath.split(DIVIDER)
+  let terms = realpath.split(DIVIDER_PATH)
   utils.object.each(
-    path2Config,
+    path2Data,
     function (config, path) {
-      let patterns = path.split(DIVIDER)
+      let patterns = path.split(DIVIDER_PATH)
       if (terms.length === patterns.length) {
         utils.array.each(
           patterns,
           function (pattern, index) {
-            if (!pattern.startsWith(':')) {
+            if (!pattern.startsWith(PREFIX_PARAM)) {
               if (pattern !== terms[index]) {
                 path = null
                 return false
@@ -120,8 +122,8 @@ function getPath(realpath) {
  * @return {object}
  */
 function parseHash(hash) {
-  if (hash.startsWith(PREFIX)) {
-    hash = hash.slice(PREFIX.length)
+  if (hash.startsWith(PREFIX_HASH)) {
+    hash = hash.slice(PREFIX_HASH.length)
     let realpath, search
     let index = hash.indexOf('?')
     if (index >= 0) {
@@ -149,24 +151,26 @@ function stringifyHash(path, params, query) {
   let realpath = [ ]
 
   utils.array.each(
-    path.split(DIVIDER),
+    path.split(DIVIDER_PATH),
     function (term) {
       realpath.push(
-        term.startsWith(':')
+        term.startsWith(PREFIX_PARAM)
         ? params[term.slice(1)]
         : term
       )
     }
   )
 
-  let hash = realpath.join(DIVIDER)
+  let hash = realpath.join(DIVIDER_PATH)
 
-  query = stringifyQuery(query)
   if (query) {
-    hash += `?${query}`
+    query = stringifyQuery(query)
+    if (query) {
+      hash += `?${query}`
+    }
   }
 
-  return PREFIX + hash
+  return PREFIX_HASH + hash
 
 }
 
@@ -178,7 +182,19 @@ function stringifyHash(path, params, query) {
  */
 let element
 
-let instance
+/**
+ * 当前组件
+ */
+let currentComponentName
+let currentComponentInstance
+
+/**
+ * 路由表
+ *
+ * @type {Object}
+ */
+let path2Data = { }
+let name2Path = { }
 
 /**
  * 已注册的组件，name -> component
@@ -186,13 +202,6 @@ let instance
  * @type {Object}
  */
 let name2Component = { }
-
-/**
- * 路由表
- *
- * @type {Object}
- */
-let path2Config
 
 /**
  * 获取组件
@@ -223,30 +232,111 @@ function getComponent(name, callback) {
   }
 }
 
+
+/**
+ * 设置当前组件
+ *
+ * @param {string} name
+ * @param {?Object} props
+ */
+function setCurrentComponent(name, props, extra) {
+  currentComponentName = name
+  getComponent(
+    name,
+    function (component) {
+      if (name === currentComponentName) {
+        if (currentComponentInstance) {
+          currentComponentInstance.dispose()
+        }
+        currentComponentInstance = create(
+          component,
+          utils.object.extend({ }, props, extra)
+        )
+        currentComponentInstance.route = route
+      }
+    }
+  )
+}
+
 /**
  * 真正执行路由切换操作的函数
+ *
+ * data 有 2 种格式：
+ *
+ * 1. 会修改 url
+ *
+ * 如果只是简单的 path，直接传字符串
+ *
+ * route('/index')
+ *
+ * 如果需要带参数，切记路由表要配置 name
+ *
+ * route({
+ *   name: 'index',
+ *   params: { },
+ *   query: { }
+ * })
+ *
+ * 如果没有任何参数，可以只传 path
+ *
+ * route('/index')
+ *
+ * 2. 不会改变 url
+ *
+ * route({
+ *   component: 'index',
+ *   props: { }
+ * })
+ *
  */
-function route(name, params, query) {
-  getComponent(name, function (component) {
-    if (instance) {
-      instance.dispose()
+function route(data) {
+  if (utils.is.string(data)) {
+    location.hash = stringifyHash(data)
+  }
+  else {
+    if (utils.object.has(data, 'component')) {
+      setCurrentComponent(
+        data.component,
+        data.props
+      )
     }
-    instance = create(
-      component,
-      utils.object.extend({}, params, query),
-    )
-  })
-}
-
-
-
-function onHashChange() {
-  let data = parseHash(location.hash.slice(1))
-  if (data) {
-    let { name } = path2Config[data.path]
-    route(name, data.params, data.query)
+    else {
+      location.hash = stringifyHash(name2Path[data.name], data.params, data.query)
+    }
   }
 }
+
+function onHashChange() {
+  let hash = location.hash.slice(1)
+  let data = parseHash(hash)
+
+  let component, params, query
+  if (data) {
+    component = path2Data[data.path].component
+    params = data.params
+    query = data.query
+  }
+  else {
+    component = hash ? NOT_FOUND : INDEX
+  }
+
+  setCurrentComponent(component, params, query)
+
+}
+
+/**
+ * 首页组件名称
+ *
+ * @type {string}
+ */
+export const INDEX = 'index'
+
+/**
+ * 404 组件名称
+ *
+ * @type {string}
+ */
+export const NOT_FOUND = '404'
 
 /**
  * 注册组件
@@ -266,25 +356,35 @@ export function register(name, component) {
 /**
  * 配置路由表
  *
- * {
- *     path: {
- *         name: '注册的组件名',
- *         query: { }   // ? 后面跟的参数，表示默认参数
- *     }
- * }
- *
  * @param {Object} map
  */
 export function map(map) {
-  path2Config = map
+  let { each, has } = utils.object
+  each(
+    map,
+    function (data, path) {
+      if (has(data, 'name')) {
+        name2Path[data.name] = path
+      }
+      path2Data[path] = data
+    }
+  )
 }
 
+/**
+ * 启动路由
+ *
+ * @param {HTMLElement} el
+ */
 export function start(el) {
   element = el
   onHashChange()
   window.onhashchange = onHashChange
 }
 
+/**
+ * 停止路由
+ */
 export function stop() {
   element =
   window.onhashchange = null
@@ -295,11 +395,11 @@ export function install(Yox) {
   create = function (component, props) {
     return new Yox(
       utils.object.extend(
-        { el: element },
-        component,
         {
+          el: element,
           props,
-        }
+        },
+        component
       )
     )
   }
