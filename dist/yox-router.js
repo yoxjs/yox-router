@@ -73,7 +73,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	}
 
 /******/ 	var hotApplyOnUpdate = true;
-/******/ 	var hotCurrentHash = "e171275f1decb1acab20"; // eslint-disable-line no-unused-vars
+/******/ 	var hotCurrentHash = "fd7e79c204964c59c61b"; // eslint-disable-line no-unused-vars
 /******/ 	var hotCurrentModuleData = {};
 /******/ 	var hotCurrentParents = []; // eslint-disable-line no-unused-vars
 
@@ -602,8 +602,8 @@ return /******/ (function(modules) { // webpackBootstrap
 	exports.stop = stop;
 	exports.install = install;
 
-	var Yox = void 0;
 	var utils = void 0;
+	var create = void 0;
 
 	var PREFIX = '!';
 	var DIVIDER = '/';
@@ -800,9 +800,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	    if (instance) {
 	      instance.dispose();
 	    }
-	    instance = new Yox(utils.object.extend({ el: element }, component, {
-	      props: utils.object.extend({}, params, query)
-	    }));
+	    instance = create(component, utils.object.extend({}, params, query));
 	  });
 	}
 
@@ -855,9 +853,13 @@ return /******/ (function(modules) { // webpackBootstrap
 	  element = window.onhashchange = null;
 	}
 
-	function install(framework) {
-	  Yox = framework;
-	  utils = framework.utils;
+	function install(Yox) {
+	  utils = Yox.utils;
+	  create = function create(component, props) {
+	    return new Yox(utils.object.extend({ el: element }, component, {
+	      props: props
+	    }));
+	  };
 	}
 
 /***/ }

@@ -1,6 +1,6 @@
 
-let Yox
 let utils
+let create
 
 const PREFIX = '!'
 const DIVIDER = '/'
@@ -231,14 +231,9 @@ function route(name, params, query) {
     if (instance) {
       instance.dispose()
     }
-    instance = new Yox(
-      utils.object.extend(
-        { el: element },
-        component,
-        {
-          props: utils.object.extend({}, params, query),
-        }
-      )
+    instance = create(
+      component,
+      utils.object.extend({}, params, query),
     )
   })
 }
@@ -295,7 +290,17 @@ export function stop() {
   window.onhashchange = null
 }
 
-export function install(framework) {
-  Yox = framework
-  utils = framework.utils
+export function install(Yox) {
+  utils = Yox.utils
+  create = function (component, props) {
+    return new Yox(
+      utils.object.extend(
+        { el: element },
+        component,
+        {
+          props,
+        }
+      )
+    )
+  }
 }
