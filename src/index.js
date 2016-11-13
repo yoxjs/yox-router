@@ -186,6 +186,7 @@ let element
  * 当前组件
  */
 let currentComponentName
+let currentComponentConfig
 let currentComponentInstance
 
 /**
@@ -245,13 +246,16 @@ function setCurrentComponent(name, props, extra) {
     name,
     function (component) {
       if (name === currentComponentName) {
+        props = utils.object.extend({ }, props, extra)
+        if (currentComponentInstance && currentComponentConfig === component) {
+          currentComponentInstance.set(props)
+          return
+        }
         if (currentComponentInstance) {
           currentComponentInstance.dispose()
         }
-        currentComponentInstance = create(
-          component,
-          utils.object.extend({ }, props, extra)
-        )
+        currentComponentConfig = component
+        currentComponentInstance = create(component, props)
         currentComponentInstance.route = route
       }
     }

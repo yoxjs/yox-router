@@ -16,6 +16,12 @@ CDN
 
 ## Usage
 
+基于 `hashchange` 机制设计，未采用 pushState 有以下几个考虑：
+
+1. 尽快出活，减少折腾
+2. hashchange 能利用浏览器 `history` 提供的一系列方法，省掉了自己去实现 `push`、`pop` 的时间和代码量
+3. hashchange 兼容性好，减少出问题的概率，就算出了问题也好排查
+
 ```javascript
 // 注册插件
 Yox.use(YoxRouter)
