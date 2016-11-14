@@ -390,7 +390,7 @@ function setCurrentComponent(name, props, extra) {
 
       props = utils.object.extend({}, props, extra);
 
-      if (currentComponentInstance && currentComponentConfig === component && !currentComponentInstance.fire(REFRESH_COMPONENT, props)) {
+      if (currentComponentInstance && currentComponentConfig === component && currentComponentInstance.fire(REFRESH_COMPONENT, props)) {
         return;
       }
 

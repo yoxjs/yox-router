@@ -252,7 +252,7 @@ function setCurrentComponent(name, props, extra) {
         // 发事件给组件，该干嘛干嘛，不想干嘛就让后面的代码继续干嘛
         if (currentComponentInstance
           && currentComponentConfig === component
-          && !currentComponentInstance.fire(REFRESH_COMPONENT, props)
+          && currentComponentInstance.fire(REFRESH_COMPONENT, props)
         ) {
           return
         }

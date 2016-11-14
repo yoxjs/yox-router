@@ -1,6 +1,6 @@
 {
   "name": "yox-router",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "yox-router",
   "main": "dist/yox-router.min.js",
   "scripts": {
