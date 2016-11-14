@@ -233,7 +233,7 @@ var slicedToArray = function () {
 }();
 
 var utils = void 0;
-var create = void 0;
+var createComponent = void 0;
 
 var PREFIX_HASH = '!';
 var PREFIX_PARAM = ':';
@@ -353,6 +353,7 @@ function stringifyHash(path, params, query) {
 var element = void 0;
 
 var currentComponentName = void 0;
+var currentComponentConfig = void 0;
 var currentComponentInstance = void 0;
 
 var path2Data = {};
@@ -386,10 +387,18 @@ function setCurrentComponent(name, props, extra) {
   currentComponentName = name;
   getComponent(name, function (component) {
     if (name === currentComponentName) {
+
+      props = utils.object.extend({}, props, extra);
+
+      if (currentComponentInstance && currentComponentConfig === component && !currentComponentInstance.fire(REFRESH_COMPONENT, props)) {
+        return;
+      }
+
       if (currentComponentInstance) {
         currentComponentInstance.dispose();
       }
-      currentComponentInstance = create(component, utils.object.extend({}, props, extra));
+      currentComponentConfig = component;
+      currentComponentInstance = createComponent(component, props);
       currentComponentInstance.route = route;
     }
   });
@@ -429,6 +438,8 @@ var INDEX = 'index';
 
 var NOT_FOUND = '404';
 
+var REFRESH_COMPONENT = 'refreshcomponent';
+
 function register(name, component) {
   if (utils.is.object(name)) {
     utils.object.extend(name2Component, name);
@@ -462,7 +473,7 @@ function stop() {
 
 function install(Yox) {
   utils = Yox.utils;
-  create = function create(component, props) {
+  createComponent = function createComponent(component, props) {
     return new Yox(utils.object.extend({
       el: element,
       props: props
@@ -472,6 +483,7 @@ function install(Yox) {
 
 exports.INDEX = INDEX;
 exports.NOT_FOUND = NOT_FOUND;
+exports.REFRESH_COMPONENT = REFRESH_COMPONENT;
 exports.register = register;
 exports.map = map;
 exports.start = start;

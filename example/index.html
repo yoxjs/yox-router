@@ -6,7 +6,7 @@
 </head>
 <body>
     <div id="app"></div>
-    <script src="./yox.js"></script>
+    <script src="https://unpkg.com/yox@latest"></script>
     <script src="../dist/yox-router.js"></script>
     <script>
         Yox.use(YoxRouter)
@@ -60,9 +60,19 @@
                       {{stringify(this)}}
                     </div>
                   `,
+                  events: {
+                    refreshcomponent: function (data) {
+                      console.log('refreshcomponent', data)
+                    }
+                  },
                   methods: {
                     index: function () {
-                      this.route('/index')
+                      this.route({
+                        name: 'login',
+                        query: {
+                          name: 'musicode'
+                        }
+                      })
                     }
                   }
                 })
@@ -89,6 +99,7 @@
             component: 'register'
           },
           '/login': {
+            name: 'login',
             component: 'login'
           },
           '/profile/:id': {

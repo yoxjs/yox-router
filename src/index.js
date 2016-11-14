@@ -1,6 +1,6 @@
 
 let utils
-let create
+let createComponent
 
 const PREFIX_HASH = '!'
 const PREFIX_PARAM = ':'
@@ -246,16 +246,22 @@ function setCurrentComponent(name, props, extra) {
     name,
     function (component) {
       if (name === currentComponentName) {
+
         props = utils.object.extend({ }, props, extra)
-        if (currentComponentInstance && currentComponentConfig === component) {
-          currentComponentInstance.set(props)
+
+        // 发事件给组件，该干嘛干嘛，不想干嘛就让后面的代码继续干嘛
+        if (currentComponentInstance
+          && currentComponentConfig === component
+          && !currentComponentInstance.fire(REFRESH_COMPONENT, props)
+        ) {
           return
         }
+
         if (currentComponentInstance) {
           currentComponentInstance.dispose()
         }
         currentComponentConfig = component
-        currentComponentInstance = create(component, props)
+        currentComponentInstance = createComponent(component, props)
         currentComponentInstance.route = route
       }
     }
@@ -343,6 +349,13 @@ export const INDEX = 'index'
 export const NOT_FOUND = '404'
 
 /**
+ * 如果相继路由到的是同一个组件，那么会优先触发该组件实例的一个 refresh 事件
+ *
+ * @type {String}
+ */
+export const REFRESH_COMPONENT = 'refreshcomponent'
+
+/**
  * 注册组件
  *
  * @param {string} name
@@ -396,7 +409,7 @@ export function stop() {
 
 export function install(Yox) {
   utils = Yox.utils
-  create = function (component, props) {
+  createComponent = function (component, props) {
     return new Yox(
       utils.object.extend(
         {
