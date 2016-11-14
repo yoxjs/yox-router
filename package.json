@@ -1,8 +1,8 @@
 {
   "name": "yox-router",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "yox-router",
-  "main": "index.js",
+  "main": "dist/yox-router.min.js",
   "scripts": {
     "source": "rollup -c",
     "release": "NODE_ENV=release rollup -c"
