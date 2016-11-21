@@ -2,9 +2,13 @@
 let utils
 let createComponent
 
+// hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '!'
+// path 中的参数前缀，如 #!/user/:userId
 const PREFIX_PARAM = ':'
+// path 分隔符
 const DIVIDER_PATH = '/'
+// query 分隔符
 const DIVIDER_QUERY = '&'
 
 /**
@@ -21,9 +25,16 @@ function parseQuery(query) {
       function (item) {
         let [ key, value ] = item.split('=')
         if (key) {
-          result[key] = utils.is.string(value)
+          value = utils.is.string(value)
             ? decodeURIComponent(value)
             : true
+          if (key.endsWith('[]')) {
+            let array = result[key] || (result[key] = [ ])
+            array.push(value)
+          }
+          else {
+            result[key] = value
+          }
         }
       }
     )
@@ -42,9 +53,21 @@ function stringifyQuery(query) {
   utils.object.each(
     query,
     function (value, key) {
-      result.push(
-        `${key}=${encodeURIComponent(value)}`
-      )
+      if (utils.is.array(value)) {
+        utils.array.each(
+          value,
+          function (value) {
+            result.push(
+              `${key}[]=${encodeURIComponent(value)}`
+            )
+          }
+        )
+      }
+      else {
+        result.push(
+          `${key}=${encodeURIComponent(value)}`
+        )
+      }
     }
   )
   return result.join(DIVIDER_QUERY)
@@ -53,52 +76,55 @@ function stringifyQuery(query) {
 /**
  * 解析 path 中的参数
  *
- * @param {string} realpath
- * @param {string} path
+ * @param {string} realpath 真实的路径
+ * @param {string} path 配置的路径
  * @return {Object}
  */
 function parseParams(realpath, path) {
 
   let result = { }
 
-  let terms = realpath.split(DIVIDER_PATH)
-  utils.array.each(
-    path.split(DIVIDER_PATH),
-    function (item, index) {
-      if (item.startsWith(PREFIX_PARAM)) {
-        result[item.slice(PREFIX_PARAM.length)] = terms[index]
+  let realpathTerms = realpath.split(DIVIDER_PATH)
+  let pathTerms = path.split(DIVIDER_PATH)
+
+  if (realpathTerms.length === pathTerms.length) {
+    utils.array.each(
+      pathTerms,
+      function (item, index) {
+        if (item.startsWith(PREFIX_PARAM)) {
+          result[item.slice(PREFIX_PARAM.length)] = realpathTerms[index]
+        }
       }
-    }
-  )
+    )
+  }
 
   return result
 
 }
 
 /**
- * 通过 realpath（不包含参数）获取配置的 path
+ * 通过 realpath 获取配置的 path
  *
  * @param {string} realpath
  * @return {string}
  */
-function getPath(realpath) {
+function getPathByRealpath(realpath) {
 
   let result
 
-  let terms = realpath.split(DIVIDER_PATH)
+  let realpathTerms = realpath.split(DIVIDER_PATH)
   utils.object.each(
     path2Data,
     function (config, path) {
-      let patterns = path.split(DIVIDER_PATH)
-      if (terms.length === patterns.length) {
+      let pathTerms = path.split(DIVIDER_PATH)
+      if (realpathTerms.length === pathTerms.length) {
         utils.array.each(
-          patterns,
-          function (pattern, index) {
-            if (!pattern.startsWith(PREFIX_PARAM)) {
-              if (pattern !== terms[index]) {
-                path = null
-                return false
-              }
+          pathTerms,
+          function (item, index) {
+            // 非参数段不相同
+            if (!item.startsWith(PREFIX_PARAM) && item !== realpathTerms[index]) {
+              path = null
+              return false
             }
           }
         )
@@ -118,7 +144,6 @@ function getPath(realpath) {
  * 完整解析 hash 数据
  *
  * @param {string} hash
- * @param {string} pattern
  * @return {object}
  */
 function parseHash(hash) {
@@ -134,7 +159,7 @@ function parseHash(hash) {
       realpath = hash
     }
 
-    let path = getPath(realpath)
+    let path = getPathByRealpath(realpath)
     if (path) {
       return {
         path,
@@ -146,31 +171,39 @@ function parseHash(hash) {
   }
 }
 
+/**
+ * 把结构化数据序列化成 hash
+ *
+ * @param {string} path
+ * @param {Object} params
+ * @param {Object} query
+ * @return {string}
+ */
 function stringifyHash(path, params, query) {
 
-  let realpath = [ ]
+  let realpath = [ ], search = ''
 
   utils.array.each(
     path.split(DIVIDER_PATH),
-    function (term) {
+    function (item) {
       realpath.push(
-        term.startsWith(PREFIX_PARAM)
-        ? params[term.slice(1)]
-        : term
+        item.startsWith(PREFIX_PARAM)
+        ? params[item.slice(PREFIX_PARAM.length)]
+        : item
       )
     }
   )
 
-  let hash = realpath.join(DIVIDER_PATH)
+  realpath = realpath.join(DIVIDER_PATH)
 
   if (query) {
     query = stringifyQuery(query)
     if (query) {
-      hash += `?${query}`
+      search = '?' + query
     }
   }
 
-  return PREFIX_HASH + hash
+  return PREFIX_HASH + realpath + search
 
 }
 
@@ -205,14 +238,15 @@ let name2Path = { }
 let name2Component = { }
 
 /**
- * 获取组件
+ * 获取配置的组件，支持异步获取
  *
  * @param {string} name
  * @param {Function} callback
  */
 function getComponent(name, callback) {
+  let { func, object } = utils.is
   let component = name2Component[name]
-  if (utils.is.func(component)) {
+  if (func(component)) {
     let { $pending } = component
     if (!$pending) {
       $pending = component.$pending = [ ]
@@ -228,7 +262,7 @@ function getComponent(name, callback) {
     }
     $pending.push(callback)
   }
-  else {
+  else if (object(component)) {
     callback(component)
   }
 }
@@ -239,6 +273,7 @@ function getComponent(name, callback) {
  *
  * @param {string} name
  * @param {?Object} props
+ * @param {?Object} extra
  */
 function setCurrentComponent(name, props, extra) {
   currentComponentName = name
@@ -351,9 +386,19 @@ export const NOT_FOUND = '404'
 /**
  * 如果相继路由到的是同一个组件，那么会优先触发该组件实例的一个 refresh 事件
  *
- * @type {String}
+ * @type {string}
  */
 export const REFRESH_COMPONENT = 'refreshcomponent'
+
+/**
+ * 导航钩子
+ *
+ * @type {string}
+ */
+export const BEFORE_ROUTE_ENTER = 'beforerouteenter'
+export const AFTER_ROUTE_ENTER = 'afterrouteenter'
+export const BEFORE_ROUTE_LEAVE = 'beforerouteleave'
+export const AFTER_ROUTE_LEAVE = 'afterrouteleave'
 
 /**
  * 注册组件
@@ -420,4 +465,9 @@ export function install(Yox) {
       )
     )
   }
+}
+
+// 如果全局环境已有 Yox，自动安装
+if (typeof Yox !== 'undefined' && Yox.version) {
+  install(Yox)
 }

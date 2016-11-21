@@ -236,8 +236,11 @@ var utils = void 0;
 var createComponent = void 0;
 
 var PREFIX_HASH = '!';
+
 var PREFIX_PARAM = ':';
+
 var DIVIDER_PATH = '/';
+
 var DIVIDER_QUERY = '&';
 
 function parseQuery(query) {
@@ -250,7 +253,13 @@ function parseQuery(query) {
           value = _item$split2[1];
 
       if (key) {
-        result[key] = utils.is.string(value) ? decodeURIComponent(value) : true;
+        value = utils.is.string(value) ? decodeURIComponent(value) : true;
+        if (key.endsWith('[]')) {
+          var array = result[key] || (result[key] = []);
+          array.push(value);
+        } else {
+          result[key] = value;
+        }
       }
     });
   }
@@ -260,7 +269,13 @@ function parseQuery(query) {
 function stringifyQuery(query) {
   var result = [];
   utils.object.each(query, function (value, key) {
-    result.push(key + '=' + encodeURIComponent(value));
+    if (utils.is.array(value)) {
+      utils.array.each(value, function (value) {
+        result.push(key + '[]=' + encodeURIComponent(value));
+      });
+    } else {
+      result.push(key + '=' + encodeURIComponent(value));
+    }
   });
   return result.join(DIVIDER_QUERY);
 }
@@ -269,30 +284,32 @@ function parseParams(realpath, path) {
 
   var result = {};
 
-  var terms = realpath.split(DIVIDER_PATH);
-  utils.array.each(path.split(DIVIDER_PATH), function (item, index) {
-    if (item.startsWith(PREFIX_PARAM)) {
-      result[item.slice(PREFIX_PARAM.length)] = terms[index];
-    }
-  });
+  var realpathTerms = realpath.split(DIVIDER_PATH);
+  var pathTerms = path.split(DIVIDER_PATH);
+
+  if (realpathTerms.length === pathTerms.length) {
+    utils.array.each(pathTerms, function (item, index) {
+      if (item.startsWith(PREFIX_PARAM)) {
+        result[item.slice(PREFIX_PARAM.length)] = realpathTerms[index];
+      }
+    });
+  }
 
   return result;
 }
 
-function getPath(realpath) {
+function getPathByRealpath(realpath) {
 
   var result = void 0;
 
-  var terms = realpath.split(DIVIDER_PATH);
+  var realpathTerms = realpath.split(DIVIDER_PATH);
   utils.object.each(path2Data, function (config, path) {
-    var patterns = path.split(DIVIDER_PATH);
-    if (terms.length === patterns.length) {
-      utils.array.each(patterns, function (pattern, index) {
-        if (!pattern.startsWith(PREFIX_PARAM)) {
-          if (pattern !== terms[index]) {
-            path = null;
-            return false;
-          }
+    var pathTerms = path.split(DIVIDER_PATH);
+    if (realpathTerms.length === pathTerms.length) {
+      utils.array.each(pathTerms, function (item, index) {
+        if (!item.startsWith(PREFIX_PARAM) && item !== realpathTerms[index]) {
+          path = null;
+          return false;
         }
       });
       if (path) {
@@ -318,7 +335,7 @@ function parseHash(hash) {
       realpath = hash;
     }
 
-    var path = getPath(realpath);
+    var path = getPathByRealpath(realpath);
     if (path) {
       return {
         path: path,
@@ -332,22 +349,23 @@ function parseHash(hash) {
 
 function stringifyHash(path, params, query) {
 
-  var realpath = [];
+  var realpath = [],
+      search = '';
 
-  utils.array.each(path.split(DIVIDER_PATH), function (term) {
-    realpath.push(term.startsWith(PREFIX_PARAM) ? params[term.slice(1)] : term);
+  utils.array.each(path.split(DIVIDER_PATH), function (item) {
+    realpath.push(item.startsWith(PREFIX_PARAM) ? params[item.slice(PREFIX_PARAM.length)] : item);
   });
 
-  var hash = realpath.join(DIVIDER_PATH);
+  realpath = realpath.join(DIVIDER_PATH);
 
   if (query) {
     query = stringifyQuery(query);
     if (query) {
-      hash += '?' + query;
+      search = '?' + query;
     }
   }
 
-  return PREFIX_HASH + hash;
+  return PREFIX_HASH + realpath + search;
 }
 
 var element = void 0;
@@ -362,8 +380,12 @@ var name2Path = {};
 var name2Component = {};
 
 function getComponent(name, callback) {
+  var _utils$is = utils.is,
+      func = _utils$is.func,
+      object = _utils$is.object;
+
   var component = name2Component[name];
-  if (utils.is.func(component)) {
+  if (func(component)) {
     (function () {
       var $pending = component.$pending;
 
@@ -378,7 +400,7 @@ function getComponent(name, callback) {
       }
       $pending.push(callback);
     })();
-  } else {
+  } else if (object(component)) {
     callback(component);
   }
 }
@@ -440,6 +462,11 @@ var NOT_FOUND = '404';
 
 var REFRESH_COMPONENT = 'refreshcomponent';
 
+var BEFORE_ROUTE_ENTER = 'beforerouteenter';
+var AFTER_ROUTE_ENTER = 'afterrouteenter';
+var BEFORE_ROUTE_LEAVE = 'beforerouteleave';
+var AFTER_ROUTE_LEAVE = 'afterrouteleave';
+
 function register(name, component) {
   if (utils.is.object(name)) {
     utils.object.extend(name2Component, name);
@@ -481,9 +508,17 @@ function install(Yox) {
   };
 }
 
+if (typeof Yox !== 'undefined' && Yox.version) {
+  install(Yox);
+}
+
 exports.INDEX = INDEX;
 exports.NOT_FOUND = NOT_FOUND;
 exports.REFRESH_COMPONENT = REFRESH_COMPONENT;
+exports.BEFORE_ROUTE_ENTER = BEFORE_ROUTE_ENTER;
+exports.AFTER_ROUTE_ENTER = AFTER_ROUTE_ENTER;
+exports.BEFORE_ROUTE_LEAVE = BEFORE_ROUTE_LEAVE;
+exports.AFTER_ROUTE_LEAVE = AFTER_ROUTE_LEAVE;
 exports.register = register;
 exports.map = map;
 exports.start = start;
