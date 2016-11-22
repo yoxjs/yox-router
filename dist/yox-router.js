@@ -417,6 +417,44 @@ function getComponent(name, callback) {
   }
 }
 
+var Chain = function () {
+  function Chain() {
+    classCallCheck(this, Chain);
+
+    this.funcs = [];
+  }
+
+  createClass(Chain, [{
+    key: 'use',
+    value: function use(func) {
+      if (is.func(func)) {
+        this.funcs.push(func);
+      }
+    }
+  }, {
+    key: 'run',
+    value: function run(context, from, to, success, failure) {
+      var funcs = this.funcs;
+
+      var i = -1;
+      var next = function next(value) {
+        if (value == env.NULL) {
+          i++;
+          if (funcs[i]) {
+            funcs[i].call(context, from, to, next);
+          } else if (success) {
+            success();
+          }
+        } else if (failure) {
+          failure(value);
+        }
+      };
+      next();
+    }
+  }]);
+  return Chain;
+}();
+
 var Router = function () {
   function Router() {
     classCallCheck(this, Router);
@@ -446,7 +484,7 @@ var Router = function () {
   }, {
     key: 'fire',
     value: function fire(type, data) {
-      return this.emitter.fire(type, data);
+      this.emitter.fire(type, data);
     }
   }, {
     key: 'map',
@@ -469,7 +507,7 @@ var Router = function () {
     value: function go(data) {
       if (is.string(data)) {
         location.hash = stringifyHash(data);
-      } else {
+      } else if (is.object(data)) {
         if (object.has(data, 'component')) {
           this.setComponent(data.component, data.props);
         } else {
@@ -483,7 +521,6 @@ var Router = function () {
       var path2Route = this.path2Route;
       var _location = location,
           hash = _location.hash;
-
 
       hash = hash.startsWith(PREFIX_HASH) ? hash.slice(PREFIX_HASH.length) : '';
 
@@ -519,40 +556,12 @@ var Router = function () {
       };
       var next = { component: component, props: props, path: path };
 
-      var callHookAboveRouter = function callHookAboveRouter(name, callback) {
-        if (instance && instance[name]) {
-          instance[name](current, next, function (value) {
-            if (value !== env.FALSE && callback) {
-              callback();
-            }
-          });
-        } else if (callback) {
-          callback();
-        }
-      };
-
-      var callHookAboveRoute = function callHookAboveRoute(name, callback) {
-        if (path && path2Route[path] && path2Route[path][name]) {
-          path2Route[path][name].call(env.NULL, current, next, function (value) {
-            if (value !== env.FALSE) {
-              callHookAboveRouter(name, callback);
-            }
-          });
-        } else {
-          callHookAboveRouter(name, callback);
-        }
-      };
-
       var callHook = function callHook(name, callback) {
-        if (componentConfig && componentConfig[name]) {
-          componentConfig[name].call(componentInstance, current, next, function (value) {
-            if (value !== env.FALSE) {
-              callHookAboveRoute(name, callback);
-            }
-          });
-        } else {
-          callHookAboveRoute(name, callback);
-        }
+        var chain = new Chain();
+        chain.use(componentConfig && componentConfig[name]);
+        chain.use(path && path2Route[path] && path2Route[path][name]);
+        chain.use(instance && instance[name]);
+        chain.run(componentInstance, current, next, callback);
       };
 
       var createComponent = function createComponent(component) {

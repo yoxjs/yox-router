@@ -237,6 +237,40 @@ function getComponent(name, callback) {
   }
 }
 
+class Chain {
+
+  constructor() {
+    this.funcs = [ ]
+  }
+
+  use(func) {
+    if (is.func(func)) {
+      this.funcs.push(func)
+    }
+  }
+
+  run(context, from, to, success, failure) {
+    let { funcs } = this
+    let i = -1
+    let next = function (value) {
+      if (value == env.NULL) {
+        i++
+        if (funcs[i]) {
+          funcs[i].call(context, from, to, next)
+        }
+        else if (success) {
+          success()
+        }
+      }
+      else if (failure) {
+        failure(value)
+      }
+    }
+    next()
+  }
+
+}
+
 export default class Router {
 
   constructor() {
@@ -273,7 +307,7 @@ export default class Router {
   }
 
   fire(type, data) {
-    return this.emitter.fire(type, data)
+    this.emitter.fire(type, data)
   }
 
   /**
@@ -330,7 +364,7 @@ export default class Router {
     if (is.string(data)) {
       location.hash = stringifyHash(data)
     }
-    else {
+    else if (is.object(data)) {
       if (object.has(data, 'component')) {
         this.setComponent(
           data.component,
@@ -347,11 +381,15 @@ export default class Router {
     }
   }
 
+  /**
+   * 处理浏览器的 hash 变化
+   */
   handleHashChange() {
 
     let { path2Route } = this
     let { hash } = location
 
+    // 如果不以 PREFIX_HASH 开头，表示不合法
     hash = hash.startsWith(PREFIX_HASH)
       ? hash.slice(PREFIX_HASH.length)
       : ''
@@ -379,7 +417,6 @@ export default class Router {
    *
    * @param {string} component 全局注册的组件名称
    * @param {?Object} props 传给组件的数据
-   * @param {?string} path 组件对应的路径
    */
   setComponent(component, props, path) {
 
@@ -402,54 +439,12 @@ export default class Router {
     }
     let next = { component, props, path }
 
-    let callHookAboveRouter = function (name, callback) {
-      if (instance && instance[name]) {
-        instance[name](current, next, function (value) {
-          if (value !== env.FALSE && callback) {
-            callback()
-          }
-        })
-      }
-      else if (callback) {
-        callback()
-      }
-    }
-
-    let callHookAboveRoute = function (name, callback) {
-      if (path && path2Route[path] && path2Route[path][name]) {
-        path2Route[path][name].call(
-          env.NULL,
-          current,
-          next,
-          function (value) {
-            if (value !== env.FALSE) {
-              callHookAboveRouter(name, callback)
-            }
-          }
-        )
-      }
-      else {
-        callHookAboveRouter(name, callback)
-      }
-    }
-
-
     let callHook = function (name, callback) {
-      if (componentConfig && componentConfig[name]) {
-        componentConfig[name].call(
-          componentInstance,
-          current,
-          next,
-          function (value) {
-            if (value !== env.FALSE) {
-              callHookAboveRoute(name, callback)
-            }
-          }
-        )
-      }
-      else {
-        callHookAboveRoute(name, callback)
-      }
+      let chain = new Chain()
+      chain.use(componentConfig && componentConfig[name])
+      chain.use(path && path2Route[path] && path2Route[path][name])
+      chain.use(instance && instance[name])
+      chain.run(componentInstance, current, next, callback)
     }
 
     let createComponent = function (component) {
@@ -490,7 +485,6 @@ export default class Router {
         }
       )
     }
-
 
     instance.componentName = component
 
