@@ -4,123 +4,6 @@
   (global.YoxRouter = factory());
 }(this, (function () { 'use strict';
 
-var asyncGenerator = function () {
-  function AwaitValue(value) {
-    this.value = value;
-  }
-
-  function AsyncGenerator(gen) {
-    var front, back;
-
-    function send(key, arg) {
-      return new Promise(function (resolve, reject) {
-        var request = {
-          key: key,
-          arg: arg,
-          resolve: resolve,
-          reject: reject,
-          next: null
-        };
-
-        if (back) {
-          back = back.next = request;
-        } else {
-          front = back = request;
-          resume(key, arg);
-        }
-      });
-    }
-
-    function resume(key, arg) {
-      try {
-        var result = gen[key](arg);
-        var value = result.value;
-
-        if (value instanceof AwaitValue) {
-          Promise.resolve(value.value).then(function (arg) {
-            resume("next", arg);
-          }, function (arg) {
-            resume("throw", arg);
-          });
-        } else {
-          settle(result.done ? "return" : "normal", result.value);
-        }
-      } catch (err) {
-        settle("throw", err);
-      }
-    }
-
-    function settle(type, value) {
-      switch (type) {
-        case "return":
-          front.resolve({
-            value: value,
-            done: true
-          });
-          break;
-
-        case "throw":
-          front.reject(value);
-          break;
-
-        default:
-          front.resolve({
-            value: value,
-            done: false
-          });
-          break;
-      }
-
-      front = front.next;
-
-      if (front) {
-        resume(front.key, front.arg);
-      } else {
-        back = null;
-      }
-    }
-
-    this._invoke = send;
-
-    if (typeof gen.return !== "function") {
-      this.return = undefined;
-    }
-  }
-
-  if (typeof Symbol === "function" && Symbol.asyncIterator) {
-    AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
-      return this;
-    };
-  }
-
-  AsyncGenerator.prototype.next = function (arg) {
-    return this._invoke("next", arg);
-  };
-
-  AsyncGenerator.prototype.throw = function (arg) {
-    return this._invoke("throw", arg);
-  };
-
-  AsyncGenerator.prototype.return = function (arg) {
-    return this._invoke("return", arg);
-  };
-
-  return {
-    wrap: function (fn) {
-      return function () {
-        return new AsyncGenerator(fn.apply(this, arguments));
-      };
-    },
-    await: function (value) {
-      return new AwaitValue(value);
-    }
-  };
-}();
-
-
-
-
-
 var classCallCheck = function (instance, Constructor) {
   if (!(instance instanceof Constructor)) {
     throw new TypeError("Cannot call a class as a function");
@@ -145,74 +28,6 @@ var createClass = function () {
   };
 }();
 
-
-
-
-
-
-
-var get = function get(object, property, receiver) {
-  if (object === null) object = Function.prototype;
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent === null) {
-      return undefined;
-    } else {
-      return get(parent, property, receiver);
-    }
-  } else if ("value" in desc) {
-    return desc.value;
-  } else {
-    var getter = desc.get;
-
-    if (getter === undefined) {
-      return undefined;
-    }
-
-    return getter.call(receiver);
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var set = function set(object, property, value, receiver) {
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent !== null) {
-      set(parent, property, value, receiver);
-    }
-  } else if ("value" in desc && desc.writable) {
-    desc.value = value;
-  } else {
-    var setter = desc.set;
-
-    if (setter !== undefined) {
-      setter.call(receiver, value);
-    }
-  }
-
-  return value;
-};
 
 var slicedToArray = function () {
   function sliceIterator(arr, i) {
@@ -257,7 +72,6 @@ var env = void 0;
 var array = void 0;
 var object = void 0;
 var native = void 0;
-var Emitter = void 0;
 var Component = void 0;
 
 var PREFIX_HASH = '#!';
@@ -421,27 +235,27 @@ var Chain = function () {
   function Chain() {
     classCallCheck(this, Chain);
 
-    this.funcs = [];
+    this.list = [];
   }
 
   createClass(Chain, [{
     key: 'use',
-    value: function use(func) {
-      if (is.func(func)) {
-        this.funcs.push(func);
+    value: function use(item) {
+      if (is.func(item)) {
+        this.list.push(item);
       }
     }
   }, {
     key: 'run',
-    value: function run(context, from, to, success, failure) {
-      var funcs = this.funcs;
+    value: function run(context, to, from, success, failure) {
+      var list = this.list;
 
       var i = -1;
       var next = function next(value) {
         if (value == env.NULL) {
           i++;
-          if (funcs[i]) {
-            funcs[i].call(context, from, to, next);
+          if (list[i]) {
+            list[i].call(context, to, from, next);
           } else if (success) {
             success();
           }
@@ -462,31 +276,9 @@ var Router = function () {
     this.name2Path = {};
 
     this.path2Route = {};
-
-    this.emitter = new Emitter();
   }
 
   createClass(Router, [{
-    key: 'on',
-    value: function on(type, listener) {
-      this.emitter.on(type, listener);
-    }
-  }, {
-    key: 'once',
-    value: function once(type, listener) {
-      this.emitter.once(type, listener);
-    }
-  }, {
-    key: 'off',
-    value: function off(type, listener) {
-      this.emitter.off(type, listener);
-    }
-  }, {
-    key: 'fire',
-    value: function fire(type, data) {
-      this.emitter.fire(type, data);
-    }
-  }, {
     key: 'map',
     value: function map(routes) {
       var name2Path = this.name2Path,
@@ -510,7 +302,7 @@ var Router = function () {
       } else if (is.object(data)) {
         if (object.has(data, 'component')) {
           this.setComponent(data.component, data.props);
-        } else {
+        } else if (object.has(data, 'name')) {
           location.hash = stringifyHash(this.name2Path[data.name], data.params, data.query);
         }
       }
@@ -518,7 +310,9 @@ var Router = function () {
   }, {
     key: 'handleHashChange',
     value: function handleHashChange() {
-      var path2Route = this.path2Route;
+
+      var instance = this;
+      var path2Route = instance.path2Route;
       var _location = location,
           hash = _location.hash;
 
@@ -529,44 +323,80 @@ var Router = function () {
         var path = data.path,
             params = data.params,
             query = data.query;
-        var component = path2Route[path].component;
 
-        this.setComponent(component, object.extend({}, params, query), path);
+        this.setComponent(path, params, query);
       } else {
-        this.fire(hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX);
+        var hook = hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX;
+        if (instance[hook]) {
+          instance[hook]();
+        }
       }
     }
   }, {
     key: 'setComponent',
-    value: function setComponent(component, props, path) {
-      if (!is.object(props)) {
-        props = {};
-      }
+    value: function setComponent() {
 
       var instance = this;
+
       var path2Route = instance.path2Route,
           componentConfig = instance.componentConfig,
           componentInstance = instance.componentInstance;
 
 
+      var args = arguments,
+          component = void 0,
+          props = void 0,
+          path = void 0,
+          params = void 0,
+          query = void 0,
+          route = void 0;
+
+      if (args[2]) {
+        path = args[0];
+        params = args[1];
+        query = args[2];
+        route = path2Route[path];
+        component = route.component;
+      } else {
+        component = args[0];
+        props = args[1];
+      }
+
       var current = {
         component: instance.component,
         props: instance.props,
-        path: instance.path
+        path: instance.path,
+        params: instance.params,
+        query: instance.query
       };
-      var next = { component: component, props: props, path: path };
+      var next = { component: component, props: props, path: path, params: params, query: query };
 
-      var callHook = function callHook(name, callback) {
+      var failure = function failure(value) {
+        if (value === env.FALSE) {
+          if (current.path) {
+            location.hash = stringifyHash(current.path, current.params, current.query);
+          }
+        } else {
+          instance.go(value);
+        }
+      };
+
+      var callHook = function callHook(name, success, failure) {
         var chain = new Chain();
         chain.use(componentConfig && componentConfig[name]);
-        chain.use(path && path2Route[path] && path2Route[path][name]);
+        chain.use(route && route[name]);
         chain.use(instance && instance[name]);
-        chain.run(componentInstance, current, next, callback);
+        chain.run(componentInstance, next, current, success, failure);
       };
 
       var createComponent = function createComponent(component) {
         componentConfig = component;
         callHook(Router.HOOK_BEFORE_ENTER, function () {
+
+          if (params || query) {
+            props = object.extend({}, params, query);
+          }
+
           componentInstance = new Component(object.extend({
             el: instance.el,
             props: props,
@@ -580,7 +410,7 @@ var Router = function () {
           object.extend(instance, next);
           instance.componentConfig = componentConfig;
           instance.componentInstance = componentInstance;
-        });
+        }, failure);
       };
 
       var changeComponent = function changeComponent(component) {
@@ -589,7 +419,7 @@ var Router = function () {
           componentInstance = env.NULL;
           callHook(Router.HOOK_AFTER_LEAVE);
           createComponent(component);
-        });
+        }, failure);
       };
 
       instance.componentName = component;
@@ -600,8 +430,9 @@ var Router = function () {
             if (componentConfig === componentConf) {
               callHook(Router.HOOK_REFRESH, function () {
                 changeComponent(componentConf);
+              }, function () {
+                object.extend(instance, next);
               });
-              object.extend(instance, next);
             } else {
               changeComponent(componentConf);
             }
@@ -614,6 +445,9 @@ var Router = function () {
   }, {
     key: 'start',
     value: function start(el) {
+      if (is.string(el)) {
+        el = native.find(el);
+      }
       this.el = el;
       this.handleHashChange();
       native.on(env.win, HASH_CHANGE, this.handleHashChange, this);
@@ -632,7 +466,7 @@ var name2Component = {};
 
 Router.HOOK_INDEX = 'index';
 
-Router.HOOK_NOT_FOUND = '404';
+Router.HOOK_NOT_FOUND = 'notFound';
 
 Router.HOOK_REFRESH = 'refresh';
 
@@ -662,7 +496,6 @@ Router.install = function (Yox) {
   array = utils.array;
   object = utils.object;
   native = utils.native;
-  Emitter = utils.Emitter;
 };
 
 if (typeof Yox !== 'undefined' && Yox.use) {

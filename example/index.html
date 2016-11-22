@@ -7,7 +7,7 @@
 <body>
     <div id="app"></div>
     <script src="./yox.js"></script>
-    <script src="../dist/yox-router.js"></script>
+    <script src="../dist/yox-router.min.js"></script>
     <script>
         Yox.filter('stringify', function (data) {
           return JSON.stringify(data)
@@ -48,20 +48,20 @@
                 this.$router.go('/login')
               }
             },
-            beforeEnter: function (from, to, next) {
-              console.log('component beforeEnter', from, to)
+            beforeEnter: function (to, from, next) {
+              console.log('component beforeEnter', to, from)
               next()
             },
-            afterEnter: function (from, to, next) {
-              console.log('component afterEnter', from, to)
+            afterEnter: function (to, from, next) {
+              console.log('component afterEnter', to, from)
               next()
             },
-            beforeLeave: function (from, to, next) {
-              console.log('component beforeLeave', from, to)
+            beforeLeave: function (to, from, next) {
+              console.log('component beforeLeave', to, from)
               next()
             },
-            afterLeave: function (from, to, next) {
-              console.log('component afterLeave', from, to)
+            afterLeave: function (to, from, next) {
+              console.log('component afterLeave', to, from)
               next()
             }
           },
@@ -107,43 +107,54 @@
         })
 
         var router = new YoxRouter()
-        router.beforeEnter = function (from, to, next) {
-          console.log('router beforeEnter', from, to)
+        router.index = function () {
+          console.log('index')
+          this.go('/index')
+        }
+        router.notFound = function () {
+          console.log('not found')
+
+        }
+        router.beforeEnter = function (to, from, next) {
+          console.log('router beforeEnter', to, from)
           next()
         }
-        router.afterEnter = function (from, to, next) {
-          console.log('router afterEnter', from, to)
+        router.afterEnter = function (to, from, next) {
+          console.log('router afterEnter', to, from)
           next()
         }
-        router.beforeLeave = function (from, to, next) {
-          console.log('router beforeLeave', from, to)
+        router.beforeLeave = function (to, from, next) {
+          console.log('router beforeLeave', to, from)
           next()
         }
-        router.afterLeave = function (from, to, next) {
-          console.log('router afterLeave', from, to)
+        router.afterLeave = function (to, from, next) {
+          console.log('router afterLeave', to, from)
           next()
         }
         router.map({
           '/index': {
-            component: 'index'
+            component: 'index',
+            refresh: function (to) {
+              console.log('refresh index', to)
+            }
           },
           '/register': {
             name: 'register',
             component: 'register',
-            beforeEnter: function (from, to, next) {
-              console.log('route beforeEnter', from, to)
+            beforeEnter: function (to, from, next) {
+              console.log('route beforeEnter', to, from)
+              next(false)
+            },
+            afterEnter: function (to, from, next) {
+              console.log('route afterEnter', to, from)
               next()
             },
-            afterEnter: function (from, to, next) {
-              console.log('route afterEnter', from, to)
+            beforeLeave: function (to, from, next) {
+              console.log('route beforeLeave', to, from)
               next()
             },
-            beforeLeave: function (from, to, next) {
-              console.log('route beforeLeave', from, to)
-              next()
-            },
-            afterLeave: function (from, to, next) {
-              console.log('route afterLeave', from, to)
+            afterLeave: function (to, from, next) {
+              console.log('route afterLeave', to, from)
               next()
             }
           },

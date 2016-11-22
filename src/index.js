@@ -1,5 +1,5 @@
 
-let is, env, array, object, native, Emitter, Component
+let is, env, array, object, native, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '#!'
@@ -240,23 +240,23 @@ function getComponent(name, callback) {
 class Chain {
 
   constructor() {
-    this.funcs = [ ]
+    this.list = [ ]
   }
 
-  use(func) {
-    if (is.func(func)) {
-      this.funcs.push(func)
+  use(item) {
+    if (is.func(item)) {
+      this.list.push(item)
     }
   }
 
-  run(context, from, to, success, failure) {
-    let { funcs } = this
+  run(context, to, from, success, failure) {
+    let { list } = this
     let i = -1
     let next = function (value) {
       if (value == env.NULL) {
         i++
-        if (funcs[i]) {
-          funcs[i].call(context, from, to, next)
+        if (list[i]) {
+          list[i].call(context, to, from, next)
         }
         else if (success) {
           success()
@@ -286,28 +286,6 @@ export default class Router {
      * @type {Object}
      */
     this.path2Route = { }
-    /**
-     * 支持事件
-     *
-     * @type {Emitter}
-     */
-    this.emitter = new Emitter()
-  }
-
-  on(type, listener) {
-    this.emitter.on(type, listener)
-  }
-
-  once(type, listener) {
-    this.emitter.once(type, listener)
-  }
-
-  off(type, listener) {
-    this.emitter.off(type, listener)
-  }
-
-  fire(type, data) {
-    this.emitter.fire(type, data)
   }
 
   /**
@@ -371,7 +349,7 @@ export default class Router {
           data.props
         )
       }
-      else {
+      else if (object.has(data, 'name')) {
         location.hash = stringifyHash(
           this.name2Path[data.name],
           data.params,
@@ -386,7 +364,8 @@ export default class Router {
    */
   handleHashChange() {
 
-    let { path2Route } = this
+    let instance = this
+    let { path2Route } = instance
     let { hash } = location
 
     // 如果不以 PREFIX_HASH 开头，表示不合法
@@ -397,54 +376,73 @@ export default class Router {
     let data = parseHash(path2Route, hash)
     if (data) {
       let { path, params, query } = data
-      let { component } = path2Route[path]
-      this.setComponent(
-        component,
-        object.extend({ }, params, query),
-        path
-      )
+      this.setComponent(path, params, query)
     }
     else {
-      this.fire(
-        hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX
-      )
+      let hook = hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX
+      if (instance[hook]) {
+        instance[hook]()
+      }
     }
 
   }
 
   /**
    * 设置当前组件
-   *
-   * @param {string} component 全局注册的组件名称
-   * @param {?Object} props 传给组件的数据
    */
-  setComponent(component, props, path) {
-
-    // 确保是对象，避免业务代码做判断
-    if (!is.object(props)) {
-      props = { }
-    }
+  setComponent() {
 
     let instance = this
+
     let {
       path2Route,
       componentConfig,
       componentInstance,
     } = instance
 
+    let args = arguments,
+      component, props,
+      path, params, query,
+      route
+
+    if (args[2]) {
+      path = args[0]
+      params = args[1]
+      query = args[2]
+      route = path2Route[path]
+      component = route.component
+    }
+    else {
+      component = args[0]
+      props = args[1]
+    }
+
     let current = {
       component: instance.component,
       props: instance.props,
       path: instance.path,
+      params: instance.params,
+      query: instance.query,
     }
-    let next = { component, props, path }
+    let next = { component, props, path, params, query }
 
-    let callHook = function (name, callback) {
+    let failure = function (value) {
+      if (value === env.FALSE) {
+        if (current.path) {
+          location.hash = stringifyHash(current.path, current.params, current.query)
+        }
+      }
+      else {
+        instance.go(value)
+      }
+    }
+
+    let callHook = function (name, success, failure) {
       let chain = new Chain()
       chain.use(componentConfig && componentConfig[name])
-      chain.use(path && path2Route[path] && path2Route[path][name])
+      chain.use(route && route[name])
       chain.use(instance && instance[name])
-      chain.run(componentInstance, current, next, callback)
+      chain.run(componentInstance, next, current, success, failure)
     }
 
     let createComponent = function (component) {
@@ -452,6 +450,11 @@ export default class Router {
       callHook(
         Router.HOOK_BEFORE_ENTER,
         function () {
+
+          if (params || query) {
+            props = object.extend({ }, params, query)
+          }
+
           componentInstance = new Component(
             object.extend(
               {
@@ -470,7 +473,9 @@ export default class Router {
           object.extend(instance, next)
           instance.componentConfig = componentConfig
           instance.componentInstance = componentInstance
-        }
+
+        },
+        failure
       )
     }
 
@@ -482,7 +487,8 @@ export default class Router {
           componentInstance = env.NULL
           callHook(Router.HOOK_AFTER_LEAVE)
           createComponent(component)
-        }
+        },
+        failure
       )
     }
 
@@ -501,9 +507,11 @@ export default class Router {
                 Router.HOOK_REFRESH,
                 function () {
                   changeComponent(componentConf)
+                },
+                function () {
+                  object.extend(instance, next)
                 }
               )
-              object.extend(instance, next)
             }
             else {
               changeComponent(componentConf)
@@ -520,9 +528,12 @@ export default class Router {
   /**
    * 启动路由
    *
-   * @param {HTMLElement} el
+   * @param {string|HTMLElement} el
    */
   start(el) {
+    if (is.string(el)) {
+      el = native.find(el)
+    }
     this.el = el
     this.handleHashChange()
     native.on(env.win, HASH_CHANGE, this.handleHashChange, this)
@@ -560,7 +571,7 @@ Router.HOOK_INDEX = 'index'
  *
  * @type {string}
  */
-Router.HOOK_NOT_FOUND = '404'
+Router.HOOK_NOT_FOUND = 'notFound'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refresh 事件
@@ -625,7 +636,6 @@ Router.install = function (Yox) {
   array = utils.array
   object = utils.object
   native = utils.native
-  Emitter = utils.Emitter
 }
 
 // 如果全局环境已有 Yox，自动安装
