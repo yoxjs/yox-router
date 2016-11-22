@@ -6,10 +6,12 @@
 </head>
 <body>
     <div id="app"></div>
-    <script src="https://unpkg.com/yox@latest"></script>
+    <script src="./yox.js"></script>
     <script src="../dist/yox-router.js"></script>
     <script>
-        Yox.use(YoxRouter)
+        Yox.filter('stringify', function (data) {
+          return JSON.stringify(data)
+        })
 
         YoxRouter.register({
           index: {
@@ -24,7 +26,7 @@
             `,
             methods: {
               register: function () {
-                this.route({
+                this.$router.go({
                   name: 'register',
                   query: { age: 10 }
                 })
@@ -43,7 +45,7 @@
             `,
             methods: {
               login: function () {
-                this.route('/login')
+                this.$router.go('/login')
               }
             }
           },
@@ -61,13 +63,13 @@
                     </div>
                   `,
                   events: {
-                    refreshcomponent: function (data) {
-                      console.log('refreshcomponent', data)
+                    componentrefresh: function (data) {
+                      console.log('componentrefresh', data)
                     }
                   },
                   methods: {
                     index: function () {
-                      this.route({
+                      this.$router.go({
                         name: 'login',
                         query: {
                           name: 'musicode'
@@ -90,7 +92,9 @@
           }
         })
 
-        YoxRouter.map({
+        var router = new YoxRouter()
+
+        router.map({
           '/index': {
             component: 'index'
           },
@@ -108,11 +112,7 @@
           }
         })
 
-        Yox.filter('stringify', function (data) {
-          return JSON.stringify(data)
-        })
-
-        YoxRouter.start(document.getElementById('app'))
+        router.start(document.getElementById('app'))
 
     </script>
 </body>

@@ -1,15 +1,16 @@
 
-let utils
-let createComponent
+let is, env, array, object, native, Emitter, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-const PREFIX_HASH = '!'
+const PREFIX_HASH = '#!'
 // path 中的参数前缀，如 #!/user/:userId
 const PREFIX_PARAM = ':'
 // path 分隔符
 const DIVIDER_PATH = '/'
 // query 分隔符
 const DIVIDER_QUERY = '&'
+// hashchange 事件
+const HASH_CHANGE = 'hashchange'
 
 /**
  * 把 GET 参数解析成对象
@@ -19,18 +20,17 @@ const DIVIDER_QUERY = '&'
  */
 function parseQuery(query) {
   let result = { }
-  if (utils.is.string(query)) {
-    utils.array.each(
+  if (is.string(query)) {
+    array.each(
       query.split(DIVIDER_QUERY),
       function (item) {
         let [ key, value ] = item.split('=')
         if (key) {
-          value = utils.is.string(value)
+          value = is.string(value)
             ? decodeURIComponent(value)
-            : true
+            : env.TRUE
           if (key.endsWith('[]')) {
-            let array = result[key] || (result[key] = [ ])
-            array.push(value)
+            (result[key] || (result[key] = [ ])).push(value)
           }
           else {
             result[key] = value
@@ -50,11 +50,11 @@ function parseQuery(query) {
  */
 function stringifyQuery(query) {
   let result = [ ]
-  utils.object.each(
+  object.each(
     query,
     function (value, key) {
-      if (utils.is.array(value)) {
-        utils.array.each(
+      if (is.array(value)) {
+        array.each(
           value,
           function (value) {
             result.push(
@@ -88,7 +88,7 @@ function parseParams(realpath, path) {
   let pathTerms = path.split(DIVIDER_PATH)
 
   if (realpathTerms.length === pathTerms.length) {
-    utils.array.each(
+    array.each(
       pathTerms,
       function (item, index) {
         if (item.startsWith(PREFIX_PARAM)) {
@@ -105,20 +105,21 @@ function parseParams(realpath, path) {
 /**
  * 通过 realpath 获取配置的 path
  *
+ * @param {Object} path2Route 路由表
  * @param {string} realpath
  * @return {string}
  */
-function getPathByRealpath(realpath) {
+function getPathByRealpath(path2Route, realpath) {
 
   let result
 
   let realpathTerms = realpath.split(DIVIDER_PATH)
-  utils.object.each(
-    path2Data,
+  object.each(
+    path2Route,
     function (config, path) {
       let pathTerms = path.split(DIVIDER_PATH)
       if (realpathTerms.length === pathTerms.length) {
-        utils.array.each(
+        array.each(
           pathTerms,
           function (item, index) {
             // 非参数段不相同
@@ -143,30 +144,28 @@ function getPathByRealpath(realpath) {
 /**
  * 完整解析 hash 数据
  *
+ * @param {Object} path2Route 路由表
  * @param {string} hash
  * @return {object}
  */
-function parseHash(hash) {
-  if (hash.startsWith(PREFIX_HASH)) {
-    hash = hash.slice(PREFIX_HASH.length)
-    let realpath, search
-    let index = hash.indexOf('?')
-    if (index >= 0) {
-      realpath = hash.substring(0, index)
-      search = hash.slice(index + 1)
-    }
-    else {
-      realpath = hash
-    }
+function parseHash(path2Route, hash) {
+  let realpath, search
+  let index = hash.indexOf('?')
+  if (index >= 0) {
+    realpath = hash.substring(0, index)
+    search = hash.slice(index + 1)
+  }
+  else {
+    realpath = hash
+  }
 
-    let path = getPathByRealpath(realpath)
-    if (path) {
-      return {
-        path,
-        realpath,
-        params: parseParams(realpath, path),
-        query: parseQuery(search)
-      }
+  let path = getPathByRealpath(path2Route, realpath)
+  if (path) {
+    return {
+      path,
+      realpath,
+      params: parseParams(realpath, path),
+      query: parseQuery(search)
     }
   }
 }
@@ -183,7 +182,7 @@ function stringifyHash(path, params, query) {
 
   let realpath = [ ], search = ''
 
-  utils.array.each(
+  array.each(
     path.split(DIVIDER_PATH),
     function (item) {
       realpath.push(
@@ -209,49 +208,20 @@ function stringifyHash(path, params, query) {
 
 
 /**
- * 响应路由变化的元素
- *
- * @type {HTMLElement}
- */
-let element
-
-/**
- * 当前组件
- */
-let currentComponentName
-let currentComponentConfig
-let currentComponentInstance
-
-/**
- * 路由表
- *
- * @type {Object}
- */
-let path2Data = { }
-let name2Path = { }
-
-/**
- * 已注册的组件，name -> component
- *
- * @type {Object}
- */
-let name2Component = { }
-
-/**
  * 获取配置的组件，支持异步获取
  *
  * @param {string} name
  * @param {Function} callback
  */
 function getComponent(name, callback) {
-  let { func, object } = utils.is
+  let { func, object } = is
   let component = name2Component[name]
   if (func(component)) {
     let { $pending } = component
     if (!$pending) {
       $pending = component.$pending = [ ]
       component(function (target) {
-        utils.array.each(
+        array.each(
           $pending,
           function (callback) {
             callback(target)
@@ -267,148 +237,381 @@ function getComponent(name, callback) {
   }
 }
 
+export default class Router {
 
-/**
- * 设置当前组件
- *
- * @param {string} name
- * @param {?Object} props
- * @param {?Object} extra
- */
-function setCurrentComponent(name, props, extra) {
-  currentComponentName = name
-  getComponent(
-    name,
-    function (component) {
-      if (name === currentComponentName) {
+  constructor() {
+    /**
+     * 路由表 name -> path
+     *
+     * @type {Object}
+     */
+    this.name2Path = { }
+    /**
+     * 路由表 path -> route
+     *
+     * @type {Object}
+     */
+    this.path2Route = { }
+    /**
+     * 支持事件
+     *
+     * @type {Emitter}
+     */
+    this.emitter = new Emitter()
+  }
 
-        props = utils.object.extend({ }, props, extra)
+  on(type, listener) {
+    this.emitter.on(type, listener)
+  }
 
-        // 发事件给组件，该干嘛干嘛，不想干嘛就让后面的代码继续干嘛
-        if (currentComponentInstance
-          && currentComponentConfig === component
-          && currentComponentInstance.fire(REFRESH_COMPONENT, props)
-        ) {
-          return
+  once(type, listener) {
+    this.emitter.once(type, listener)
+  }
+
+  off(type, listener) {
+    this.emitter.off(type, listener)
+  }
+
+  fire(type, data) {
+    return this.emitter.fire(type, data)
+  }
+
+  /**
+   * 配置路由表
+   *
+   * @param {Object} routes
+   */
+  map(routes) {
+    let { name2Path, path2Route } = this
+    let { each, has } = object
+    each(
+      routes,
+      function (data, path) {
+        if (has(data, 'name')) {
+          name2Path[data.name] = path
         }
+        path2Route[path] = data
+      }
+    )
+  }
 
-        if (currentComponentInstance) {
-          currentComponentInstance.dispose()
-        }
-        currentComponentConfig = component
-        currentComponentInstance = createComponent(component, props)
-        currentComponentInstance.route = route
+  /**
+   * 真正执行路由切换操作的函数
+   *
+   * data 有 2 种格式：
+   *
+   * 1. 会修改 url
+   *
+   * 如果只是简单的 path，直接传字符串
+   *
+   * go('/index')
+   *
+   * 如果需要带参数，切记路由表要配置 name
+   *
+   * go({
+   *   name: 'index',
+   *   params: { },
+   *   query: { }
+   * })
+   *
+   * 如果没有任何参数，可以只传 path
+   *
+   * go('/index')
+   *
+   * 2. 不会改变 url
+   *
+   * go({
+   *   component: 'index',
+   *   props: { }
+   * })
+   *
+   */
+  go(data) {
+    if (is.string(data)) {
+      location.hash = stringifyHash(data)
+    }
+    else {
+      if (object.has(data, 'component')) {
+        this.setComponent(
+          data.component,
+          data.props
+        )
+      }
+      else {
+        location.hash = stringifyHash(
+          this.name2Path[data.name],
+          data.params,
+          data.query
+        )
       }
     }
-  )
-}
-
-/**
- * 真正执行路由切换操作的函数
- *
- * data 有 2 种格式：
- *
- * 1. 会修改 url
- *
- * 如果只是简单的 path，直接传字符串
- *
- * route('/index')
- *
- * 如果需要带参数，切记路由表要配置 name
- *
- * route({
- *   name: 'index',
- *   params: { },
- *   query: { }
- * })
- *
- * 如果没有任何参数，可以只传 path
- *
- * route('/index')
- *
- * 2. 不会改变 url
- *
- * route({
- *   component: 'index',
- *   props: { }
- * })
- *
- */
-function route(data) {
-  if (utils.is.string(data)) {
-    location.hash = stringifyHash(data)
   }
-  else {
-    if (utils.object.has(data, 'component')) {
-      setCurrentComponent(
-        data.component,
-        data.props
+
+  handleHashChange() {
+
+    let { path2Route } = this
+    let { hash } = location
+
+    hash = hash.startsWith(PREFIX_HASH)
+      ? hash.slice(PREFIX_HASH.length)
+      : ''
+
+    let data = parseHash(path2Route, hash)
+    if (data) {
+      let { path, params, query } = data
+      let { component } = path2Route[path]
+      this.setComponent(
+        component,
+        object.extend({ }, params, query),
+        path
       )
     }
     else {
-      location.hash = stringifyHash(name2Path[data.name], data.params, data.query)
+      this.fire(
+        hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX
+      )
     }
+
   }
+
+  /**
+   * 设置当前组件
+   *
+   * @param {string} component 全局注册的组件名称
+   * @param {?Object} props 传给组件的数据
+   * @param {?string} path 组件对应的路径
+   */
+  setComponent(component, props, path) {
+
+    // 确保是对象，避免业务代码做判断
+    if (!is.object(props)) {
+      props = { }
+    }
+
+    let instance = this
+    let {
+      path2Route,
+      componentConfig,
+      componentInstance,
+    } = instance
+
+    let current = {
+      component: instance.component,
+      props: instance.props,
+      path: instance.path,
+    }
+    let next = { component, props, path }
+
+    let callHookAboveRouter = function (name, callback) {
+      if (instance && instance[name]) {
+        instance[name](current, next, function () {
+          if (value !== env.FALSE && callback) {
+            callback()
+          }
+        })
+      }
+      else if (callback) {
+        callback()
+      }
+    }
+
+    let callHookAboveRoute = function (name, callback) {
+      if (path && path2Route[path] && path2Route[path][name]) {
+        path2Route[path][name].call(
+          env.NULL,
+          current,
+          next,
+          function (value) {
+            if (value !== env.FALSE) {
+              callHookAboveRouter(name, callback)
+            }
+          }
+        )
+      }
+      else {
+        callHookAboveRouter(name, callback)
+      }
+    }
+
+
+    let callHook = function (name, callback) {
+      if (componentConfig && componentConfig[name]) {
+        componentConfig[name].call(
+          componentInstance,
+          current,
+          next,
+          function (value) {
+            if (value !== env.FALSE) {
+              callHookAboveRoute(name, callback)
+            }
+          }
+        )
+      }
+      else {
+        callHookAboveRoute(name, callback)
+      }
+    }
+
+    let createComponent = function (component) {
+      componentConfig = component
+      callHook(
+        Router.HOOK_BEFORE_ENTER,
+        function () {
+          componentInstance = new Component(
+            object.extend(
+              {
+                el: instance.el,
+                props,
+                extensions: {
+                  $router: instance,
+                }
+              },
+              component
+            )
+          )
+
+          callHook(Router.HOOK_AFTER_ENTER)
+
+          object.extend(instance, next)
+          instance.componentConfig = componentConfig
+          instance.componentInstance = componentInstance
+        }
+      )
+    }
+
+    let changeComponent = function (component) {
+      callHook(
+        Router.HOOK_BEFORE_LEAVE,
+        function () {
+          componentInstance.dispose()
+          componentInstance = env.NULL
+          callHook(Router.HOOK_AFTER_LEAVE)
+          createComponent(component)
+        }
+      )
+    }
+
+
+    instance.componentName = component
+
+    getComponent(
+      component,
+      function (componentConf) {
+        // 当连续调用此方法，且可能出现异步组件时
+        // 执行到这 name 不一定会等于 instance.componentName
+        // 因此需要强制保证一下
+        if (component === instance.componentName) {
+          if (componentInstance) {
+            if (componentConfig === componentConf) {
+              callHook(
+                Router.HOOK_REFRESH,
+                function () {
+                  changeComponent(componentConf)
+                }
+              )
+              object.extend(instance, next)
+            }
+            else {
+              changeComponent(componentConf)
+            }
+          }
+          else {
+            createComponent(componentConf)
+          }
+        }
+      }
+    )
+  }
+
+  /**
+   * 启动路由
+   *
+   * @param {HTMLElement} el
+   */
+  start(el) {
+    this.el = el
+    this.handleHashChange()
+    native.on(env.win, HASH_CHANGE, this.handleHashChange, this)
+  }
+
+  /**
+   * 停止路由
+   */
+  stop() {
+    this.el = env.NULL
+    native.off(env.win, HASH_CHANGE, this.handleHashChange)
+  }
+
 }
 
-function onHashChange() {
-  let hash = location.hash.slice(1)
-  let data = parseHash(hash)
 
-  let component, params, query
-  if (data) {
-    component = path2Data[data.path].component
-    params = data.params
-    query = data.query
-  }
-  else {
-    component = hash ? NOT_FOUND : INDEX
-  }
 
-  setCurrentComponent(component, params, query)
-
-}
 
 /**
- * 首页组件名称
+ * 全局注册的组件，name -> component
+ *
+ * @type {Object}
+ */
+let name2Component = { }
+
+/**
+ * 没有指定路由时，会触发主页路由
  *
  * @type {string}
  */
-export const INDEX = 'index'
+Router.HOOK_INDEX = 'index'
 
 /**
- * 404 组件名称
+ * 找不到指定的路由时，会触发 404 路由
  *
  * @type {string}
  */
-export const NOT_FOUND = '404'
+Router.HOOK_NOT_FOUND = '404'
 
 /**
- * 如果相继路由到的是同一个组件，那么会优先触发该组件实例的一个 refresh 事件
+ * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refresh 事件
  *
  * @type {string}
  */
-export const REFRESH_COMPONENT = 'refreshcomponent'
+Router.HOOK_REFRESH = 'refresh'
 
 /**
- * 导航钩子
+ * 导航钩子 - 路由进入之前
  *
  * @type {string}
  */
-export const BEFORE_ROUTE_ENTER = 'beforerouteenter'
-export const AFTER_ROUTE_ENTER = 'afterrouteenter'
-export const BEFORE_ROUTE_LEAVE = 'beforerouteleave'
-export const AFTER_ROUTE_LEAVE = 'afterrouteleave'
+Router.HOOK_BEFORE_ENTER = 'beforeEnter'
 
 /**
- * 注册组件
+ * 导航钩子 - 路由进入之后
  *
- * @param {string} name
- * @param {Object} component
+ * @type {string}
  */
-export function register(name, component) {
-  if (utils.is.object(name)) {
-    utils.object.extend(name2Component, name)
+Router.HOOK_AFTER_ENTER = 'afterEnter'
+
+/**
+ * 导航钩子 - 路由离开之前
+ *
+ * @type {string}
+ */
+Router.HOOK_BEFORE_LEAVE = 'beforeLeave'
+
+/**
+ * 导航钩子 - 路由离开之后
+ *
+ * @type {string}
+ */
+Router.HOOK_AFTER_LEAVE = 'afterLeave'
+
+/**
+ * 注册全局组件，路由实例可共享之
+ *
+ * @param {string|Object} name
+ * @param {?Object} component
+ */
+Router.register = function (name, component) {
+  if (is.object(name)) {
+    object.extend(name2Component, name)
   }
   else {
     name2Component[name] = component
@@ -416,58 +619,22 @@ export function register(name, component) {
 }
 
 /**
- * 配置路由表
+ * 安装插件
  *
- * @param {Object} map
+ * @param {Yox} Yox
  */
-export function map(map) {
-  let { each, has } = utils.object
-  each(
-    map,
-    function (data, path) {
-      if (has(data, 'name')) {
-        name2Path[data.name] = path
-      }
-      path2Data[path] = data
-    }
-  )
-}
-
-/**
- * 启动路由
- *
- * @param {HTMLElement} el
- */
-export function start(el) {
-  element = el
-  onHashChange()
-  window.onhashchange = onHashChange
-}
-
-/**
- * 停止路由
- */
-export function stop() {
-  element =
-  window.onhashchange = null
-}
-
-export function install(Yox) {
-  utils = Yox.utils
-  createComponent = function (component, props) {
-    return new Yox(
-      utils.object.extend(
-        {
-          el: element,
-          props,
-        },
-        component
-      )
-    )
-  }
+Router.install = function (Yox) {
+  Component = Yox
+  let { utils } = Component
+  is = utils.is
+  env = utils.env
+  array = utils.array
+  object = utils.object
+  native = utils.native
+  Emitter = utils.Emitter
 }
 
 // 如果全局环境已有 Yox，自动安装
-if (typeof Yox !== 'undefined' && Yox.version) {
-  install(Yox)
+if (typeof Yox !== 'undefined' && Yox.use) {
+  Yox.use(Router)
 }
