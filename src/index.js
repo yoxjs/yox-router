@@ -1,5 +1,5 @@
 
-let is, env, array, object, native, Component
+let is, array, object, native, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '#!'
@@ -28,7 +28,7 @@ function parseQuery(query) {
         if (key) {
           value = is.string(value)
             ? decodeURIComponent(value)
-            : env.TRUE
+            : true
           if (key.endsWith('[]')) {
             (result[key] || (result[key] = [ ])).push(value)
           }
@@ -253,7 +253,7 @@ class Chain {
     let { list } = this
     let i = -1
     let next = function (value) {
-      if (value == env.NULL) {
+      if (value == null) {
         i++
         if (list[i]) {
           list[i].call(context, to, from, next)
@@ -427,7 +427,7 @@ export default class Router {
     let next = { component, props, path, params, query }
 
     let failure = function (value) {
-      if (value === env.FALSE) {
+      if (value === false) {
         if (current.path) {
           location.hash = stringifyHash(current.path, current.params, current.query)
         }
@@ -484,7 +484,7 @@ export default class Router {
         Router.HOOK_BEFORE_LEAVE,
         function () {
           componentInstance.dispose()
-          componentInstance = env.NULL
+          componentInstance = null
           callHook(Router.HOOK_AFTER_LEAVE)
           createComponent(component)
         },
@@ -536,15 +536,15 @@ export default class Router {
     }
     this.el = el
     this.handleHashChange()
-    native.on(env.win, HASH_CHANGE, this.handleHashChange, this)
+    native.on(window, HASH_CHANGE, this.handleHashChange, this)
   }
 
   /**
    * 停止路由
    */
   stop() {
-    this.el = env.NULL
-    native.off(env.win, HASH_CHANGE, this.handleHashChange)
+    this.el = null
+    native.off(window, HASH_CHANGE, this.handleHashChange)
   }
 
 }
@@ -632,7 +632,6 @@ Router.install = function (Yox) {
   Component = Yox
   let { utils } = Component
   is = utils.is
-  env = utils.env
   array = utils.array
   object = utils.object
   native = utils.native
