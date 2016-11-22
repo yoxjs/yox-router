@@ -404,7 +404,7 @@ export default class Router {
 
     let callHookAboveRouter = function (name, callback) {
       if (instance && instance[name]) {
-        instance[name](current, next, function () {
+        instance[name](current, next, function (value) {
           if (value !== env.FALSE && callback) {
             callback()
           }

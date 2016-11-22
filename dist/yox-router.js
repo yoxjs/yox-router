@@ -521,7 +521,7 @@ var Router = function () {
 
       var callHookAboveRouter = function callHookAboveRouter(name, callback) {
         if (instance && instance[name]) {
-          instance[name](current, next, function () {
+          instance[name](current, next, function (value) {
             if (value !== env.FALSE && callback) {
               callback();
             }

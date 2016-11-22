@@ -47,6 +47,22 @@
               login: function () {
                 this.$router.go('/login')
               }
+            },
+            beforeEnter: function (from, to, next) {
+              console.log('component beforeEnter', from, to)
+              next()
+            },
+            afterEnter: function (from, to, next) {
+              console.log('component afterEnter', from, to)
+              next()
+            },
+            beforeLeave: function (from, to, next) {
+              console.log('component beforeLeave', from, to)
+              next()
+            },
+            afterLeave: function (from, to, next) {
+              console.log('component afterLeave', from, to)
+              next()
             }
           },
           login: function (resolve) {
@@ -62,10 +78,8 @@
                       {{stringify(this)}}
                     </div>
                   `,
-                  events: {
-                    componentrefresh: function (data) {
-                      console.log('componentrefresh', data)
-                    }
+                  refresh: function (data) {
+                    console.log('componentrefresh', data)
                   },
                   methods: {
                     index: function () {
@@ -93,14 +107,45 @@
         })
 
         var router = new YoxRouter()
-
+        router.beforeEnter = function (from, to, next) {
+          console.log('router beforeEnter', from, to)
+          next()
+        }
+        router.afterEnter = function (from, to, next) {
+          console.log('router afterEnter', from, to)
+          next()
+        }
+        router.beforeLeave = function (from, to, next) {
+          console.log('router beforeLeave', from, to)
+          next()
+        }
+        router.afterLeave = function (from, to, next) {
+          console.log('router afterLeave', from, to)
+          next()
+        }
         router.map({
           '/index': {
             component: 'index'
           },
           '/register': {
             name: 'register',
-            component: 'register'
+            component: 'register',
+            beforeEnter: function (from, to, next) {
+              console.log('route beforeEnter', from, to)
+              next()
+            },
+            afterEnter: function (from, to, next) {
+              console.log('route afterEnter', from, to)
+              next()
+            },
+            beforeLeave: function (from, to, next) {
+              console.log('route beforeLeave', from, to)
+              next()
+            },
+            afterLeave: function (from, to, next) {
+              console.log('route afterLeave', from, to)
+              next()
+            }
           },
           '/login': {
             name: 'login',
