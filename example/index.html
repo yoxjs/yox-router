@@ -106,7 +106,42 @@
           }
         })
 
-        var router = new YoxRouter()
+        var router = new YoxRouter({
+          '/index': {
+            component: 'index',
+            refresh: function (to) {
+              console.log('refresh index', to)
+            }
+          },
+          '/register': {
+            name: 'register',
+            component: 'register',
+            beforeEnter: function (to, from, next) {
+              console.log('route beforeEnter', to, from)
+              next()
+            },
+            afterEnter: function (to, from, next) {
+              console.log('route afterEnter', to, from)
+              next()
+            },
+            beforeLeave: function (to, from, next) {
+              console.log('route beforeLeave', to, from)
+              next()
+            },
+            afterLeave: function (to, from, next) {
+              console.log('route afterLeave', to, from)
+              next()
+            }
+          },
+          '/login': {
+            name: 'login',
+            component: 'login'
+          },
+          '/profile/:id': {
+            name: 'profile',
+            component: 'profile'
+          }
+        })
         router.index = function () {
           console.log('index')
           this.go('/index')
@@ -131,44 +166,8 @@
           console.log('router afterLeave', to, from)
           next()
         }
-        router.map({
-          '/index': {
-            component: 'index',
-            refresh: function (to) {
-              console.log('refresh index', to)
-            }
-          },
-          '/register': {
-            name: 'register',
-            component: 'register',
-            beforeEnter: function (to, from, next) {
-              console.log('route beforeEnter', to, from)
-              next(false)
-            },
-            afterEnter: function (to, from, next) {
-              console.log('route afterEnter', to, from)
-              next()
-            },
-            beforeLeave: function (to, from, next) {
-              console.log('route beforeLeave', to, from)
-              next()
-            },
-            afterLeave: function (to, from, next) {
-              console.log('route afterLeave', to, from)
-              next()
-            }
-          },
-          '/login': {
-            name: 'login',
-            component: 'login'
-          },
-          '/profile/:id': {
-            name: 'profile',
-            component: 'profile'
-          }
-        })
 
-        router.start(document.getElementById('app'))
+        router.start('#app')
 
     </script>
 </body>

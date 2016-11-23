@@ -327,7 +327,7 @@ function getPathByRealpath(path2Route, realpath) {
   var result = void 0;
 
   var realpathTerms = realpath.split(DIVIDER_PATH);
-  object.each(path2Route, function (config, path) {
+  object.each(path2Route, function (route, path) {
     var pathTerms = path.split(DIVIDER_PATH);
     if (realpathTerms.length === pathTerms.length) {
       array.each(pathTerms, function (item, index) {
@@ -461,6 +461,8 @@ var Router = function () {
 
     var path2Route = this.path2Route = {};
 
+    this.handleHashChange = this.onHashChange.bind(this);
+
     if (routes) {
       (function () {
         var _object = object,
@@ -491,8 +493,8 @@ var Router = function () {
       }
     }
   }, {
-    key: 'handleHashChange',
-    value: function handleHashChange() {
+    key: 'onHashChange',
+    value: function onHashChange() {
 
       var instance = this;
       var path2Route = instance.path2Route;
@@ -633,7 +635,7 @@ var Router = function () {
       }
       this.el = el;
       this.handleHashChange();
-      native.on(window, HASH_CHANGE, this.handleHashChange, this);
+      native.on(window, HASH_CHANGE, this.handleHashChange);
     }
   }, {
     key: 'stop',
@@ -646,6 +648,8 @@ var Router = function () {
 }();
 
 var name2Component = {};
+
+Router.version = '0.2.2';
 
 Router.HOOK_INDEX = 'index';
 

@@ -116,7 +116,7 @@ function getPathByRealpath(path2Route, realpath) {
   let realpathTerms = realpath.split(DIVIDER_PATH)
   object.each(
     path2Route,
-    function (config, path) {
+    function (route, path) {
       let pathTerms = path.split(DIVIDER_PATH)
       if (realpathTerms.length === pathTerms.length) {
         array.each(
@@ -288,6 +288,15 @@ export default class Router {
      */
     let path2Route = this.path2Route = { }
 
+    /**
+     * hashchange 事件处理函数
+     * 此函数必须绑在实例上，不能使用原型的
+     * 否则一旦解绑，所有实例都解绑了
+     *
+     * @type {Function}
+     */
+    this.handleHashChange = this.onHashChange.bind(this)
+
     if (routes) {
       let { each, has } = object
       each(
@@ -358,7 +367,7 @@ export default class Router {
   /**
    * 处理浏览器的 hash 变化
    */
-  handleHashChange() {
+  onHashChange() {
 
     let instance = this
     let { path2Route } = instance
@@ -532,7 +541,7 @@ export default class Router {
     }
     this.el = el
     this.handleHashChange()
-    native.on(window, HASH_CHANGE, this.handleHashChange, this)
+    native.on(window, HASH_CHANGE, this.handleHashChange)
   }
 
   /**
@@ -554,6 +563,13 @@ export default class Router {
  * @type {Object}
  */
 let name2Component = { }
+
+/**
+ * 版本
+ *
+ * @type {string}
+ */
+Router.version = '0.2.2'
 
 /**
  * 没有指定路由时，会触发主页路由
