@@ -273,38 +273,34 @@ class Chain {
 
 export default class Router {
 
-  constructor() {
+  constructor(routes) {
+
     /**
      * 路由表 name -> path
      *
      * @type {Object}
      */
-    this.name2Path = { }
+    let name2Path = this.name2Path = { }
     /**
      * 路由表 path -> route
      *
      * @type {Object}
      */
-    this.path2Route = { }
-  }
+    let path2Route = this.path2Route = { }
 
-  /**
-   * 配置路由表
-   *
-   * @param {Object} routes
-   */
-  map(routes) {
-    let { name2Path, path2Route } = this
-    let { each, has } = object
-    each(
-      routes,
-      function (data, path) {
-        if (has(data, 'name')) {
-          name2Path[data.name] = path
+    if (routes) {
+      let { each, has } = object
+      each(
+        routes,
+        function (data, path) {
+          if (has(data, 'name')) {
+            name2Path[data.name] = path
+          }
+          path2Route[path] = data
         }
-        path2Route[path] = data
-      }
-    )
+      )
+    }
+
   }
 
   /**

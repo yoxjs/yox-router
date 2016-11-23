@@ -454,31 +454,30 @@ var Chain = function () {
 }();
 
 var Router = function () {
-  function Router() {
+  function Router(routes) {
     classCallCheck(this, Router);
 
-    this.name2Path = {};
+    var name2Path = this.name2Path = {};
 
-    this.path2Route = {};
+    var path2Route = this.path2Route = {};
+
+    if (routes) {
+      (function () {
+        var _object = object,
+            each = _object.each,
+            has = _object.has;
+
+        each(routes, function (data, path) {
+          if (has(data, 'name')) {
+            name2Path[data.name] = path;
+          }
+          path2Route[path] = data;
+        });
+      })();
+    }
   }
 
   createClass(Router, [{
-    key: 'map',
-    value: function map(routes) {
-      var name2Path = this.name2Path,
-          path2Route = this.path2Route;
-      var _object = object,
-          each = _object.each,
-          has = _object.has;
-
-      each(routes, function (data, path) {
-        if (has(data, 'name')) {
-          name2Path[data.name] = path;
-        }
-        path2Route[path] = data;
-      });
-    }
-  }, {
     key: 'go',
     value: function go(data) {
       if (is.string(data)) {
