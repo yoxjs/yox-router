@@ -9,8 +9,6 @@ const PREFIX_PARAM = ':'
 const DIVIDER_PATH = '/'
 // query 分隔符
 const DIVIDER_QUERY = '&'
-// hashchange 事件
-const HASH_CHANGE = 'hashchange'
 
 /**
  * 把 GET 参数解析成对象
@@ -243,20 +241,20 @@ class Chain {
     this.list = [ ]
   }
 
-  use(item) {
-    if (is.func(item)) {
-      this.list.push(item)
+  use(fn, context) {
+    if (is.func(fn)) {
+      this.list.push({ fn, context })
     }
   }
 
-  run(context, to, from, success, failure) {
+  run(to, from, success, failure) {
     let { list } = this
     let i = -1
     let next = function (value) {
       if (value == null) {
         i++
         if (list[i]) {
-          list[i].call(context, to, from, next)
+          list[i].fn.call(list[i].context, to, from, next)
         }
         else if (success) {
           success()
@@ -444,10 +442,10 @@ export default class Router {
 
     let callHook = function (name, success, failure) {
       let chain = new Chain()
-      chain.use(componentConfig && componentConfig[name])
-      chain.use(route && route[name])
-      chain.use(instance && instance[name])
-      chain.run(componentInstance, next, current, success, failure)
+      chain.use(componentConfig && componentConfig[name], componentInstance)
+      chain.use(route && route[name], route)
+      chain.use(instance && instance[name], instance)
+      chain.run(next, current, success, failure)
     }
 
     let createComponent = function (component) {
@@ -509,7 +507,7 @@ export default class Router {
           if (componentInstance) {
             if (componentConfig === componentConf) {
               callHook(
-                Router.HOOK_REFRESH,
+                Router.HOOK_REROUTE,
                 function () {
                   changeComponent(componentConf)
                 },
@@ -541,7 +539,7 @@ export default class Router {
     }
     this.el = el
     this.handleHashChange()
-    native.on(window, HASH_CHANGE, this.handleHashChange)
+    native.on(window, 'hashchange', this.handleHashChange)
   }
 
   /**
@@ -549,7 +547,7 @@ export default class Router {
    */
   stop() {
     this.el = null
-    native.off(window, HASH_CHANGE, this.handleHashChange)
+    native.off(window, 'hashchange', this.handleHashChange)
   }
 
 }
@@ -569,7 +567,7 @@ let name2Component = { }
  *
  * @type {string}
  */
-Router.version = '0.2.2'
+Router.version = '0.2.3'
 
 /**
  * 没有指定路由时，会触发主页路由
@@ -586,11 +584,11 @@ Router.HOOK_INDEX = 'index'
 Router.HOOK_NOT_FOUND = 'notFound'
 
 /**
- * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refresh 事件
+ * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
  *
  * @type {string}
  */
-Router.HOOK_REFRESH = 'refresh'
+Router.HOOK_REROUTE = 'reroute'
 
 /**
  * 导航钩子 - 路由进入之前

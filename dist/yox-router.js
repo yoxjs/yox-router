@@ -4,123 +4,6 @@
   (global.YoxRouter = factory());
 }(this, (function () { 'use strict';
 
-var asyncGenerator = function () {
-  function AwaitValue(value) {
-    this.value = value;
-  }
-
-  function AsyncGenerator(gen) {
-    var front, back;
-
-    function send(key, arg) {
-      return new Promise(function (resolve, reject) {
-        var request = {
-          key: key,
-          arg: arg,
-          resolve: resolve,
-          reject: reject,
-          next: null
-        };
-
-        if (back) {
-          back = back.next = request;
-        } else {
-          front = back = request;
-          resume(key, arg);
-        }
-      });
-    }
-
-    function resume(key, arg) {
-      try {
-        var result = gen[key](arg);
-        var value = result.value;
-
-        if (value instanceof AwaitValue) {
-          Promise.resolve(value.value).then(function (arg) {
-            resume("next", arg);
-          }, function (arg) {
-            resume("throw", arg);
-          });
-        } else {
-          settle(result.done ? "return" : "normal", result.value);
-        }
-      } catch (err) {
-        settle("throw", err);
-      }
-    }
-
-    function settle(type, value) {
-      switch (type) {
-        case "return":
-          front.resolve({
-            value: value,
-            done: true
-          });
-          break;
-
-        case "throw":
-          front.reject(value);
-          break;
-
-        default:
-          front.resolve({
-            value: value,
-            done: false
-          });
-          break;
-      }
-
-      front = front.next;
-
-      if (front) {
-        resume(front.key, front.arg);
-      } else {
-        back = null;
-      }
-    }
-
-    this._invoke = send;
-
-    if (typeof gen.return !== "function") {
-      this.return = undefined;
-    }
-  }
-
-  if (typeof Symbol === "function" && Symbol.asyncIterator) {
-    AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
-      return this;
-    };
-  }
-
-  AsyncGenerator.prototype.next = function (arg) {
-    return this._invoke("next", arg);
-  };
-
-  AsyncGenerator.prototype.throw = function (arg) {
-    return this._invoke("throw", arg);
-  };
-
-  AsyncGenerator.prototype.return = function (arg) {
-    return this._invoke("return", arg);
-  };
-
-  return {
-    wrap: function (fn) {
-      return function () {
-        return new AsyncGenerator(fn.apply(this, arguments));
-      };
-    },
-    await: function (value) {
-      return new AwaitValue(value);
-    }
-  };
-}();
-
-
-
-
-
 var classCallCheck = function (instance, Constructor) {
   if (!(instance instanceof Constructor)) {
     throw new TypeError("Cannot call a class as a function");
@@ -265,8 +148,6 @@ var PREFIX_PARAM = ':';
 var DIVIDER_PATH = '/';
 
 var DIVIDER_QUERY = '&';
-
-var HASH_CHANGE = 'hashchange';
 
 function parseQuery(query) {
   var result = {};
@@ -424,14 +305,14 @@ var Chain = function () {
 
   createClass(Chain, [{
     key: 'use',
-    value: function use(item) {
-      if (is.func(item)) {
-        this.list.push(item);
+    value: function use(fn, context) {
+      if (is.func(fn)) {
+        this.list.push({ fn: fn, context: context });
       }
     }
   }, {
     key: 'run',
-    value: function run(context, to, from, success, failure) {
+    value: function run(to, from, success, failure) {
       var list = this.list;
 
       var i = -1;
@@ -439,7 +320,7 @@ var Chain = function () {
         if (value == null) {
           i++;
           if (list[i]) {
-            list[i].call(context, to, from, next);
+            list[i].fn.call(list[i].context, to, from, next);
           } else if (success) {
             success();
           }
@@ -568,10 +449,10 @@ var Router = function () {
 
       var callHook = function callHook(name, success, failure) {
         var chain = new Chain();
-        chain.use(componentConfig && componentConfig[name]);
-        chain.use(route && route[name]);
-        chain.use(instance && instance[name]);
-        chain.run(componentInstance, next, current, success, failure);
+        chain.use(componentConfig && componentConfig[name], componentInstance);
+        chain.use(route && route[name], route);
+        chain.use(instance && instance[name], instance);
+        chain.run(next, current, success, failure);
       };
 
       var createComponent = function createComponent(component) {
@@ -613,7 +494,7 @@ var Router = function () {
         if (component === instance.componentName) {
           if (componentInstance) {
             if (componentConfig === componentConf) {
-              callHook(Router.HOOK_REFRESH, function () {
+              callHook(Router.HOOK_REROUTE, function () {
                 changeComponent(componentConf);
               }, function () {
                 object.extend(instance, next);
@@ -635,13 +516,13 @@ var Router = function () {
       }
       this.el = el;
       this.handleHashChange();
-      native.on(window, HASH_CHANGE, this.handleHashChange);
+      native.on(window, 'hashchange', this.handleHashChange);
     }
   }, {
     key: 'stop',
     value: function stop() {
       this.el = null;
-      native.off(window, HASH_CHANGE, this.handleHashChange);
+      native.off(window, 'hashchange', this.handleHashChange);
     }
   }]);
   return Router;
@@ -649,13 +530,13 @@ var Router = function () {
 
 var name2Component = {};
 
-Router.version = '0.2.2';
+Router.version = '0.2.3';
 
 Router.HOOK_INDEX = 'index';
 
 Router.HOOK_NOT_FOUND = 'notFound';
 
-Router.HOOK_REFRESH = 'refresh';
+Router.HOOK_REROUTE = 'reroute';
 
 Router.HOOK_BEFORE_ENTER = 'beforeEnter';
 
