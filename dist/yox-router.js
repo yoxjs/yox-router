@@ -395,10 +395,9 @@ var Router = function () {
 
         this.setComponent(path, params, query);
       } else {
-        var hook = hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX;
-        if (router[hook]) {
-          router[hook]();
-        }
+        var _path = hash ? '*' : '',
+            _data = {};
+        this.setComponent(_path, _data, _data);
       }
     }
   }, {
@@ -534,11 +533,7 @@ var Router = function () {
 
 var name2Component = {};
 
-Router.version = '0.2.5';
-
-Router.HOOK_INDEX = 'index';
-
-Router.HOOK_NOT_FOUND = 'notFound';
+Router.version = '0.3.0';
 
 Router.HOOK_REROUTE = 'reroute';
 

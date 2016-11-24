@@ -384,10 +384,8 @@ export default class Router {
       this.setComponent(path, params, query)
     }
     else {
-      let hook = hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX
-      if (router[hook]) {
-        router[hook]()
-      }
+      let path = hash ? '*' : '', data = { }
+      this.setComponent(path, data, data)
     }
 
   }
@@ -568,21 +566,7 @@ let name2Component = { }
  *
  * @type {string}
  */
-Router.version = '0.2.5'
-
-/**
- * 没有指定路由时，会触发主页路由
- *
- * @type {string}
- */
-Router.HOOK_INDEX = 'index'
-
-/**
- * 找不到指定的路由时，会触发 404 路由
- *
- * @type {string}
- */
-Router.HOOK_NOT_FOUND = 'notFound'
+Router.version = '0.3.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
