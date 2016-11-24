@@ -338,11 +338,14 @@ var Router = function () {
   function Router(routes) {
     classCallCheck(this, Router);
 
-    var name2Path = this.name2Path = {};
 
-    var path2Route = this.path2Route = {};
+    var instance = this;
 
-    this.handleHashChange = this.onHashChange.bind(this);
+    instance.name2Path = {};
+
+    instance.path2Route = {};
+
+    instance.handleHashChange = instance.onHashChange.bind(instance);
 
     if (routes) {
       (function () {
@@ -352,9 +355,9 @@ var Router = function () {
 
         each(routes, function (data, path) {
           if (has(data, 'name')) {
-            name2Path[data.name] = path;
+            instance.name2Path[data.name] = path;
           }
-          path2Route[path] = data;
+          instance.path2Route[path] = data;
         });
       })();
     }
@@ -530,7 +533,7 @@ var Router = function () {
 
 var name2Component = {};
 
-Router.version = '0.2.3';
+Router.version = '0.2.4';
 
 Router.HOOK_INDEX = 'index';
 

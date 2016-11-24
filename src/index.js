@@ -273,18 +273,20 @@ export default class Router {
 
   constructor(routes) {
 
+    let instance = this
+
     /**
      * 路由表 name -> path
      *
      * @type {Object}
      */
-    let name2Path = this.name2Path = { }
+    instance.name2Path = { }
     /**
      * 路由表 path -> route
      *
      * @type {Object}
      */
-    let path2Route = this.path2Route = { }
+    instance.path2Route = { }
 
     /**
      * hashchange 事件处理函数
@@ -293,7 +295,7 @@ export default class Router {
      *
      * @type {Function}
      */
-    this.handleHashChange = this.onHashChange.bind(this)
+    instance.handleHashChange = instance.onHashChange.bind(instance)
 
     if (routes) {
       let { each, has } = object
@@ -301,9 +303,9 @@ export default class Router {
         routes,
         function (data, path) {
           if (has(data, 'name')) {
-            name2Path[data.name] = path
+            instance.name2Path[data.name] = path
           }
-          path2Route[path] = data
+          instance.path2Route[path] = data
         }
       )
     }
@@ -567,7 +569,7 @@ let name2Component = { }
  *
  * @type {string}
  */
-Router.version = '0.2.3'
+Router.version = '0.2.4'
 
 /**
  * 没有指定路由时，会触发主页路由
