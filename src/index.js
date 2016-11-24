@@ -273,20 +273,20 @@ export default class Router {
 
   constructor(routes) {
 
-    let instance = this
+    let router = this
 
     /**
      * 路由表 name -> path
      *
      * @type {Object}
      */
-    instance.name2Path = { }
+    router.name2Path = { }
     /**
      * 路由表 path -> route
      *
      * @type {Object}
      */
-    instance.path2Route = { }
+    router.path2Route = { }
 
     /**
      * hashchange 事件处理函数
@@ -295,7 +295,7 @@ export default class Router {
      *
      * @type {Function}
      */
-    instance.handleHashChange = instance.onHashChange.bind(instance)
+    router.handleHashChange = router.onHashChange.bind(router)
 
     if (routes) {
       let { each, has } = object
@@ -303,9 +303,9 @@ export default class Router {
         routes,
         function (data, path) {
           if (has(data, 'name')) {
-            instance.name2Path[data.name] = path
+            router.name2Path[data.name] = path
           }
-          instance.path2Route[path] = data
+          router.path2Route[path] = data
         }
       )
     }
@@ -369,8 +369,8 @@ export default class Router {
    */
   onHashChange() {
 
-    let instance = this
-    let { path2Route } = instance
+    let router = this
+    let { path2Route } = router
     let { hash } = location
 
     // 如果不以 PREFIX_HASH 开头，表示不合法
@@ -385,8 +385,8 @@ export default class Router {
     }
     else {
       let hook = hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX
-      if (instance[hook]) {
-        instance[hook]()
+      if (router[hook]) {
+        router[hook]()
       }
     }
 
@@ -397,18 +397,26 @@ export default class Router {
    */
   setComponent() {
 
-    let instance = this
+    let router = this
 
     let {
       path2Route,
-      componentConfig,
-      componentInstance,
-    } = instance
+      currentRoute,
+      currentComponent,
+    } = router
 
-    let args = arguments,
+    if (!currentComponent) {
+      currentComponent = { }
+    }
+
+    let {
+      options,
+      instance,
+    } = currentComponent
+
+    let args = arguments, route,
       component, props,
-      path, params, query,
-      route
+      path, params, query
 
     if (args[2]) {
       path = args[0]
@@ -422,36 +430,29 @@ export default class Router {
       props = args[1]
     }
 
-    let current = {
-      component: instance.component,
-      props: instance.props,
-      path: instance.path,
-      params: instance.params,
-      query: instance.query,
-    }
-    let next = { component, props, path, params, query }
+    let nextRoute = { component, props, path, params, query }
 
     let failure = function (value) {
       if (value === false) {
-        if (current.path) {
-          location.hash = stringifyHash(current.path, current.params, current.query)
+        if (currentRoute && currentRoute.path) {
+          location.hash = stringifyHash(currentRoute.path, currentRoute.params, currentRoute.query)
         }
       }
       else {
-        instance.go(value)
+        router.go(value)
       }
     }
 
     let callHook = function (name, success, failure) {
       let chain = new Chain()
-      chain.use(componentConfig && componentConfig[name], componentInstance)
+      chain.use(options && options[name], instance)
       chain.use(route && route[name], route)
-      chain.use(instance && instance[name], instance)
-      chain.run(next, current, success, failure)
+      chain.use(router && router[name], router)
+      chain.run(nextRoute, currentRoute, success, failure)
     }
 
     let createComponent = function (component) {
-      componentConfig = component
+      options = component
       callHook(
         Router.HOOK_BEFORE_ENTER,
         function () {
@@ -460,13 +461,13 @@ export default class Router {
             props = object.extend({ }, params, query)
           }
 
-          componentInstance = new Component(
+          instance = new Component(
             object.extend(
               {
-                el: instance.el,
+                el: router.el,
                 props,
                 extensions: {
-                  $router: instance,
+                  $router: router,
                 }
               },
               component
@@ -475,10 +476,8 @@ export default class Router {
 
           callHook(Router.HOOK_AFTER_ENTER)
 
-          object.extend(instance, next)
-          instance.componentConfig = componentConfig
-          instance.componentInstance = componentInstance
-
+          router.currentRoute = nextRoute
+          router.currentComponent = { options, instance }
         },
         failure
       )
@@ -488,8 +487,8 @@ export default class Router {
       callHook(
         Router.HOOK_BEFORE_LEAVE,
         function () {
-          componentInstance.dispose()
-          componentInstance = null
+          instance.dispose()
+          instance = null
           callHook(Router.HOOK_AFTER_LEAVE)
           createComponent(component)
         },
@@ -497,33 +496,33 @@ export default class Router {
       )
     }
 
-    instance.componentName = component
+    currentComponent.name = component
 
     getComponent(
       component,
-      function (componentConf) {
+      function (componentOptions) {
         // 当连续调用此方法，且可能出现异步组件时
-        // 执行到这 name 不一定会等于 instance.componentName
+        // 执行到这 name 不一定会等于 router.componentName
         // 因此需要强制保证一下
-        if (component === instance.componentName) {
-          if (componentInstance) {
-            if (componentConfig === componentConf) {
+        if (component === currentComponent.name) {
+          if (instance) {
+            if (options === componentOptions) {
               callHook(
                 Router.HOOK_REROUTE,
                 function () {
-                  changeComponent(componentConf)
+                  changeComponent(componentOptions)
                 },
                 function () {
-                  object.extend(instance, next)
+                  router.currentRoute = nextRoute
                 }
               )
             }
             else {
-              changeComponent(componentConf)
+              changeComponent(componentOptions)
             }
           }
           else {
-            createComponent(componentConf)
+            createComponent(componentOptions)
           }
         }
       }
@@ -569,7 +568,7 @@ let name2Component = { }
  *
  * @type {string}
  */
-Router.version = '0.2.4'
+Router.version = '0.2.5'
 
 /**
  * 没有指定路由时，会触发主页路由

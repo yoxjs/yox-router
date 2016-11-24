@@ -339,13 +339,13 @@ var Router = function () {
     classCallCheck(this, Router);
 
 
-    var instance = this;
+    var router = this;
 
-    instance.name2Path = {};
+    router.name2Path = {};
 
-    instance.path2Route = {};
+    router.path2Route = {};
 
-    instance.handleHashChange = instance.onHashChange.bind(instance);
+    router.handleHashChange = router.onHashChange.bind(router);
 
     if (routes) {
       (function () {
@@ -355,9 +355,9 @@ var Router = function () {
 
         each(routes, function (data, path) {
           if (has(data, 'name')) {
-            instance.name2Path[data.name] = path;
+            router.name2Path[data.name] = path;
           }
-          instance.path2Route[path] = data;
+          router.path2Route[path] = data;
         });
       })();
     }
@@ -380,8 +380,8 @@ var Router = function () {
     key: 'onHashChange',
     value: function onHashChange() {
 
-      var instance = this;
-      var path2Route = instance.path2Route;
+      var router = this;
+      var path2Route = router.path2Route;
       var _location = location,
           hash = _location.hash;
 
@@ -396,8 +396,8 @@ var Router = function () {
         this.setComponent(path, params, query);
       } else {
         var hook = hash ? Router.HOOK_NOT_FOUND : Router.HOOK_INDEX;
-        if (instance[hook]) {
-          instance[hook]();
+        if (router[hook]) {
+          router[hook]();
         }
       }
     }
@@ -405,20 +405,29 @@ var Router = function () {
     key: 'setComponent',
     value: function setComponent() {
 
-      var instance = this;
+      var router = this;
 
-      var path2Route = instance.path2Route,
-          componentConfig = instance.componentConfig,
-          componentInstance = instance.componentInstance;
+      var path2Route = router.path2Route,
+          currentRoute = router.currentRoute,
+          currentComponent = router.currentComponent;
+
+
+      if (!currentComponent) {
+        currentComponent = {};
+      }
+
+      var _currentComponent = currentComponent,
+          options = _currentComponent.options,
+          instance = _currentComponent.instance;
 
 
       var args = arguments,
+          route = void 0,
           component = void 0,
           props = void 0,
           path = void 0,
           params = void 0,
-          query = void 0,
-          route = void 0;
+          query = void 0;
 
       if (args[2]) {
         path = args[0];
@@ -431,82 +440,74 @@ var Router = function () {
         props = args[1];
       }
 
-      var current = {
-        component: instance.component,
-        props: instance.props,
-        path: instance.path,
-        params: instance.params,
-        query: instance.query
-      };
-      var next = { component: component, props: props, path: path, params: params, query: query };
+      var nextRoute = { component: component, props: props, path: path, params: params, query: query };
 
       var failure = function failure(value) {
         if (value === false) {
-          if (current.path) {
-            location.hash = stringifyHash(current.path, current.params, current.query);
+          if (currentRoute && currentRoute.path) {
+            location.hash = stringifyHash(currentRoute.path, currentRoute.params, currentRoute.query);
           }
         } else {
-          instance.go(value);
+          router.go(value);
         }
       };
 
       var callHook = function callHook(name, success, failure) {
         var chain = new Chain();
-        chain.use(componentConfig && componentConfig[name], componentInstance);
+        chain.use(options && options[name], instance);
         chain.use(route && route[name], route);
-        chain.use(instance && instance[name], instance);
-        chain.run(next, current, success, failure);
+        chain.use(router && router[name], router);
+        chain.run(nextRoute, currentRoute, success, failure);
       };
 
       var createComponent = function createComponent(component) {
-        componentConfig = component;
+        options = component;
         callHook(Router.HOOK_BEFORE_ENTER, function () {
 
           if (params || query) {
             props = object.extend({}, params, query);
           }
 
-          componentInstance = new Component(object.extend({
-            el: instance.el,
+          instance = new Component(object.extend({
+            el: router.el,
             props: props,
             extensions: {
-              $router: instance
+              $router: router
             }
           }, component));
 
           callHook(Router.HOOK_AFTER_ENTER);
 
-          object.extend(instance, next);
-          instance.componentConfig = componentConfig;
-          instance.componentInstance = componentInstance;
+          router.currentRoute = nextRoute;
+          router.currentComponent = { options: options, instance: instance };
         }, failure);
       };
 
       var changeComponent = function changeComponent(component) {
         callHook(Router.HOOK_BEFORE_LEAVE, function () {
-          componentInstance.dispose();
-          componentInstance = null;
+          instance.dispose();
+          instance = null;
           callHook(Router.HOOK_AFTER_LEAVE);
           createComponent(component);
         }, failure);
       };
 
-      instance.componentName = component;
+      currentComponent.name = component;
 
-      getComponent(component, function (componentConf) {
-        if (component === instance.componentName) {
-          if (componentInstance) {
-            if (componentConfig === componentConf) {
+      getComponent(component, function (componentOptions) {
+        if (component === currentComponent.name) {
+          if (instance) {
+            if (options === componentOptions) {
               callHook(Router.HOOK_REROUTE, function () {
-                changeComponent(componentConf);
+                changeComponent(componentOptions);
               }, function () {
-                object.extend(instance, next);
+                router.currentRoute = nextRoute;
               });
             } else {
-              changeComponent(componentConf);
+              changeComponent(componentOptions);
             }
           } else {
-            createComponent(componentConf);
+            createComponent(componentOptions);
           }
         }
       });
@@ -533,7 +534,7 @@ var Router = function () {
 
 var name2Component = {};
 
-Router.version = '0.2.4';
+Router.version = '0.2.5';
 
 Router.HOOK_INDEX = 'index';
 
