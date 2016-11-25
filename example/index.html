@@ -107,6 +107,12 @@
         })
 
         var router = new YoxRouter({
+          '': {
+            component: 'index',
+          },
+          '*': {
+            component: 'index',
+          },
           '/index': {
             component: 'index',
             refresh: function (to) {

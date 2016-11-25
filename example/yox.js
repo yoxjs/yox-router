@@ -16,9 +16,11 @@ var doc = document;
 var templateParse = {};
 
 var expressionParse = {};
+
 var expressionCompile = {};
 
 var keypathNormalize = {};
+
 var keypathWildcardMatches = {};
 
 var cache = Object.freeze({
@@ -38,7 +40,7 @@ var IMPORT = '>';
 var COMMENT = '!';
 var SPREAD = '...';
 
-var DIRECTIVE_PREFIX = '@';
+var DIRECTIVE_PREFIX = 'o-';
 var DIRECTIVE_EVENT_PREFIX = 'on-';
 
 var SPECIAL_EVENT = '$event';
@@ -63,12 +65,14 @@ var componentName = /[-A-Z]/;
 
 var tag = /<[^>]+>/;
 
+var selector = /^[#.]\w+$/;
+
 var selfClosingTagName = /input|img|br/i;
 
 var toString = Object.prototype.toString;
 
 function is(arg, type) {
-  return toString.call(arg).toLowerCase() === '[object ' + type + ']';
+  return type === 'numeric' ? numeric(arg) : toString.call(arg).toLowerCase() === '[object ' + type + ']';
 }
 
 function func(arg) {
@@ -100,6 +104,7 @@ function numeric(arg) {
 }
 
 var is$1 = Object.freeze({
+	is: is,
 	func: func,
 	array: array,
 	object: object,
@@ -122,10 +127,18 @@ var toString$1 = function (str, defaultValue) {
 var slice = Array.prototype.slice;
 
 
-function each$1(array$$1, callback) {
-  for (var i = 0, len = array$$1.length; i < len; i++) {
-    if (callback(array$$1[i], i) === FALSE) {
-      break;
+function each$1(array$$1, callback, reversed) {
+  if (reversed) {
+    for (var i = array$$1.length - 1; i >= 0; i--) {
+      if (callback(array$$1[i], i) === FALSE) {
+        break;
+      }
+    }
+  } else {
+    for (var _i = 0, len = array$$1.length; _i < len; _i++) {
+      if (callback(array$$1[_i], _i) === FALSE) {
+        break;
+      }
     }
   }
 }
@@ -300,6 +313,16 @@ function set$1(object$$1, keypath, value) {
   }
 }
 
+function call(object$$1, method, args) {
+  if (func(object$$1[method])) {
+    if (array(args)) {
+      object$$1[method].apply(object$$1, args);
+    } else {
+      object$$1[method]();
+    }
+  }
+}
+
 var object$1 = Object.freeze({
 	keys: keys,
 	each: each$$1,
@@ -308,7 +331,8 @@ var object$1 = Object.freeze({
 	extend: extend,
 	copy: copy,
 	get: get$1,
-	set: set$1
+	set: set$1,
+	call: call
 });
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) {
@@ -321,118 +345,7 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 
 
 
-var asyncGenerator = function () {
-  function AwaitValue(value) {
-    this.value = value;
-  }
 
-  function AsyncGenerator(gen) {
-    var front, back;
-
-    function send(key, arg) {
-      return new Promise(function (resolve, reject) {
-        var request = {
-          key: key,
-          arg: arg,
-          resolve: resolve,
-          reject: reject,
-          next: null
-        };
-
-        if (back) {
-          back = back.next = request;
-        } else {
-          front = back = request;
-          resume(key, arg);
-        }
-      });
-    }
-
-    function resume(key, arg) {
-      try {
-        var result = gen[key](arg);
-        var value = result.value;
-
-        if (value instanceof AwaitValue) {
-          Promise.resolve(value.value).then(function (arg) {
-            resume("next", arg);
-          }, function (arg) {
-            resume("throw", arg);
-          });
-        } else {
-          settle(result.done ? "return" : "normal", result.value);
-        }
-      } catch (err) {
-        settle("throw", err);
-      }
-    }
-
-    function settle(type, value) {
-      switch (type) {
-        case "return":
-          front.resolve({
-            value: value,
-            done: true
-          });
-          break;
-
-        case "throw":
-          front.reject(value);
-          break;
-
-        default:
-          front.resolve({
-            value: value,
-            done: false
-          });
-          break;
-      }
-
-      front = front.next;
-
-      if (front) {
-        resume(front.key, front.arg);
-      } else {
-        back = null;
-      }
-    }
-
-    this._invoke = send;
-
-    if (typeof gen.return !== "function") {
-      this.return = undefined;
-    }
-  }
-
-  if (typeof Symbol === "function" && Symbol.asyncIterator) {
-    AsyncGenerator.prototype[Symbol.asyncIterator] = function () {
-      return this;
-    };
-  }
-
-  AsyncGenerator.prototype.next = function (arg) {
-    return this._invoke("next", arg);
-  };
-
-  AsyncGenerator.prototype.throw = function (arg) {
-    return this._invoke("throw", arg);
-  };
-
-  AsyncGenerator.prototype.return = function (arg) {
-    return this._invoke("return", arg);
-  };
-
-  return {
-    wrap: function (fn) {
-      return function () {
-        return new AsyncGenerator(fn.apply(this, arguments));
-      };
-    },
-    await: function (value) {
-      return new AwaitValue(value);
-    }
-  };
-}();
 
 
 
@@ -601,17 +514,17 @@ var switcher = Object.freeze({
 	sync: sync$1
 });
 
-var INIT = 'init';
+var INIT = 'oninit';
 
-var CREATE = 'create';
+var CREATE = 'oncreate';
 
-var COMPILE = 'compile';
+var COMPILE = 'oncompile';
 
-var ATTACH = 'attach';
+var ATTACH = 'onattach';
 
-var UPDATE = 'update';
+var UPDATE = 'onupdate';
 
-var DETACH = 'detach';
+var DETACH = 'ondetach';
 
 var lifecycle = Object.freeze({
 	INIT: INIT,
@@ -1912,7 +1825,7 @@ function render$1(ast, data) {
 
   var children = rootElement.children;
 
-  if (children.length !== 1 || children[0].type !== ELEMENT) {
+  if (children.length > 1) {
     warn('Template should have only one root element.');
   }
 
@@ -2120,6 +2033,7 @@ function _parse(template, getPartial, setPartial) {
       }
 
       popStack();
+
       mainScanner.forward(1);
     } else {
         content = mainScanner.nextAfter(elementPattern);
@@ -2139,7 +2053,7 @@ function _parse(template, getPartial, setPartial) {
           return parseError(template, 'Illegal tag name', errorIndex);
         }
 
-        if (isComponent || isSelfClosingTag) {
+        if (isSelfClosingTag) {
           popStack();
         }
       }
@@ -2366,8 +2280,8 @@ function compileAttr$1(instance, keypath, value) {
 
     if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
   } else {
-    return function () {
-      instance.fire(value, arguments);
+    return function (event) {
+      instance.fire(value, event);
     };
   }
 }
@@ -2416,6 +2330,43 @@ function set$3(instance, type, name, value) {
     instance[prop] = {};
   }
   instance[prop][name] = value;
+}
+
+function validate(data, schema) {
+  each$$1(schema, function (rule, key) {
+    var type = rule.type,
+        value = rule.value,
+        required = rule.required;
+
+    if (has$1(data, key)) {
+      if (type) {
+        (function () {
+          var target = data[key],
+              matched = void 0;
+
+          if (string(type)) {
+            matched = is(target, type);
+          } else if (array(type)) {
+            matched = type.some(function (t) {
+              return is(target, t);
+            });
+          } else if (func(type)) {
+            matched = type(target);
+          }
+
+          if (matched === FALSE) {
+            warn('type of ' + key + ' is not matched.');
+            delete data[key];
+          }
+        })();
+      }
+    } else if (required) {
+      warn(key + ' is not found.');
+    } else if (has$1(rule, 'value')) {
+      data[key] = func(value) ? value() : value;
+    }
+  });
+  return data;
 }
 
 var vnode = function (sel, data, children, text, elm) {
@@ -2991,10 +2942,6 @@ var Emitter = function () {
     key: 'fire',
     value: function fire(type, data, context) {
 
-      if (data && has$1(data, 'length') && !array(data)) {
-        data = toArray(data);
-      }
-
       if (arguments.length === 2) {
         context = NULL;
       }
@@ -3016,12 +2963,11 @@ var Emitter = function () {
             $once();
           }
 
-          var event = data && data[0];
-          if (event && event instanceof Event) {
+          if (data instanceof Event) {
             if (result === FALSE) {
-              event.prevent();
-              event.stop();
-            } else if (event.isStoped) {
+              data.prevent();
+              data.stop();
+            } else if (data.isStoped) {
               result = FALSE;
             }
           }
@@ -3133,11 +3079,11 @@ function parseStyle(str) {
 
 function create$1(node, instance) {
 
+  if (node.type === TEXT) {
+    return { text: node.content };
+  }
+
   var counter = 0;
-
-  var DIRECTIVE_PREFIX$$1 = DIRECTIVE_PREFIX,
-      DIRECTIVE_EVENT_PREFIX$$1 = DIRECTIVE_EVENT_PREFIX;
-
 
   var traverse = function traverse(node, enter, leave) {
 
@@ -3195,11 +3141,11 @@ function create$1(node, instance) {
 
 
           var directiveName = void 0;
-          if (name.startsWith(DIRECTIVE_EVENT_PREFIX$$1)) {
-            name = name.slice(DIRECTIVE_EVENT_PREFIX$$1.length);
+          if (name.startsWith(DIRECTIVE_EVENT_PREFIX)) {
+            name = name.slice(DIRECTIVE_EVENT_PREFIX.length);
             directiveName = 'event';
           } else {
-            name = directiveName = name.slice(DIRECTIVE_PREFIX$$1.length);
+            name = directiveName = name.slice(DIRECTIVE_PREFIX.length);
           }
 
           directives.push({
@@ -3274,7 +3220,7 @@ var toNumber = function (str, defaultValue) {
 
 var refDt = {
 
-  attach: function attach(_ref) {
+  onattach: function onattach(_ref) {
     var el = _ref.el,
         node = _ref.node,
         instance = _ref.instance;
@@ -3288,7 +3234,7 @@ var refDt = {
     }
   },
 
-  detach: function detach(_ref2) {
+  ondetach: function ondetach(_ref2) {
     var el = _ref2.el,
         instance = _ref2.instance;
 
@@ -3302,7 +3248,7 @@ var refDt = {
 
 var eventDt = {
 
-  attach: function attach(_ref) {
+  onattach: function onattach(_ref) {
     var el = _ref.el,
         name = _ref.name,
         node = _ref.node,
@@ -3322,7 +3268,7 @@ var eventDt = {
     }
   },
 
-  detach: function detach(_ref2) {
+  ondetach: function ondetach(_ref2) {
     var el = _ref2.el,
         name = _ref2.name,
         node = _ref2.node;
@@ -3457,7 +3403,7 @@ function getEventInfo(el, lazyDirective) {
 
 var modelDt = {
 
-  attach: function attach(_ref7) {
+  onattach: function onattach(_ref7) {
     var el = _ref7.el,
         node = _ref7.node,
         instance = _ref7.instance,
@@ -3506,7 +3452,7 @@ var modelDt = {
     on$1(el, name, listener);
   },
 
-  detach: function detach(_ref8) {
+  ondetach: function ondetach(_ref8) {
     var el = _ref8.el;
 
     el.$model();
@@ -3514,31 +3460,42 @@ var modelDt = {
 
 };
 
+function getComponentInfo(node, instance) {
+  var options = instance.getComponent(node.custom);
+  var props = copy(node.getAttributes(), TRUE);
+  if (has$1(options, 'props')) {
+    validate(props, options.props);
+  }
+  return { options: options, props: props };
+}
+
 var componentDt = {
 
-  attach: function attach(_ref) {
+  onattach: function onattach(_ref) {
     var el = _ref.el,
         node = _ref.node,
         instance = _ref.instance;
 
-    el.$component = instance.create(instance.getComponent(node.custom), {
+    var info = getComponentInfo(node, instance);
+    el.$component = instance.create(info.options, {
       el: el,
-      props: copy(node.getAttributes(), TRUE),
+      props: info.props,
       replace: TRUE
     });
   },
 
-  update: function update(_ref2) {
+  onupdate: function onupdate(_ref2) {
     var el = _ref2.el,
-        node = _ref2.node;
+        node = _ref2.node,
+        instance = _ref2.instance;
 
-    el.$component.set(copy(node.getAttributes(), TRUE));
+    el.$component.set(getComponentInfo(node, instance).props);
   },
 
-  detach: function detach(_ref3) {
+  ondetach: function ondetach(_ref3) {
     var el = _ref3.el;
 
-    el.$component.dispose();
+    el.$component.dispose(TRUE);
     el.$component = NULL;
   }
 
@@ -3554,6 +3511,18 @@ directive.set({
 var Yox = function () {
   function Yox(options) {
     classCallCheck(this, Yox);
+
+
+    var instance = this;
+
+    each$$1(lifecycle, function (name) {
+      if (func(options[name])) {
+        instance[name] = options[name];
+      }
+    });
+
+    call(instance, INIT, [options]);
+
     var el = options.el,
         data = options.data,
         props = options.props,
@@ -3570,23 +3539,26 @@ var Yox = function () {
         partials = options.partials,
         extensions = options.extensions;
 
-    template = tag.test(template) ? template : find(template).innerHTML;
 
-    el = string(el) ? find(el) : el;
+    if (string(template) && selector.test(template)) {
+      template = find(template).innerHTML;
+    }
 
-    if (!el || el.nodeType !== 1) {
+    if (string(el) && selector.test(el)) {
+      el = find(el);
+    }
+
+    if (el && el.nodeType !== 1) {
       error$1('Passing a `el` option must be a html element.');
     }
     if (props && (object(data) || array(data))) {
       warn('Passing a `data` option with object and array to component is discouraged.');
     }
 
-    if (!replace) {
+    if (el && !replace) {
       el.innerHTML = '<div></div>';
       el = el.firstChild;
     }
-
-    var instance = this;
 
     if (object(extensions)) {
       extend(instance, extensions);
@@ -3595,21 +3567,6 @@ var Yox = function () {
     if (parent) {
       instance.$parent = parent;
     }
-
-    var hooks = {};
-    each$$1(lifecycle, function (name) {
-      hooks['on' + name] = name;
-    });
-
-    instance.$eventEmitter = new Emitter();
-
-    each$$1(hooks, function (value, key) {
-      if (func(options[key])) {
-        instance.on(value, options[key]);
-      }
-    });
-
-    instance.fire(INIT);
 
     if (object(methods)) {
       each$$1(methods, function (value, key) {
@@ -3629,6 +3586,7 @@ var Yox = function () {
     }
 
     if (object(components)) {
+      instance.$children = [];
       instance.$components = components;
     }
     if (object(directives)) {
@@ -3729,6 +3687,8 @@ var Yox = function () {
       })();
     }
 
+    instance.$eventEmitter = new Emitter();
+
     if (object(events)) {
       each$$1(events, function (listener, type) {
         if (func(listener)) {
@@ -3745,15 +3705,17 @@ var Yox = function () {
       });
     }
 
-    instance.fire(CREATE);
+    call(instance, CREATE);
 
-    instance.$template = _parse(template, function (name) {
-      return instance.getPartial(name);
-    }, function (name, node) {
-      set$3(instance, 'partial', name, node);
-    });
+    if (template) {
+      instance.$template = _parse(template, function (name) {
+        return instance.getPartial(name);
+      }, function (name, node) {
+        set$3(instance, 'partial', name, node);
+      });
+    }
 
-    instance.fire(COMPILE);
+    call(instance, COMPILE);
 
     instance.updateView(el);
   }
@@ -3821,18 +3783,46 @@ var Yox = function () {
     }
   }, {
     key: 'fire',
-    value: function fire(type, data, bubble) {
+    value: function fire(type, data, noBubble) {
+
+      var instance = this;
+
       if (arguments.length === 2 && data === TRUE) {
-        bubble = TRUE;
+        noBubble = TRUE;
         data = NULL;
       }
-      var $parent = this.$parent,
-          $eventEmitter = this.$eventEmitter;
 
-      var done = $eventEmitter.fire(type, data, this);
-      if (done && bubble && $parent) {
-        done = $parent.fire(type, data, bubble);
+      var event = data;
+      if (!(event instanceof Event)) {
+        event = new Event(type);
+        if (data) {
+          event.data = data;
+        }
       }
+
+      if (event.type !== type) {
+        data = event.data;
+        event = new Event(event);
+        event.type = type;
+
+        if (data) {
+          event.data = data;
+        }
+      }
+
+      if (!event.target) {
+        event.target = instance;
+      }
+      event.currentTarget = instance;
+
+      var $parent = instance.$parent,
+          $eventEmitter = instance.$eventEmitter;
+
+      var done = $eventEmitter.fire(type, event, instance);
+      if (done && !noBubble && $parent) {
+        done = $parent.fire(type, event);
+      }
+
       return done;
     }
   }, {
@@ -3945,7 +3935,7 @@ var Yox = function () {
         extend(context, $computedGetters);
       }
 
-      var node = render$1($template, context);
+      var node = $template && render$1($template, context);
       if (!node) {
         return;
       }
@@ -3954,11 +3944,11 @@ var Yox = function () {
 
       if ($currentNode) {
         $currentNode = patch($currentNode, newNode);
-        instance.fire(UPDATE);
+        call(instance, UPDATE);
       } else {
         $currentNode = patch(el, newNode);
         instance.$el = $currentNode.elm;
-        instance.fire(ATTACH);
+        call(instance, ATTACH);
       }
 
       instance.$currentNode = $currentNode;
@@ -3966,9 +3956,11 @@ var Yox = function () {
   }, {
     key: 'create',
     value: function create(options, extra) {
-      options = extend({}, options, extra);
+      options = Yox.extend(options, extra);
       options.parent = this;
-      return new Yox(options);
+      var child = new Yox(options);
+      this.$children.push(child);
+      return child;
     }
   }, {
     key: 'compileAttr',
@@ -3988,7 +3980,7 @@ var Yox = function () {
   }, {
     key: 'getDirective',
     value: function getDirective(name) {
-      return get$3(this, 'directive', name, true);
+      return get$3(this, 'directive', name, TRUE);
     }
   }, {
     key: 'getPartial',
@@ -3998,15 +3990,45 @@ var Yox = function () {
   }, {
     key: 'dispose',
     value: function dispose() {
-      this.$watchEmitter.off();
-      this.$eventEmitter.off();
-      this.fire(DETACH);
+
+      var instance = this;
+
+      call(instance, DETACH);
+
+      var $el = instance.$el,
+          $parent = instance.$parent,
+          $children = instance.$children,
+          $currentNode = instance.$currentNode,
+          $watchEmitter = instance.$watchEmitter,
+          $eventEmitter = instance.$eventEmitter;
+
+
+      if ($children) {
+        each$1($children, function (child) {
+          child.dispose();
+        }, TRUE);
+      }
+
+      if ($parent && $parent.$children) {
+        removeItem($parent.$children, instance);
+      }
+
+      $watchEmitter.off();
+      $eventEmitter.off();
+
+      if (arguments[0] !== TRUE && $currentNode) {
+        instance.$currentNode = patch($currentNode, { text: '' });
+      }
+
+      if ($el) {
+        delete instance.$el;
+      }
     }
   }]);
   return Yox;
 }();
 
-Yox.version = '0.11.16';
+Yox.version = '0.12.1';
 
 Yox.switcher = switcher;
 
@@ -4034,6 +4056,19 @@ Yox.partial = function (id, value) {
 
 Yox.nextTick = function (fn) {
   add(fn);
+};
+
+Yox.validate = validate;
+
+Yox.extend = function (options, extra) {
+  options = copy(options);
+  if (has$1(options, 'props')) {
+    delete options.props;
+  }
+  if (object(extra)) {
+    extend(options, extra);
+  }
+  return options;
 };
 
 Yox.use = function (plugin) {
