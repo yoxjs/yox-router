@@ -15,6 +15,12 @@
 
         YoxRouter.register({
           index: {
+            propTypes: {
+              name: {
+                type: 'string',
+                required: true
+              }
+            },
             template: `
               <div>
                 <h1>index</h1>

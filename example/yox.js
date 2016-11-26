@@ -3463,8 +3463,8 @@ var modelDt = {
 function getComponentInfo(node, instance) {
   var options = instance.getComponent(node.custom);
   var props = copy(node.getAttributes(), TRUE);
-  if (has$1(options, 'props')) {
-    validate(props, options.props);
+  if (has$1(options, 'propTypes')) {
+    validate(props, options.propTypes);
   }
   return { options: options, props: props };
 }
@@ -3787,8 +3787,8 @@ var Yox = function () {
 
       var instance = this;
 
-      if (arguments.length === 2 && data === TRUE) {
-        noBubble = TRUE;
+      if (data === TRUE) {
+        noBubble = data;
         data = NULL;
       }
 
@@ -3813,7 +3813,6 @@ var Yox = function () {
       if (!event.target) {
         event.target = instance;
       }
-      event.currentTarget = instance;
 
       var $parent = instance.$parent,
           $eventEmitter = instance.$eventEmitter;
@@ -3956,7 +3955,7 @@ var Yox = function () {
   }, {
     key: 'create',
     value: function create(options, extra) {
-      options = Yox.extend(options, extra);
+      options = extend({}, options, extra);
       options.parent = this;
       var child = new Yox(options);
       this.$children.push(child);
@@ -4028,7 +4027,7 @@ var Yox = function () {
   return Yox;
 }();
 
-Yox.version = '0.12.1';
+Yox.version = '0.13.0';
 
 Yox.switcher = switcher;
 
@@ -4059,17 +4058,6 @@ Yox.nextTick = function (fn) {
 };
 
 Yox.validate = validate;
-
-Yox.extend = function (options, extra) {
-  options = copy(options);
-  if (has$1(options, 'props')) {
-    delete options.props;
-  }
-  if (object(extra)) {
-    extend(options, extra);
-  }
-  return options;
-};
 
 Yox.use = function (plugin) {
   plugin.install(Yox);

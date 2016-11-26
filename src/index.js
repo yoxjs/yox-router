@@ -459,20 +459,20 @@ export default class Router {
             props = object.extend({ }, params, query)
           }
 
-          if (props && object.has(component, 'props')) {
-            Component.validate(props, component.props)
+          if (props && object.has(component, 'propTypes')) {
+            Component.validate(props, component.propTypes)
           }
 
           instance = new Component(
-            Component.extend(
-              component,
+            object.extend(
               {
                 el: router.el,
                 props,
                 extensions: {
                   $router: router,
                 }
-              }
+              },
+              component
             )
           )
 
@@ -570,7 +570,7 @@ let name2Component = { }
  *
  * @type {string}
  */
-Router.version = '0.3.1'
+Router.version = '0.3.2'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件

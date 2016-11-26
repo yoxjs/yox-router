@@ -467,17 +467,17 @@ var Router = function () {
             props = object.extend({}, params, query);
           }
 
-          if (props && object.has(component, 'props')) {
-            Component.validate(props, component.props);
+          if (props && object.has(component, 'propTypes')) {
+            Component.validate(props, component.propTypes);
           }
 
-          instance = new Component(Component.extend(component, {
+          instance = new Component(object.extend({
             el: router.el,
             props: props,
             extensions: {
               $router: router
             }
-          }));
+          }, component));
 
           callHook(Router.HOOK_AFTER_ENTER);
 
@@ -537,7 +537,7 @@ var Router = function () {
 
 var name2Component = {};
 
-Router.version = '0.3.1';
+Router.version = '0.3.2';
 
 Router.HOOK_REROUTE = 'reroute';
 
