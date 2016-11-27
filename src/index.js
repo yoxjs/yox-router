@@ -570,42 +570,42 @@ let name2Component = { }
  *
  * @type {string}
  */
-Router.version = '0.3.2'
+Router.version = '0.4.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
  *
  * @type {string}
  */
-Router.HOOK_REROUTE = 'reroute'
+Router.HOOK_REROUTE = 'onreroute'
 
 /**
  * 导航钩子 - 路由进入之前
  *
  * @type {string}
  */
-Router.HOOK_BEFORE_ENTER = 'beforeEnter'
+Router.HOOK_BEFORE_ENTER = 'onbeforeenter'
 
 /**
  * 导航钩子 - 路由进入之后
  *
  * @type {string}
  */
-Router.HOOK_AFTER_ENTER = 'afterEnter'
+Router.HOOK_AFTER_ENTER = 'onafterenter'
 
 /**
  * 导航钩子 - 路由离开之前
  *
  * @type {string}
  */
-Router.HOOK_BEFORE_LEAVE = 'beforeLeave'
+Router.HOOK_BEFORE_LEAVE = 'onbeforeleave'
 
 /**
  * 导航钩子 - 路由离开之后
  *
  * @type {string}
  */
-Router.HOOK_AFTER_LEAVE = 'afterLeave'
+Router.HOOK_AFTER_LEAVE = 'onafterleave'
 
 /**
  * 注册全局组件，路由实例可共享之

@@ -537,17 +537,17 @@ var Router = function () {
 
 var name2Component = {};
 
-Router.version = '0.3.2';
+Router.version = '0.4.0';
 
-Router.HOOK_REROUTE = 'reroute';
+Router.HOOK_REROUTE = 'onreroute';
 
-Router.HOOK_BEFORE_ENTER = 'beforeEnter';
+Router.HOOK_BEFORE_ENTER = 'onbeforeenter';
 
-Router.HOOK_AFTER_ENTER = 'afterEnter';
+Router.HOOK_AFTER_ENTER = 'onafterenter';
 
-Router.HOOK_BEFORE_LEAVE = 'beforeLeave';
+Router.HOOK_BEFORE_LEAVE = 'onbeforeleave';
 
-Router.HOOK_AFTER_LEAVE = 'afterLeave';
+Router.HOOK_AFTER_LEAVE = 'onafterleave';
 
 Router.register = function (name, component) {
   if (is.object(name)) {
