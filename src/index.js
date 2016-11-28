@@ -489,7 +489,7 @@ export default class Router {
       callHook(
         Router.HOOK_BEFORE_LEAVE,
         function () {
-          instance.dispose()
+          instance.destroy()
           instance = null
           callHook(Router.HOOK_AFTER_LEAVE)
           createComponent(component)
@@ -570,42 +570,42 @@ let name2Component = { }
  *
  * @type {string}
  */
-Router.version = '0.4.0'
+Router.version = '0.5.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
  *
  * @type {string}
  */
-Router.HOOK_REROUTE = 'onreroute'
+Router.HOOK_REROUTE = 'onReroute'
 
 /**
  * 导航钩子 - 路由进入之前
  *
  * @type {string}
  */
-Router.HOOK_BEFORE_ENTER = 'onbeforeenter'
+Router.HOOK_BEFORE_ENTER = 'onBeforeEnter'
 
 /**
  * 导航钩子 - 路由进入之后
  *
  * @type {string}
  */
-Router.HOOK_AFTER_ENTER = 'onafterenter'
+Router.HOOK_AFTER_ENTER = 'onAfterEnter'
 
 /**
  * 导航钩子 - 路由离开之前
  *
  * @type {string}
  */
-Router.HOOK_BEFORE_LEAVE = 'onbeforeleave'
+Router.HOOK_BEFORE_LEAVE = 'onBeforeLeave'
 
 /**
  * 导航钩子 - 路由离开之后
  *
  * @type {string}
  */
-Router.HOOK_AFTER_LEAVE = 'onafterleave'
+Router.HOOK_AFTER_LEAVE = 'onAfterLeave'
 
 /**
  * 注册全局组件，路由实例可共享之

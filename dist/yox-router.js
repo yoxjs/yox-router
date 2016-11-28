@@ -488,7 +488,7 @@ var Router = function () {
 
       var changeComponent = function changeComponent(component) {
         callHook(Router.HOOK_BEFORE_LEAVE, function () {
-          instance.dispose();
+          instance.destroy();
           instance = null;
           callHook(Router.HOOK_AFTER_LEAVE);
           createComponent(component);
@@ -537,17 +537,17 @@ var Router = function () {
 
 var name2Component = {};
 
-Router.version = '0.4.0';
+Router.version = '0.5.0';
 
-Router.HOOK_REROUTE = 'onreroute';
+Router.HOOK_REROUTE = 'onReroute';
 
-Router.HOOK_BEFORE_ENTER = 'onbeforeenter';
+Router.HOOK_BEFORE_ENTER = 'onBeforeEnter';
 
-Router.HOOK_AFTER_ENTER = 'onafterenter';
+Router.HOOK_AFTER_ENTER = 'onAfterEnter';
 
-Router.HOOK_BEFORE_LEAVE = 'onbeforeleave';
+Router.HOOK_BEFORE_LEAVE = 'onBeforeLeave';
 
-Router.HOOK_AFTER_LEAVE = 'onafterleave';
+Router.HOOK_AFTER_LEAVE = 'onAfterLeave';
 
 Router.register = function (name, component) {
   if (is.object(name)) {
