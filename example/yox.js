@@ -128,14 +128,16 @@ var slice = Array.prototype.slice;
 
 
 function each$1(array$$1, callback, reversed) {
+  var length = array$$1.length;
+
   if (reversed) {
-    for (var i = array$$1.length - 1; i >= 0; i--) {
+    for (var i = length - 1; i >= 0; i--) {
       if (callback(array$$1[i], i) === FALSE) {
         break;
       }
     }
   } else {
-    for (var _i = 0, len = array$$1.length; _i < len; _i++) {
+    for (var _i = 0; _i < length; _i++) {
       if (callback(array$$1[_i], _i) === FALSE) {
         break;
       }
@@ -159,11 +161,6 @@ function merge() {
 }
 
 function toArray(array$$1) {
-  try {
-    'length' in array$$1;
-  } catch (e) {
-    return [];
-  }
   return array(array$$1) ? array$$1 : slice.call(array$$1);
 }
 
@@ -190,15 +187,15 @@ function indexOf(array$$1, item, strict) {
   }
 }
 
-function hasItem(array$$1, item, strict) {
+function has$2(array$$1, item, strict) {
   return indexOf(array$$1, item, strict) >= 0;
 }
 
-function lastItem(array$$1) {
+function last(array$$1) {
   return array$$1[array$$1.length - 1];
 }
 
-function removeItem(array$$1, item, strict) {
+function remove$1(array$$1, item, strict) {
   var index = indexOf(array$$1, item, strict);
   if (index >= 0) {
     array$$1.splice(index, 1);
@@ -212,9 +209,9 @@ var array$1 = Object.freeze({
 	toArray: toArray,
 	toObject: toObject,
 	indexOf: indexOf,
-	hasItem: hasItem,
-	lastItem: lastItem,
-	removeItem: removeItem
+	has: has$2,
+	last: last,
+	remove: remove$1
 });
 
 function keys(object$$1) {
@@ -313,16 +310,6 @@ function set$1(object$$1, keypath, value) {
   }
 }
 
-function call(object$$1, method, args) {
-  if (func(object$$1[method])) {
-    if (array(args)) {
-      object$$1[method].apply(object$$1, args);
-    } else {
-      object$$1[method]();
-    }
-  }
-}
-
 var object$1 = Object.freeze({
 	keys: keys,
 	each: each$$1,
@@ -331,8 +318,7 @@ var object$1 = Object.freeze({
 	extend: extend,
 	copy: copy,
 	get: get$1,
-	set: set$1,
-	call: call
+	set: set$1
 });
 
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) {
@@ -514,32 +500,21 @@ var switcher = Object.freeze({
 	sync: sync$1
 });
 
-var INIT = 'onInit';
+var BEFORE_CREATE = 'beforeCreate';
 
-var CREATE = 'onCreate';
+var AFTER_CREATE = 'afterCreate';
 
-var COMPILE = 'onCompile';
+var BEFORE_MOUNT = 'beforeMount';
 
-var ATTACH = 'onAttach';
+var AFTER_MOUNT = 'afterMount';
 
-var READY = 'onReady';
+var BEFORE_UPDATE = 'beforeUpdate';
 
-var UPDATE = 'onUpdate';
+var AFTER_UPDATE = 'afterUpdate';
 
-var DETACH = 'onDetach';
+var BEFORE_DESTROY = 'beforeDestroy';
 
-var DESTROY = 'onDestroy';
-
-var lifecycle = Object.freeze({
-	INIT: INIT,
-	CREATE: CREATE,
-	COMPILE: COMPILE,
-	ATTACH: ATTACH,
-	READY: READY,
-	UPDATE: UPDATE,
-	DETACH: DETACH,
-	DESTROY: DESTROY
-});
+var AFTER_DESTROY = 'afterDestroy';
 
 var IF$1 = 1;
 
@@ -757,9 +732,9 @@ function createCall(callee, args) {
 function parse$1(content) {
   var length = content.length;
 
-  var index = 0;
-  var charCode = void 0;
-  var value = void 0;
+  var index = 0,
+      charCode = void 0,
+      value = void 0;
 
   function getChar() {
     return content.charAt(index);
@@ -1002,7 +977,7 @@ function parse$1(content) {
   return expressionParse$$1[content];
 }
 
-function compile(ast) {
+function compile$1(ast) {
 
   var content = void 0;
 
@@ -1239,7 +1214,7 @@ var Node = function () {
       var children = this.children;
 
       if (node.type === TEXT) {
-        var lastChild = lastItem(children);
+        var lastChild = last(children);
         if (lastChild && lastChild.type === TEXT) {
           lastChild.content += node.content;
           return;
@@ -1257,7 +1232,7 @@ var Node = function () {
   }, {
     key: 'execute',
     value: function execute(context) {
-      var fn = compile(this.expr);
+      var fn = compile$1(this.expr);
 
       return fn.apply(NULL, fn.$arguments.map(function (name) {
         return context.get(name);
@@ -1832,7 +1807,7 @@ function render$1(ast, data) {
   var children = rootElement.children;
 
   if (children.length > 1) {
-    warn('Template should have only one root element.');
+    error$1('Template should have only one root element.');
   }
 
   return children[0];
@@ -2317,11 +2292,12 @@ function testKeypath(instance, keypath, name) {
 }
 
 function get$3(instance, type, name, silent) {
-  var prop = '$' + type + 's';
-  if (instance[prop] && has$1(instance[prop], name)) {
-    return instance[prop][name];
+  var result = get$1(instance, '$' + type + 's.' + name);
+  if (result) {
+    return result.value;
   } else {
-    var value = registry[type].get(name);
+    var globalRegistry = registry[type];
+    var value = globalRegistry && globalRegistry.get(name);
     if (value) {
       return value;
     } else if (!silent) {
@@ -2331,11 +2307,11 @@ function get$3(instance, type, name, silent) {
 }
 
 function set$3(instance, type, name, value) {
-  var prop = '$' + type + 's';
-  if (!instance[prop]) {
-    instance[prop] = {};
+  if (object(name)) {
+    set$1(instance, '$' + type + 's', name);
+  } else if (string(name)) {
+    set$1(instance, '$' + type + 's.' + name, value);
   }
-  instance[prop][name] = value;
 }
 
 function validate(data, schema) {
@@ -2897,6 +2873,16 @@ function updateAttrs(oldVnode, vnode) {
 
 var attributes = { create: updateAttrs, update: updateAttrs };
 
+var execute$1 = function (fn, context, args) {
+  if (func(fn)) {
+    if (array(args)) {
+      fn.apply(context, args);
+    } else {
+      fn.call(context, args);
+    }
+  }
+};
+
 var Emitter = function () {
   function Emitter() {
     classCallCheck(this, Emitter);
@@ -2909,17 +2895,39 @@ var Emitter = function () {
     value: function on(type, listener) {
       var listeners = this.listeners;
 
-      var list = listeners[type] || (listeners[type] = []);
-      list.push(listener);
+      var addListener = function addListener(listener, type) {
+        if (func(listener)) {
+          var list = listeners[type] || (listeners[type] = []);
+          list.push(listener);
+        }
+      };
+
+      if (object(type)) {
+        each$$1(type, addListener);
+      } else if (string(type)) {
+        addListener(listener, type);
+      }
     }
   }, {
     key: 'once',
     value: function once(type, listener) {
+
       var instance = this;
-      listener.$once = function () {
-        instance.off(type, listener);
-        delete listener.$once;
+      var addOnce = function addOnce(listener, type) {
+        if (func(listener)) {
+          listener.$once = function () {
+            instance.off(type, listener);
+            delete listener.$once;
+          };
+        }
       };
+
+      if (object(type)) {
+        each$$1(type, addOnce);
+      } else if (string(type)) {
+        addOnce(listener, type);
+      }
+
       instance.on(type, listener);
     }
   }, {
@@ -2939,7 +2947,7 @@ var Emitter = function () {
           if (listener == NULL) {
             list.length = 0;
           } else {
-            removeItem(list, listener);
+            remove$1(list, listener);
           }
         }
       }
@@ -2957,12 +2965,8 @@ var Emitter = function () {
 
       if (array(list)) {
         each$1(list, function (listener) {
-          var result = void 0;
-          if (array(data)) {
-            result = listener.apply(context, data);
-          } else {
-            result = data != NULL ? listener.call(context, data) : listener.call(context);
-          }
+          var result = execute$1(listener, context, data);
+
           var $once = listener.$once;
 
           if (func($once)) {
@@ -2994,7 +2998,7 @@ var Emitter = function () {
       if (listener == NULL) {
         return array(list) && list.length > 0;
       }
-      return array(list) ? hasItem(list, listener) : FALSE;
+      return array(list) ? has$2(list, listener) : FALSE;
     }
   }]);
   return Emitter;
@@ -3017,6 +3021,19 @@ function findElement(selector, context) {
 }
 
 var find = findElement;
+
+function create$2(parent, tagName) {
+  parent.innerHTML = '<' + tagName + '></' + tagName + '>';
+  return parent.firstChild;
+}
+
+function getContent(selector) {
+  return find(selector).innerHTML;
+}
+
+function isElement(node) {
+  return node.nodeType === 1;
+}
 
 function on$1(element, type, listener, context) {
   var $emitter = element.$emitter || (element.$emitter = new Emitter());
@@ -3048,6 +3065,9 @@ function off$1(element, type, listener) {
 
 var native = Object.freeze({
 	find: find,
+	create: create$2,
+	getContent: getContent,
+	isElement: isElement,
 	on: on$1,
 	off: off$1
 });
@@ -3193,13 +3213,13 @@ function create$1(node, instance) {
 
             data.hook = {
               insert: function insert(vnode) {
-                notify(vnode, ATTACH);
+                notify(vnode, 'attach');
               },
-              update: function update(oldNode, vnode) {
-                notify(vnode, UPDATE);
+              postpatch: function postpatch(oldNode, vnode) {
+                notify(vnode, 'update');
               },
-              destroy: function destroy(vnode) {
-                notify(vnode, DETACH);
+              remove: function remove(vnode) {
+                notify(vnode, 'detach');
               }
             };
           })();
@@ -3226,7 +3246,7 @@ var toNumber = function (str, defaultValue) {
 
 var refDt = {
 
-  onAttach: function onAttach(_ref) {
+  attach: function attach(_ref) {
     var el = _ref.el,
         node = _ref.node,
         instance = _ref.instance;
@@ -3240,7 +3260,7 @@ var refDt = {
     }
   },
 
-  onDetach: function onDetach(_ref2) {
+  detach: function detach(_ref2) {
     var el = _ref2.el,
         instance = _ref2.instance;
 
@@ -3254,7 +3274,7 @@ var refDt = {
 
 var eventDt = {
 
-  onAttach: function onAttach(_ref) {
+  attach: function attach(_ref) {
     var el = _ref.el,
         name = _ref.name,
         node = _ref.node,
@@ -3274,10 +3294,9 @@ var eventDt = {
     }
   },
 
-  onDetach: function onDetach(_ref2) {
+  detach: function detach(_ref2) {
     var el = _ref2.el,
-        name = _ref2.name,
-        node = _ref2.node;
+        name = _ref2.name;
 
     var listener = '$' + name;
     if (el[listener]) {
@@ -3358,7 +3377,7 @@ var controlTypes = {
           instance = _ref5.instance;
 
       var value = instance.get(keypath);
-      el.checked = array(value) ? hasItem(value, el.value, FALSE) : !!value;
+      el.checked = array(value) ? has$2(value, el.value, FALSE) : !!value;
     },
     sync: function sync(_ref6) {
       var el = _ref6.el,
@@ -3370,7 +3389,7 @@ var controlTypes = {
         if (el.checked) {
           value.push(el.value);
         } else {
-          removeItem(value, el.value, FALSE);
+          remove$1(value, el.value, FALSE);
         }
         instance.set(keypath, copy(value));
       } else {
@@ -3388,7 +3407,7 @@ function getEventInfo(el, lazyDirective) {
   var type = el.type,
       tagName = el.tagName;
 
-  if (tagName === 'INPUT' && hasItem(supportInputTypes, type) || tagName === 'TEXTAREA') {
+  if (tagName === 'INPUT' && has$2(supportInputTypes, type) || tagName === 'TEXTAREA') {
     if (lazyDirective) {
       var value = lazyDirective.node.getValue();
       if (numeric(value) && value >= 0) {
@@ -3409,7 +3428,7 @@ function getEventInfo(el, lazyDirective) {
 
 var modelDt = {
 
-  onAttach: function onAttach(_ref7) {
+  attach: function attach(_ref7) {
     var el = _ref7.el,
         node = _ref7.node,
         instance = _ref7.instance,
@@ -3458,7 +3477,7 @@ var modelDt = {
     on$1(el, name, listener);
   },
 
-  onDetach: function onDetach(_ref8) {
+  detach: function detach(_ref8) {
     var el = _ref8.el;
 
     el.$model();
@@ -3477,7 +3496,7 @@ function getComponentInfo(node, instance) {
 
 var componentDt = {
 
-  onAttach: function onAttach(_ref) {
+  attach: function attach(_ref) {
     var el = _ref.el,
         node = _ref.node,
         instance = _ref.instance;
@@ -3490,7 +3509,7 @@ var componentDt = {
     });
   },
 
-  onUpdate: function onUpdate(_ref2) {
+  update: function update(_ref2) {
     var el = _ref2.el,
         node = _ref2.node,
         instance = _ref2.instance;
@@ -3498,7 +3517,7 @@ var componentDt = {
     el.$component.set(getComponentInfo(node, instance).props);
   },
 
-  onDetach: function onDetach(_ref3) {
+  detach: function detach(_ref3) {
     var el = _ref3.el;
 
     el.$component.destroy(TRUE);
@@ -3507,13 +3526,6 @@ var componentDt = {
 
 };
 
-directive.set({
-  ref: refDt,
-  event: eventDt,
-  model: modelDt,
-  component: componentDt
-});
-
 var Yox = function () {
   function Yox(options) {
     classCallCheck(this, Yox);
@@ -3521,13 +3533,9 @@ var Yox = function () {
 
     var instance = this;
 
-    each$$1(lifecycle, function (name) {
-      if (func(options[name])) {
-        instance[name] = options[name];
-      }
-    });
+    instance.$options = options;
 
-    call(instance, INIT, [options]);
+    execute$1(options[BEFORE_CREATE], instance, options);
 
     var el = options.el,
         data = options.data,
@@ -3545,65 +3553,68 @@ var Yox = function () {
         partials = options.partials,
         extensions = options.extensions;
 
+    instance.$eventEmitter = new Emitter();
+    instance.on(events);
 
-    if (string(template) && selector.test(template)) {
-      template = find(template).innerHTML;
+    instance.$watchEmitter = new Emitter();
+    instance.watch(watchers);
+
+    execute$1(options[AFTER_CREATE], instance);
+
+    if (string(template)) {
+      if (selector.test(template)) {
+        template = getContent(template);
+      }
+      if (!template.trim()) {
+        template = NULL;
+      }
+    } else {
+      template = NULL;
     }
 
-    if (string(el) && selector.test(el)) {
-      el = find(el);
+    if (string(el)) {
+      if (selector.test(el)) {
+        el = find(el);
+      }
+    }
+    if (el) {
+      if (isElement(el)) {
+        if (!replace) {
+          el = create$2(el, 'div');
+        }
+      } else {
+        error$1('Passing a `el` option must be a html element.');
+      }
     }
 
-    if (el && el.nodeType !== 1) {
-      error$1('Passing a `el` option must be a html element.');
-    }
-    if (props && (object(data) || array(data))) {
-      warn('Passing a `data` option with object and array to component is discouraged.');
+    if (props && !object(props)) {
+      props = NULL;
     }
 
-    if (el && !replace) {
-      el.innerHTML = '<div></div>';
-      el = el.firstChild;
+    if (props && data && !func(data)) {
+      warn('Passing a `data` option should be a function.');
     }
 
-    if (object(extensions)) {
-      extend(instance, extensions);
+    data = func(data) ? data.call(instance) : data;
+    if (props) {
+      data = extend(data || {}, props);
+    }
+    if (data) {
+      instance.$data = data;
     }
 
     if (parent) {
       instance.$parent = parent;
     }
 
-    if (object(methods)) {
-      each$$1(methods, function (value, key) {
-        instance[key] = value;
-      });
-    }
+    extend(instance, methods);
+    extend(instance, extensions);
 
-    data = func(data) ? data.call(instance) : data;
-    if (object(props)) {
-      if (!object(data)) {
-        data = {};
-      }
-      extend(data, props);
-    }
-    if (data) {
-      instance.$data = data;
-    }
-
-    if (object(components)) {
-      instance.$children = [];
-      instance.$components = components;
-    }
-    if (object(directives)) {
-      instance.$directives = directives;
-    }
-    if (object(filters)) {
-      instance.$filters = filters;
-    }
-    if (object(partials)) {
-      instance.$partials = partials;
-    }
+    instance.$children = [];
+    set$3(instance, 'component', components);
+    set$3(instance, 'directive', directives);
+    set$3(instance, 'filter', filters);
+    set$3(instance, 'partial', partials);
 
     if (object(computed)) {
       (function () {
@@ -3655,8 +3666,8 @@ var Yox = function () {
               var removedDeps = [];
               if (array(oldDeps)) {
                 each$1(merge(oldDeps, newDeps), function (dep) {
-                  var oldExisted = hasItem(oldDeps, dep);
-                  var newExisted = hasItem(newDeps, dep);
+                  var oldExisted = has$2(oldDeps, dep);
+                  var newExisted = has$2(newDeps, dep);
                   if (oldExisted && !newExisted) {
                     removedDeps.push(dep);
                   } else if (!oldExisted && newExisted) {
@@ -3675,7 +3686,7 @@ var Yox = function () {
               });
 
               each$1(removedDeps, function (dep) {
-                removeItem($computedWatchers[dep], keypath);
+                remove$1($computedWatchers[dep], keypath);
               });
 
               $computedCache[keypath] = result;
@@ -3693,37 +3704,11 @@ var Yox = function () {
       })();
     }
 
-    instance.$eventEmitter = new Emitter();
-
-    if (object(events)) {
-      each$$1(events, function (listener, type) {
-        if (func(listener)) {
-          instance.on(type, listener);
-        }
-      });
+    if (el && template) {
+      execute$1(options[BEFORE_MOUNT], instance);
+      instance.$template = instance.compile(template);
+      instance.updateView(el);
     }
-
-    instance.$watchEmitter = new Emitter();
-
-    if (object(watchers)) {
-      each$$1(watchers, function (watcher, keypath) {
-        instance.watch(keypath, watcher);
-      });
-    }
-
-    call(instance, CREATE);
-
-    if (template) {
-      instance.$template = _parse(template, function (name) {
-        return instance.getPartial(name);
-      }, function (name, node) {
-        set$3(instance, 'partial', name, node);
-      });
-    }
-
-    call(instance, COMPILE);
-
-    instance.updateView(el);
   }
 
   createClass(Yox, [{
@@ -3735,7 +3720,7 @@ var Yox = function () {
 
 
       if (array($computedStack)) {
-        var deps = lastItem($computedStack);
+        var deps = last($computedStack);
         if (deps) {
           deps.push(keypath);
         }
@@ -3760,13 +3745,15 @@ var Yox = function () {
         model[keypath] = value;
       }
       var instance = this;
-      if (instance.updateModel(model)) {
+      if (instance.updateModel(model) && instance.$currentNode) {
         if (sync$1) {
+          execute$1(instance.$options[BEFORE_UPDATE], instance);
           instance.updateView();
         } else if (!instance.$syncing) {
           instance.$syncing = TRUE;
           add(function () {
             delete instance.$syncing;
+            execute$1(instance.$options[BEFORE_UPDATE], instance);
             instance.updateView();
           });
         }
@@ -3930,6 +3917,7 @@ var Yox = function () {
       var context = {};
 
       extend(context, filter.data, $data, $filters);
+
       each$$1(context, function (value, key) {
         if (func(value)) {
           context[key] = value.bind(instance);
@@ -3940,24 +3928,21 @@ var Yox = function () {
         extend(context, $computedGetters);
       }
 
-      var node = $template && render$1($template, context);
-      if (!node) {
-        return;
-      }
-
+      var node = render$1($template, context);
       var newNode = create$1(node, instance);
+      var afterHook = void 0;
 
       if ($currentNode) {
+        afterHook = AFTER_UPDATE;
         $currentNode = patch($currentNode, newNode);
-        call(instance, UPDATE);
       } else {
+        afterHook = AFTER_MOUNT;
         $currentNode = patch(el, newNode);
         instance.$el = $currentNode.elm;
-        call(instance, ATTACH);
-        call(instance, READY);
       }
 
       instance.$currentNode = $currentNode;
+      execute$1(instance.$options[afterHook], instance);
     }
   }, {
     key: 'create',
@@ -3967,6 +3952,16 @@ var Yox = function () {
       var child = new Yox(options);
       this.$children.push(child);
       return child;
+    }
+  }, {
+    key: 'compile',
+    value: function compile(template) {
+      var instance = this;
+      return _parse(template, function (name) {
+        return instance.getPartial(name);
+      }, function (name, node) {
+        set$3(instance, 'partial', name, node);
+      });
     }
   }, {
     key: 'compileAttr',
@@ -3991,15 +3986,16 @@ var Yox = function () {
   }, {
     key: 'getPartial',
     value: function getPartial(name) {
-      return get$3(this, 'partial', name);
+      var partial$$1 = get$3(this, 'partial', name);
+      return string(partial$$1) ? this.compile(partial$$1) : partial$$1;
     }
   }, {
     key: 'destroy',
-    value: function destroy() {
+    value: function destroy(removed) {
 
       var instance = this;
 
-      call(instance, DESTROY);
+      execute$1(instance.$options[BEFORE_DESTROY], instance);
 
       var $el = instance.$el,
           $parent = instance.$parent,
@@ -4016,27 +4012,30 @@ var Yox = function () {
       }
 
       if ($parent && $parent.$children) {
-        removeItem($parent.$children, instance);
+        remove$1($parent.$children, instance);
       }
 
       $watchEmitter.off();
       $eventEmitter.off();
 
-      if (arguments[0] !== TRUE && $currentNode) {
-        instance.$currentNode = patch($currentNode, { text: '' });
+      if (removed !== TRUE && $currentNode) {
+        patch($currentNode, { text: '' });
       }
 
       if ($el) {
         delete instance.$el;
       }
+      if ($currentNode) {
+        delete instance.$currentNode;
+      }
 
-      call(instance, DETACH);
+      execute$1(instance.$options[AFTER_DESTROY], instance);
     }
   }]);
   return Yox;
 }();
 
-Yox.version = '0.14.0';
+Yox.version = '0.15.1';
 
 Yox.switcher = switcher;
 
@@ -4062,15 +4061,20 @@ Yox.partial = function (id, value) {
   partial.set(id, value);
 };
 
-Yox.nextTick = function (fn) {
-  add(fn);
-};
+Yox.nextTick = add;
 
 Yox.validate = validate;
 
 Yox.use = function (plugin) {
   plugin.install(Yox);
 };
+
+Yox.directive({
+  ref: refDt,
+  event: eventDt,
+  model: modelDt,
+  component: componentDt
+});
 
 return Yox;
 

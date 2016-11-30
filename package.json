@@ -1,8 +1,12 @@
 {
   "name": "yox-router",
-  "version": "0.5.0",
-  "description": "yox-router router mvvm",
+  "version": "0.6.0",
+  "description": "router for yox.js",
   "main": "dist/yox-router.min.js",
+  "keywords": [
+    "router",
+    "mvvm"
+  ],
   "scripts": {
     "source": "rollup -c",
     "release": "NODE_ENV=release rollup -c"

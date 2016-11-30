@@ -54,20 +54,20 @@
                 this.$router.go('/login')
               }
             },
-            onBeforeEnter: function (to, from, next) {
-              console.log('component onBeforeEnter', to, from)
+            beforeEnter: function (to, from, next) {
+              console.log('component beforeEnter', to, from)
               next()
             },
-            onAfterEnter: function (to, from, next) {
-              console.log('component onAfterEnter', to, from)
+            afterEnter: function (to, from, next) {
+              console.log('component afterEnter', to, from)
               next()
             },
-            onBeforeLeave: function (to, from, next) {
-              console.log('component onBeforeLeave', to, from)
+            beforeLeave: function (to, from, next) {
+              console.log('component beforeLeave', to, from)
               next()
             },
-            onAfterLeave: function (to, from, next) {
-              console.log('component onAfterLeave', to, from)
+            afterLeave: function (to, from, next) {
+              console.log('component afterLeave', to, from)
               next()
             }
           },
@@ -128,20 +128,20 @@
           '/register': {
             name: 'register',
             component: 'register',
-            onBeforeEnter: function (to, from, next) {
-              console.log('route onBeforeEnter', to, from)
+            beforeEnter: function (to, from, next) {
+              console.log('route beforeEnter', to, from)
               next()
             },
-            onAfterEnter: function (to, from, next) {
-              console.log('route onAfterEnter', to, from)
+            afterEnter: function (to, from, next) {
+              console.log('route afterEnter', to, from)
               next()
             },
-            onBeforeLeave: function (to, from, next) {
-              console.log('route onBeforeLeave', to, from)
+            beforeLeave: function (to, from, next) {
+              console.log('route beforeLeave', to, from)
               next()
             },
-            onAfterLeave: function (to, from, next) {
-              console.log('route onAfterLeave', to, from)
+            afterLeave: function (to, from, next) {
+              console.log('route afterLeave', to, from)
               next()
             }
           },
@@ -154,20 +154,20 @@
             component: 'profile'
           }
         })
-        router.onBeforeEnter = function (to, from, next) {
-          console.log('router onBeforeEnter', to, from)
+        router.beforeEnter = function (to, from, next) {
+          console.log('router beforeEnter', to, from)
           next()
         }
-        router.onAfterEnter = function (to, from, next) {
-          console.log('router onAfterEnter', to, from)
+        router.afterEnter = function (to, from, next) {
+          console.log('router afterEnter', to, from)
           next()
         }
-        router.onBeforeLeave = function (to, from, next) {
-          console.log('router onBeforeLeave', to, from)
+        router.beforeLeave = function (to, from, next) {
+          console.log('router beforeLeave', to, from)
           next()
         }
-        router.onAfterLeave = function (to, from, next) {
-          console.log('router onAfterLeave', to, from)
+        router.afterLeave = function (to, from, next) {
+          console.log('router afterLeave', to, from)
           next()
         }
 
