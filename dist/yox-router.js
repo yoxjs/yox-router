@@ -135,6 +135,7 @@ var slicedToArray = function () {
   };
 }();
 
+var root = void 0;
 var is = void 0;
 var array = void 0;
 var object = void 0;
@@ -268,32 +269,6 @@ function stringifyHash(path, params, query) {
   }
 
   return PREFIX_HASH + realpath + search;
-}
-
-function getComponent(name, callback) {
-  var _is = is,
-      func = _is.func,
-      object = _is.object;
-
-  var component = name2Component[name];
-  if (func(component)) {
-    (function () {
-      var $pending = component.$pending;
-
-      if (!$pending) {
-        $pending = component.$pending = [];
-        component(function (target) {
-          array.each($pending, function (callback) {
-            callback(target);
-          });
-          name2Component[name] = target;
-        });
-      }
-      $pending.push(callback);
-    })();
-  } else if (object(component)) {
-    callback(component);
-  }
 }
 
 var Chain = function () {
@@ -497,7 +472,7 @@ var Router = function () {
 
       currentComponent.name = component;
 
-      getComponent(component, function (componentOptions) {
+      root.component(component, function (componentOptions) {
         if (component === currentComponent.name) {
           if (instance) {
             if (options === componentOptions) {
@@ -535,9 +510,7 @@ var Router = function () {
   return Router;
 }();
 
-var name2Component = {};
-
-Router.version = '0.6.0';
+Router.version = '0.7.0';
 
 Router.HOOK_REROUTE = 'reroute';
 
@@ -550,17 +523,13 @@ Router.HOOK_BEFORE_LEAVE = 'beforeLeave';
 Router.HOOK_AFTER_LEAVE = 'afterLeave';
 
 Router.register = function (name, component) {
-  if (is.object(name)) {
-    object.extend(name2Component, name);
-  } else {
-    name2Component[name] = component;
-  }
+  root.component(name, component);
 };
 
 Router.install = function (Yox) {
+  root = new Yox({});
   Component = Yox;
-  var _Component = Component,
-      utils = _Component.utils;
+  var utils = Yox.utils;
 
   is = utils.is;
   array = utils.array;

@@ -84,8 +84,8 @@
                       {{stringify(this)}}
                     </div>
                   `,
-                  onReroute: function (to, from, next) {
-                    console.log('component onReroute', to)
+                  reroute: function (to, from, next) {
+                    console.log('component reroute', to)
                   },
                   methods: {
                     index: function () {
@@ -121,8 +121,8 @@
           },
           '/index': {
             component: 'index',
-            onReroute: function (to, from, next) {
-              console.log('onReroute index', to)
+            reroute: function (to, from, next) {
+              console.log('reroute index', to)
             }
           },
           '/register': {

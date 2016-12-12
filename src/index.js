@@ -1,5 +1,5 @@
 
-let is, array, object, native, Component
+let root, is, array, object, native, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '#!'
@@ -202,37 +202,6 @@ function stringifyHash(path, params, query) {
 
   return PREFIX_HASH + realpath + search
 
-}
-
-
-/**
- * 获取配置的组件，支持异步获取
- *
- * @param {string} name
- * @param {Function} callback
- */
-function getComponent(name, callback) {
-  let { func, object } = is
-  let component = name2Component[name]
-  if (func(component)) {
-    let { $pending } = component
-    if (!$pending) {
-      $pending = component.$pending = [ ]
-      component(function (target) {
-        array.each(
-          $pending,
-          function (callback) {
-            callback(target)
-          }
-        )
-        name2Component[name] = target
-      })
-    }
-    $pending.push(callback)
-  }
-  else if (object(component)) {
-    callback(component)
-  }
 }
 
 class Chain {
@@ -500,7 +469,7 @@ export default class Router {
 
     currentComponent.name = component
 
-    getComponent(
+    root.component(
       component,
       function (componentOptions) {
         // 当连续调用此方法，且可能出现异步组件时
@@ -557,20 +526,12 @@ export default class Router {
 
 
 
-
-/**
- * 全局注册的组件，name -> component
- *
- * @type {Object}
- */
-let name2Component = { }
-
 /**
  * 版本
  *
  * @type {string}
  */
-Router.version = '0.6.0'
+Router.version = '0.7.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
@@ -614,12 +575,7 @@ Router.HOOK_AFTER_LEAVE = 'afterLeave'
  * @param {?Object} component
  */
 Router.register = function (name, component) {
-  if (is.object(name)) {
-    object.extend(name2Component, name)
-  }
-  else {
-    name2Component[name] = component
-  }
+  root.component(name, component)
 }
 
 /**
@@ -628,8 +584,9 @@ Router.register = function (name, component) {
  * @param {Yox} Yox
  */
 Router.install = function (Yox) {
+  root = new Yox({ })
   Component = Yox
-  let { utils } = Component
+  let { utils } = Yox
   is = utils.is
   array = utils.array
   object = utils.object
