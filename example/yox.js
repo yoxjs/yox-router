@@ -13,22 +13,11 @@ var THIS = '$this';
 
 
 
-var doc = document;
+var doc = typeof document !== 'undefined' ? document : NULL;
 
 var templateParse = {};
 
 var expressionParse = {};
-
-var expressionCompile = {};
-
-var keypathWildcardMatches = {};
-
-var cache = Object.freeze({
-	templateParse: templateParse,
-	expressionParse: expressionParse,
-	expressionCompile: expressionCompile,
-	keypathWildcardMatches: keypathWildcardMatches
-});
 
 var IF = '#if';
 var ELSE = 'else';
@@ -111,10 +100,6 @@ function numeric(arg) {
   return !isNaN(parseFloat(arg)) && isFinite(arg);
 }
 
-function getter(name) {
-  return string(name) && arguments[1] == NULL;
-}
-
 var is$1 = Object.freeze({
 	is: is,
 	func: func,
@@ -124,18 +109,19 @@ var is$1 = Object.freeze({
 	number: number,
 	boolean: boolean,
 	primitive: primitive$1,
-	numeric: numeric,
-	getter: getter
+	numeric: numeric
 });
 
-var toString$1 = function (str, defaultValue) {
+var toString$1 = function (str) {
+  var defaultValue = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+
   if (string(str)) {
     return str;
   }
   if (numeric(str)) {
     return '' + str;
   }
-  return arguments.length === 2 ? defaultValue : '';
+  return defaultValue;
 };
 
 var slice = Array.prototype.slice;
@@ -162,7 +148,7 @@ function reduce(array$$1, callback, initialValue) {
   return array$$1.reduce(callback, initialValue);
 }
 
-function diff$1(array1, array2, strict) {
+function diff(array1, array2, strict) {
   var result = [];
   each$1(array2, function (item) {
     if (!has$2(array1, item, strict)) {
@@ -218,24 +204,29 @@ function last(array$$1) {
   return array$$1[array$$1.length - 1];
 }
 
-function remove$1(array$$1, item, strict) {
+function remove(array$$1, item, strict) {
   var index = indexOf(array$$1, item, strict);
   if (index >= 0) {
     array$$1.splice(index, 1);
   }
 }
 
+function falsy(array$$1) {
+  return !array(array$$1) || array$$1.length === 0;
+}
+
 var array$1 = Object.freeze({
 	each: each$1,
 	reduce: reduce,
-	diff: diff$1,
+	diff: diff,
 	merge: merge,
 	toArray: toArray,
 	toObject: toObject,
 	indexOf: indexOf,
 	has: has$2,
 	last: last,
-	remove: remove$1
+	remove: remove,
+	falsy: falsy
 });
 
 function keys(object$$1) {
@@ -311,7 +302,6 @@ function get$1(object$$1, keypath) {
 function set$1(object$$1, keypath, value) {
   var autoFill = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : TRUE;
 
-  var remove$$1 = arguments.length === 2;
   keypath = toString$1(keypath);
   if (keypath.indexOf('.') > 0) {
     var originalObject = object$$1;
@@ -320,7 +310,7 @@ function set$1(object$$1, keypath, value) {
     each$1(list, function (item, index) {
       if (object$$1[item]) {
         object$$1 = object$$1[item];
-      } else if (!remove$$1 && autoFill) {
+      } else if (autoFill) {
         object$$1 = object$$1[item] = {};
       } else {
         object$$1 = NULL;
@@ -328,20 +318,10 @@ function set$1(object$$1, keypath, value) {
       }
     });
     if (object$$1 && object$$1 !== originalObject) {
-      setValue(object$$1, prop, value, remove$$1);
+      object$$1[prop] = value;
     }
   } else {
-    setValue(object$$1, keypath, value, remove$$1);
-  }
-}
-
-function setValue(object$$1, name, value, remove$$1) {
-  if (remove$$1) {
-    if (has$1(object$$1, name)) {
-      delete object$$1[name];
-    }
-  } else {
-    object$$1[name] = value;
+    object$$1[keypath] = value;
   }
 }
 
@@ -503,10 +483,10 @@ var Store = function () {
       var data = this.data;
 
       if (object(key)) {
-        each$$1(key, function (value, name) {
-          data[name] = value;
+        each$$1(key, function (value, key) {
+          data[key] = value;
         });
-      } else {
+      } else if (string(key)) {
         data[key] = value;
       }
     }
@@ -514,16 +494,16 @@ var Store = function () {
   return Store;
 }();
 
-var component$1 = new Store();
+var component = new Store();
 var directive$1 = new Store();
 var filter$1 = new Store();
-var partial = new Store();
+var partial$1 = new Store();
 
 var registry = Object.freeze({
-	component: component$1,
+	component: component,
 	directive: directive$1,
 	filter: filter$1,
-	partial: partial
+	partial: partial$1
 });
 
 var debug = TRUE;
@@ -547,6 +527,83 @@ var AFTER_UPDATE = 'afterUpdate';
 var BEFORE_DESTROY = 'beforeDestroy';
 
 var AFTER_DESTROY = 'afterDestroy';
+
+var hasConsole = typeof console !== 'undefined';
+
+function warn(msg) {
+  if (debug && hasConsole) {
+    console.warn(msg);
+  }
+}
+
+function error$1(msg) {
+  if (hasConsole) {
+    console.error(msg);
+  }
+}
+
+var logger = Object.freeze({
+	warn: warn,
+	error: error$1
+});
+
+var breaklinePrefixPattern = /^[ \t]*\n/;
+var breaklineSuffixPattern = /\n[ \t]*$/;
+
+var nonSingleQuotePattern = /^[^']*/;
+var nonDoubleQuotePattern = /^[^"]*/;
+
+function isBreakLine(str) {
+  return str.indexOf('\n') >= 0 && !str.trim();
+}
+
+function trimBreakline(str) {
+  return str.replace(breaklinePrefixPattern, '').replace(breaklineSuffixPattern, '');
+}
+
+function matchByQuote(str, nonQuote) {
+  var match = str.match(nonQuote === '"' ? nonDoubleQuotePattern : nonSingleQuotePattern);
+  return match ? match[0] : '';
+}
+
+function getLocationByIndex(str, index) {
+
+  var line = 0,
+      col = 0,
+      pos = 0;
+
+  each$1(str.split('\n'), function (lineStr) {
+    line++;
+    col = 0;
+
+    var length = lineStr.length;
+
+    if (index >= pos && index <= pos + length) {
+      col = index - pos;
+      return FALSE;
+    }
+
+    pos += length;
+  });
+
+  return {
+    line: line,
+    col: col
+  };
+}
+
+function parseError(str, errorMsg, errorIndex) {
+  if (errorIndex == NULL) {
+    errorMsg += '.';
+  } else {
+    var _getLocationByIndex = getLocationByIndex(str, errorIndex),
+        line = _getLocationByIndex.line,
+        col = _getLocationByIndex.col;
+
+    errorMsg += ', at line ' + line + ', col ' + col + '.';
+  }
+  error$1(errorMsg);
+}
 
 var IF$1 = 1;
 
@@ -572,693 +629,6 @@ var ATTRIBUTE = 11;
 
 var TEXT = 12;
 
-var Context = function () {
-  function Context(data, parent) {
-    classCallCheck(this, Context);
-
-    var instance = this;
-    instance.data = data;
-    instance.parent = parent;
-    var cache = instance.cache = {};
-    cache[THIS] = data;
-  }
-
-  createClass(Context, [{
-    key: 'push',
-    value: function push(data) {
-      return new Context(data, this);
-    }
-  }, {
-    key: 'remove',
-    value: function remove(keypath) {
-      this.set(keypath);
-    }
-  }, {
-    key: 'set',
-    value: function set(keypath, value) {
-      var data = this.data,
-          cache = this.cache;
-
-      if (has$1(cache, keypath)) {
-        delete cache[keypath];
-      }
-      if (arguments.length === 1) {
-        set$1(data, keypath);
-      } else {
-        set$1(data, keypath, value);
-      }
-    }
-  }, {
-    key: 'get',
-    value: function get(keypath) {
-
-      var instance = this;
-      var _instance = instance,
-          cache = _instance.cache;
-
-
-      if (!has$1(cache, keypath)) {
-        var result = void 0;
-        var keypaths = [keypath];
-        while (instance) {
-          result = get$1(instance.data, keypath);
-          if (result) {
-            break;
-          } else {
-            instance = instance.parent;
-            keypaths.unshift('..');
-          }
-        }
-        keypath = keypaths.join('/');
-        if (result) {
-          cache[keypath] = result.value;
-        }
-      }
-
-      var value = cache[keypath];
-      if (keypath === THIS) {
-        keypath = '.';
-      }
-
-      return {
-        value: value,
-        keypath: keypath
-      };
-    }
-  }]);
-  return Context;
-}();
-
-var Scanner = function () {
-  function Scanner(str) {
-    classCallCheck(this, Scanner);
-
-    this.reset(str);
-  }
-
-  createClass(Scanner, [{
-    key: 'reset',
-    value: function reset(str) {
-      this.pos = 0;
-      this.tail = str;
-    }
-  }, {
-    key: 'hasNext',
-    value: function hasNext() {
-      return this.tail;
-    }
-  }, {
-    key: 'nextAfter',
-    value: function nextAfter(pattern) {
-      var tail = this.tail;
-
-      var matches = tail.match(pattern);
-      if (!matches || matches.index) {
-        return '';
-      }
-      var result = matches[0];
-      this.forward(result.length);
-      return result;
-    }
-  }, {
-    key: 'nextBefore',
-    value: function nextBefore(pattern) {
-      var pos = this.pos,
-          tail = this.tail;
-
-      var matches = tail.match(pattern);
-      if (matches) {
-        var index = matches.index;
-
-        if (!index) {
-          return '';
-        }
-        var result = tail.substr(0, index);
-        this.forward(index);
-        return result;
-      } else {
-        this.forward(tail.length);
-        return tail;
-      }
-    }
-  }, {
-    key: 'forward',
-    value: function forward(offset) {
-      this.pos += offset;
-      this.tail = this.tail.slice(offset);
-    }
-  }, {
-    key: 'charAt',
-    value: function charAt(index) {
-      return this.tail[index];
-    }
-  }]);
-  return Scanner;
-}();
-
-var execute$1 = function (fn, context, args) {
-  if (func(fn)) {
-    if (array(args)) {
-      return fn.apply(context, args);
-    } else {
-      return fn.call(context, args);
-    }
-  }
-};
-
-var Node = function () {
-  function Node(type, hasChildren) {
-    classCallCheck(this, Node);
-
-    this.type = type;
-    if (hasChildren !== FALSE) {
-      this.children = [];
-    }
-  }
-
-  createClass(Node, [{
-    key: 'addChild',
-    value: function addChild(node) {
-      var children = this.children;
-
-      if (node.type === TEXT) {
-        var lastChild = last(children);
-        if (lastChild && lastChild.type === TEXT) {
-          lastChild.content += node.content;
-          return;
-        }
-      }
-      children.push(node);
-    }
-  }, {
-    key: 'getValue',
-    value: function getValue() {
-      var children = this.children;
-
-      return children[0] ? children[0].content : TRUE;
-    }
-  }, {
-    key: 'execute',
-    value: function execute$1(data) {
-      var context = data.context,
-          keys$$1 = data.keys,
-          addDeps = data.addDeps;
-
-      var _expr$execute = this.expr.execute(context),
-          value = _expr$execute.value,
-          deps = _expr$execute.deps;
-
-      var newDeps = {};
-      each$$1(deps, function (value, keypath) {
-        var base = copy(keys$$1);
-        each$1(keypath.split('/'), function (term) {
-          if (term === '..') {
-            base.pop();
-          } else if (term && term !== '.') {
-            base.push(term);
-          }
-        });
-        newDeps[base.join('.')] = value;
-      });
-      addDeps(newDeps);
-      return {
-        value: value,
-        deps: newDeps
-      };
-    }
-  }, {
-    key: 'render',
-    value: function render() {}
-  }, {
-    key: 'renderChildren',
-    value: function renderChildren(data, children) {
-      reduce(children || this.children, function (prev, current) {
-        return current.render(data, prev);
-      });
-    }
-  }]);
-  return Node;
-}();
-
-var Attribute = function (_Node) {
-  inherits(Attribute, _Node);
-
-  function Attribute(name) {
-    classCallCheck(this, Attribute);
-
-    var _this = possibleConstructorReturn(this, (Attribute.__proto__ || Object.getPrototypeOf(Attribute)).call(this, ATTRIBUTE));
-
-    _this.name = name;
-    return _this;
-  }
-
-  createClass(Attribute, [{
-    key: 'render',
-    value: function render(data) {
-      var name = this.name;
-      var keys$$1 = data.keys,
-          parent = data.parent;
-
-
-      if (name.type === EXPRESSION) {
-        var _name$execute = name.execute(data),
-            value = _name$execute.value;
-
-        name = value;
-      }
-
-      var node = new Attribute(name);
-      node.keypath = keys$$1.join('.');
-      parent.addAttr(node);
-
-      var deps = {};
-      var nextData = {
-        parent: node,
-        addDeps: function addDeps(childrenDeps) {
-          extend(deps, childrenDeps);
-        }
-      };
-
-      this.renderChildren(extend({}, data, nextData));
-
-      node.deps = deps;
-      data.addDeps(deps);
-    }
-  }]);
-  return Attribute;
-}(Node);
-
-var Directive = function (_Node) {
-  inherits(Directive, _Node);
-
-  function Directive(name) {
-    classCallCheck(this, Directive);
-
-    var _this = possibleConstructorReturn(this, (Directive.__proto__ || Object.getPrototypeOf(Directive)).call(this, DIRECTIVE));
-
-    _this.name = name;
-    return _this;
-  }
-
-  createClass(Directive, [{
-    key: 'render',
-    value: function render(data) {
-
-      var node = new Directive(this.name);
-      node.keypath = data.keys.join('.');
-      data.parent.addDirective(node);
-
-      this.renderChildren(extend({}, data, { parent: node }));
-    }
-  }]);
-  return Directive;
-}(Node);
-
-var Each = function (_Node) {
-  inherits(Each, _Node);
-
-  function Each(expr, index) {
-    classCallCheck(this, Each);
-
-    var _this = possibleConstructorReturn(this, (Each.__proto__ || Object.getPrototypeOf(Each)).call(this, EACH$1));
-
-    _this.expr = expr;
-    _this.index = index;
-    return _this;
-  }
-
-  createClass(Each, [{
-    key: 'render',
-    value: function render(data) {
-
-      var instance = this;
-      var expr = instance.expr,
-          index = instance.index;
-      var context = data.context,
-          keys$$1 = data.keys;
-
-      var _instance$execute = instance.execute(data),
-          value = _instance$execute.value;
-
-      var iterate = void 0;
-      if (array(value)) {
-        iterate = each$1;
-      } else if (object(value)) {
-        iterate = each$$1;
-      }
-
-      if (iterate) {
-        (function () {
-          var listContext = context.push(value);
-          keys$$1.push(expr.stringify());
-          iterate(value, function (item, i) {
-            if (index) {
-              listContext.set(index, i);
-            }
-            keys$$1.push(i);
-            listContext.set(SPECIAL_KEYPATH, keys$$1.join('.'));
-
-            instance.renderChildren(extend({}, data, { context: listContext.push(item) }));
-
-            listContext.remove(SPECIAL_KEYPATH);
-            keys$$1.pop();
-            if (index) {
-              listContext.remove(index);
-            }
-          });
-          keys$$1.pop();
-        })();
-      }
-    }
-  }]);
-  return Each;
-}(Node);
-
-var Element = function (_Node) {
-  inherits(Element, _Node);
-
-  function Element(name, component) {
-    classCallCheck(this, Element);
-
-    var _this = possibleConstructorReturn(this, (Element.__proto__ || Object.getPrototypeOf(Element)).call(this, ELEMENT));
-
-    _this.name = name;
-    _this.component = component;
-    _this.attrs = [];
-    _this.directives = [];
-    return _this;
-  }
-
-  createClass(Element, [{
-    key: 'addAttr',
-    value: function addAttr(node) {
-      this.attrs.push(node);
-    }
-  }, {
-    key: 'addDirective',
-    value: function addDirective(node) {
-      this.directives.push(node);
-    }
-  }, {
-    key: 'render',
-    value: function render(data) {
-
-      var instance = this;
-      var name = instance.name,
-          component = instance.component,
-          attrs = instance.attrs,
-          directives = instance.directives;
-
-      var node = new Element(name, component);
-      node.keypath = data.keys.join('.');
-      data.parent.addChild(node);
-
-      data = extend({}, data, { parent: node });
-      instance.renderChildren(data, attrs);
-      instance.renderChildren(data, directives);
-      instance.renderChildren(data);
-    }
-  }]);
-  return Element;
-}(Node);
-
-var Else = function (_Node) {
-  inherits(Else, _Node);
-
-  function Else() {
-    classCallCheck(this, Else);
-    return possibleConstructorReturn(this, (Else.__proto__ || Object.getPrototypeOf(Else)).call(this, ELSE$1));
-  }
-
-  createClass(Else, [{
-    key: 'render',
-    value: function render(data, prev) {
-      if (prev) {
-        this.renderChildren(data);
-      }
-    }
-  }]);
-  return Else;
-}(Node);
-
-var ElseIf = function (_Node) {
-  inherits(ElseIf, _Node);
-
-  function ElseIf(expr) {
-    classCallCheck(this, ElseIf);
-
-    var _this = possibleConstructorReturn(this, (ElseIf.__proto__ || Object.getPrototypeOf(ElseIf)).call(this, ELSE_IF$1));
-
-    _this.expr = expr;
-    return _this;
-  }
-
-  createClass(ElseIf, [{
-    key: 'render',
-    value: function render(data, prev) {
-      if (prev) {
-        var _execute = this.execute(data),
-            value = _execute.value;
-
-        if (value) {
-          this.renderChildren(data);
-        } else {
-          return prev;
-        }
-      }
-    }
-  }]);
-  return ElseIf;
-}(Node);
-
-var Text = function (_Node) {
-  inherits(Text, _Node);
-
-  function Text(content) {
-    classCallCheck(this, Text);
-
-    var _this = possibleConstructorReturn(this, (Text.__proto__ || Object.getPrototypeOf(Text)).call(this, TEXT, FALSE));
-
-    _this.content = content;
-    return _this;
-  }
-
-  createClass(Text, [{
-    key: 'render',
-    value: function render(data) {
-      var node = new Text(this.content);
-      node.keypath = data.keys.join('.');
-      data.parent.addChild(node);
-    }
-  }]);
-  return Text;
-}(Node);
-
-var Expression = function (_Node) {
-  inherits(Expression, _Node);
-
-  function Expression(expr, safe) {
-    classCallCheck(this, Expression);
-
-    var _this = possibleConstructorReturn(this, (Expression.__proto__ || Object.getPrototypeOf(Expression)).call(this, EXPRESSION, FALSE));
-
-    _this.expr = expr;
-    _this.safe = safe;
-    return _this;
-  }
-
-  createClass(Expression, [{
-    key: 'render',
-    value: function render(data) {
-      var _execute = this.execute(data),
-          value = _execute.value;
-
-      if (value == NULL) {
-        value = '';
-      }
-
-      if (func(value) && value.computed) {
-        value = value();
-      }
-
-      if (!this.safe && string(value) && tag.test(value)) {
-        each$1(data.parse(value), function (node) {
-          node.render(data);
-        });
-      } else {
-        var node = new Text(value);
-        node.render(data);
-      }
-    }
-  }]);
-  return Expression;
-}(Node);
-
-var If = function (_Node) {
-  inherits(If, _Node);
-
-  function If(expr) {
-    classCallCheck(this, If);
-
-    var _this = possibleConstructorReturn(this, (If.__proto__ || Object.getPrototypeOf(If)).call(this, IF$1));
-
-    _this.expr = expr;
-    return _this;
-  }
-
-  createClass(If, [{
-    key: 'render',
-    value: function render(data) {
-      var _execute = this.execute(data),
-          value = _execute.value;
-
-      if (value) {
-        this.renderChildren(data);
-      } else {
-        return TRUE;
-      }
-    }
-  }]);
-  return If;
-}(Node);
-
-var Import = function (_Node) {
-  inherits(Import, _Node);
-
-  function Import(name) {
-    classCallCheck(this, Import);
-
-    var _this = possibleConstructorReturn(this, (Import.__proto__ || Object.getPrototypeOf(Import)).call(this, IMPORT$1, FALSE));
-
-    _this.name = name;
-    return _this;
-  }
-
-  return Import;
-}(Node);
-
-var Partial = function (_Node) {
-  inherits(Partial, _Node);
-
-  function Partial(name) {
-    classCallCheck(this, Partial);
-
-    var _this = possibleConstructorReturn(this, (Partial.__proto__ || Object.getPrototypeOf(Partial)).call(this, PARTIAL$1));
-
-    _this.name = name;
-    return _this;
-  }
-
-  return Partial;
-}(Node);
-
-var Spread = function (_Node) {
-  inherits(Spread, _Node);
-
-  function Spread(expr) {
-    classCallCheck(this, Spread);
-
-    var _this = possibleConstructorReturn(this, (Spread.__proto__ || Object.getPrototypeOf(Spread)).call(this, SPREAD$1, FALSE));
-
-    _this.expr = expr;
-    return _this;
-  }
-
-  createClass(Spread, [{
-    key: 'render',
-    value: function render(data) {
-      var _execute = this.execute(data),
-          value = _execute.value;
-
-      if (object(value)) {
-        each$$1(value, function (value, key) {
-          var node = new Attribute(key);
-          node.addChild(new Text(value));
-          node.render(data);
-        });
-      }
-    }
-  }]);
-  return Spread;
-}(Node);
-
-var hasConsole = typeof console !== 'undefined';
-
-function warn(msg) {
-  if (debug && hasConsole) {
-    console.warn(msg);
-  }
-}
-
-function error$1(msg) {
-  if (hasConsole) {
-    console.error(msg);
-  }
-}
-
-var logger = Object.freeze({
-	warn: warn,
-	error: error$1
-});
-
-var getLocationByIndex = function (str, index) {
-
-  var line = 0,
-      col = 0,
-      pos = 0;
-
-  each$1(str.split('\n'), function (lineStr) {
-    line++;
-    col = 0;
-
-    var length = lineStr.length;
-
-    if (index >= pos && index <= pos + length) {
-      col = index - pos;
-      return FALSE;
-    }
-
-    pos += length;
-  });
-
-  return {
-    line: line,
-    col: col
-  };
-};
-
-var breaklinePrefixPattern = /^[ \t]*\n/;
-var breaklineSuffixPattern = /\n[ \t]*$/;
-
-var nonSingleQuotePattern = /^[^']*/;
-var nonDoubleQuotePattern = /^[^"]*/;
-
-function isBreakLine(str) {
-  return str.indexOf('\n') >= 0 && !str.trim();
-}
-
-function trimBreakline(str) {
-  return str.replace(breaklinePrefixPattern, '').replace(breaklineSuffixPattern, '');
-}
-
-function matchByQuote(str, nonQuote) {
-  var match = str.match(nonQuote === '"' ? nonDoubleQuotePattern : nonSingleQuotePattern);
-  return match ? match[0] : '';
-}
-
-function parseError(str, errorMsg, errorIndex) {
-  if (errorIndex == NULL) {
-    errorMsg += '.';
-  } else {
-    var _getLocationByIndex = getLocationByIndex(str, errorIndex),
-        line = _getLocationByIndex.line,
-        col = _getLocationByIndex.col;
-
-    errorMsg += ', at line ' + line + ', col ' + col + '.';
-  }
-  error$1(errorMsg);
-}
-
 function isNumber(charCode) {
   return charCode >= 48 && charCode <= 57;
 }
@@ -1273,6 +643,12 @@ function isIdentifierStart(charCode) {
 
 function isIdentifierPart(charCode) {
   return isIdentifierStart(charCode) || isNumber(charCode);
+}
+
+function sortKeys(obj) {
+  return keys(obj).sort(function (a, b) {
+    return b.length - a.length;
+  });
 }
 
 function matchBestToken(content, sortedTokens) {
@@ -1299,8 +675,8 @@ var LITERAL = 6;
 var MEMBER = 7;
 var UNARY = 8;
 
-var Node$2 = function Node$2(type) {
-  classCallCheck(this, Node$2);
+var Node = function Node(type) {
+  classCallCheck(this, Node);
 
   this.type = type;
 };
@@ -1357,7 +733,7 @@ var Unary = function (_Node) {
     }
   }]);
   return Unary;
-}(Node$2);
+}(Node);
 
 Unary.PLUS = '+';
 Unary.MINUS = '-';
@@ -1453,7 +829,7 @@ var Binary = function (_Node) {
     }
   }]);
   return Binary;
-}(Node$2);
+}(Node);
 
 Binary.OR = '||';
 Binary.AND = '&&';
@@ -1475,18 +851,14 @@ Binary.MULTIPLY = '*';
 Binary.DIVIDE = '/';
 Binary.MODULO = '%';
 
-function sortKeys(obj) {
-  return keys(obj).sort(function (a, b) {
-    return b.length - a.length;
-  });
-}
-
 var unaryMap = {};
+
 unaryMap[Unary.PLUS] = unaryMap[Unary.MINUS] = unaryMap[Unary.BANG] = unaryMap[Unary.WAVE] = TRUE;
 
 var unaryList = sortKeys(unaryMap);
 
 var binaryMap = {};
+
 binaryMap[Binary.OR] = 1;
 binaryMap[Binary.AND] = 2;
 binaryMap[Binary.LE] = 3;
@@ -1551,7 +923,17 @@ var Array$1 = function (_Node) {
     }
   }]);
   return Array;
-}(Node$2);
+}(Node);
+
+var execute$1 = function (fn, context, args) {
+  if (func(fn)) {
+    if (array(args)) {
+      return fn.apply(context, args);
+    } else {
+      return fn.call(context, args);
+    }
+  }
+};
 
 var Call = function (_Node) {
   inherits(Call, _Node);
@@ -1600,7 +982,7 @@ var Call = function (_Node) {
     }
   }]);
   return Call;
-}(Node$2);
+}(Node);
 
 var Conditional = function (_Node) {
   inherits(Conditional, _Node);
@@ -1649,7 +1031,7 @@ var Conditional = function (_Node) {
     }
   }]);
   return Conditional;
-}(Node$2);
+}(Node);
 
 var Identifier = function (_Node) {
   inherits(Identifier, _Node);
@@ -1685,7 +1067,7 @@ var Identifier = function (_Node) {
     }
   }]);
   return Identifier;
-}(Node$2);
+}(Node);
 
 var Literal = function (_Node) {
   inherits(Literal, _Node);
@@ -1704,7 +1086,10 @@ var Literal = function (_Node) {
     value: function stringify() {
       var value = this.value;
 
-      return string(value) ? '\'' + value + '\'' : value;
+      if (string(value)) {
+        return value.indexOf('"') >= 0 ? '\'' + value + '\'' : '"' + value + '"';
+      }
+      return value;
     }
   }, {
     key: 'execute',
@@ -1716,7 +1101,7 @@ var Literal = function (_Node) {
     }
   }]);
   return Literal;
-}(Node$2);
+}(Node);
 
 var Member = function (_Node) {
   inherits(Member, _Node);
@@ -1751,11 +1136,13 @@ var Member = function (_Node) {
     }
   }, {
     key: 'stringify',
-    value: function stringify() {
-      var list = this.flatten();
-      return list.map(function (node, index) {
+    value: function stringify(list) {
+      return this.flatten().map(function (node, index) {
         if (node.type === LITERAL) {
-          return '.' + node.value;
+          var _node = node,
+              value = _node.value;
+
+          return numeric(value) ? '[' + value + ']' : '.' + value;
         } else {
           node = node.stringify();
           return index > 0 ? '[' + node + ']' : node;
@@ -1765,34 +1152,31 @@ var Member = function (_Node) {
   }, {
     key: 'execute',
     value: function execute(context) {
-      var list = this.flatten();
-      var firstNode = list.shift();
 
-      var _firstNode$execute = firstNode.execute(context),
-          value = _firstNode$execute.value,
-          deps = _firstNode$execute.deps;
+      var deps = {},
+          keys$$1 = [];
 
-      var key = keys(deps)[0],
-          keypaths = [key];
-      delete deps[key];
-
-      if (object(value)) {
-        each$1(list, function (node) {
-          if (node.type !== LITERAL) {
+      each$1(this.flatten(), function (node, index) {
+        if (node.type !== LITERAL) {
+          if (index > 0) {
             var result = node.execute(context);
             extend(deps, result.deps);
-            node = new Literal(result.value);
+            keys$$1.push(result.value);
+          } else if (node.type === IDENTIFIER) {
+            keys$$1.push(node.name);
           }
-          keypaths.push(node.value);
-          value = value[node.value];
-        });
-      }
-
-      keypaths = keypaths.filter(function (keypath) {
-        return keypath !== '.';
+        } else {
+          keys$$1.push(node.value);
+        }
       });
 
-      deps[keypaths.join('.')] = value;
+      var key = stringify$1(keys$$1);
+
+      var _context$get = context.get(key),
+          value = _context$get.value,
+          keypath = _context$get.keypath;
+
+      deps[keypath] = value;
 
       return {
         value: value,
@@ -1801,7 +1185,7 @@ var Member = function (_Node) {
     }
   }]);
   return Member;
-}(Node$2);
+}(Node);
 
 var COMMA = 44;
 var PERIOD = 46;
@@ -1813,7 +1197,7 @@ var OBRACK = 91;
 var CBRACK = 93;
 var QUMARK = 63;
 var COLON = 58;
-function parse$1(content) {
+function parse$2(content) {
   var length = content.length;
 
   var index = 0,
@@ -2073,8 +1457,605 @@ function parse$1(content) {
 }
 
 var expression = Object.freeze({
-	parse: parse$1
+	parse: parse$2
 });
+
+var SEPARATOR_KEY = '.';
+var SEPARATOR_PATH = '/';
+var LEVEL_CURRENT = '.';
+var LEVEL_PARENT = '..';
+
+function normalize(str) {
+  if (str.indexOf('[') > 0 && str.indexOf(']') > 0) {
+    return parse$2(str).stringify();
+  }
+  return str;
+}
+
+function parse$1(str) {
+  return normalize(str).split(SEPARATOR_KEY);
+}
+
+function stringify$1(keypaths) {
+  return keypaths.filter(function (term) {
+    return term !== '' && term !== LEVEL_CURRENT;
+  }).join(SEPARATOR_KEY);
+}
+
+function resolve(base, path) {
+  var list = parse$1(base);
+  each$1(path.split(SEPARATOR_PATH), function (term) {
+    if (term === LEVEL_PARENT) {
+      list.pop();
+    } else {
+      list.push(term);
+    }
+  });
+  return stringify$1(list);
+}
+
+var Context = function () {
+  function Context(data, parent) {
+    classCallCheck(this, Context);
+
+    this.data = copy(data);
+    this.parent = parent;
+    this.cache = {};
+    this.cache[THIS] = data;
+  }
+
+  createClass(Context, [{
+    key: 'push',
+    value: function push(data) {
+      return new Context(data, this);
+    }
+  }, {
+    key: 'set',
+    value: function set(key, value) {
+      var data = this.data,
+          cache = this.cache;
+
+      if (has$1(cache, key)) {
+        delete cache[key];
+      }
+      set$1(data, key, value);
+    }
+  }, {
+    key: 'get',
+    value: function get(key) {
+
+      var instance = this;
+      var _instance = instance,
+          cache = _instance.cache;
+
+
+      if (!has$1(cache, key)) {
+        var result = void 0;
+        var keys$$1 = [key];
+        while (instance) {
+          result = get$1(instance.data, key);
+          if (result) {
+            break;
+          } else {
+            instance = instance.parent;
+            keys$$1.unshift(LEVEL_PARENT);
+          }
+        }
+        key = keys$$1.join(SEPARATOR_PATH);
+        if (result) {
+          cache[key] = result.value;
+        }
+      }
+
+      var value = cache[key];
+      if (key === THIS) {
+        key = LEVEL_CURRENT;
+      }
+
+      return {
+        value: value,
+        keypath: key
+      };
+    }
+  }]);
+  return Context;
+}();
+
+var Scanner = function () {
+  function Scanner(str) {
+    classCallCheck(this, Scanner);
+
+    this.reset(str);
+  }
+
+  createClass(Scanner, [{
+    key: 'reset',
+    value: function reset(str) {
+      this.pos = 0;
+      this.tail = str;
+    }
+  }, {
+    key: 'hasNext',
+    value: function hasNext() {
+      return this.tail;
+    }
+  }, {
+    key: 'nextAfter',
+    value: function nextAfter(pattern) {
+      var tail = this.tail;
+
+      var matches = tail.match(pattern);
+      if (!matches || matches.index) {
+        return '';
+      }
+      var result = matches[0];
+      this.forward(result.length);
+      return result;
+    }
+  }, {
+    key: 'nextBefore',
+    value: function nextBefore(pattern) {
+      var pos = this.pos,
+          tail = this.tail;
+
+      var matches = tail.match(pattern);
+      if (matches) {
+        var index = matches.index;
+
+        if (!index) {
+          return '';
+        }
+        var result = tail.substr(0, index);
+        this.forward(index);
+        return result;
+      } else {
+        this.forward(tail.length);
+        return tail;
+      }
+    }
+  }, {
+    key: 'forward',
+    value: function forward(offset) {
+      this.pos += offset;
+      this.tail = this.tail.slice(offset);
+    }
+  }, {
+    key: 'charAt',
+    value: function charAt(index) {
+      return this.tail[index];
+    }
+  }]);
+  return Scanner;
+}();
+
+var Node$2 = function () {
+  function Node(type, hasChildren) {
+    classCallCheck(this, Node);
+
+    this.type = type;
+    if (hasChildren !== FALSE) {
+      this.children = [];
+    }
+  }
+
+  createClass(Node, [{
+    key: 'addChild',
+    value: function addChild(node) {
+      var children = this.children;
+
+      if (node.type === TEXT) {
+        var lastChild = last(children);
+        if (lastChild && lastChild.type === TEXT) {
+          lastChild.content += node.content;
+          return;
+        }
+      }
+      children.push(node);
+    }
+  }, {
+    key: 'getValue',
+    value: function getValue() {
+      var children = this.children;
+
+      return children[0] ? children[0].content : TRUE;
+    }
+  }, {
+    key: 'execute',
+    value: function execute$1(data) {
+      var context = data.context,
+          keys$$1 = data.keys,
+          addDeps = data.addDeps;
+
+      var _expr$execute = this.expr.execute(context),
+          value = _expr$execute.value,
+          deps = _expr$execute.deps;
+
+      var newDeps = {};
+      each$$1(deps, function (value, key) {
+        newDeps[resolve(stringify$1(keys$$1), key)] = value;
+      });
+      addDeps(newDeps);
+      return {
+        value: value,
+        deps: newDeps
+      };
+    }
+  }, {
+    key: 'render',
+    value: function render() {}
+  }, {
+    key: 'renderChildren',
+    value: function renderChildren(data, children) {
+      reduce(children || this.children, function (prev, current) {
+        return current.render(data, prev);
+      });
+    }
+  }]);
+  return Node;
+}();
+
+var Attribute = function (_Node) {
+  inherits(Attribute, _Node);
+
+  function Attribute(name) {
+    classCallCheck(this, Attribute);
+
+    var _this = possibleConstructorReturn(this, (Attribute.__proto__ || Object.getPrototypeOf(Attribute)).call(this, ATTRIBUTE));
+
+    _this.name = name;
+    return _this;
+  }
+
+  createClass(Attribute, [{
+    key: 'render',
+    value: function render(data) {
+      var name = this.name;
+      var keys$$1 = data.keys,
+          parent = data.parent;
+
+
+      if (name.type === EXPRESSION) {
+        var _name$execute = name.execute(data),
+            value = _name$execute.value;
+
+        name = value;
+      }
+
+      var node = new Attribute(name);
+      node.keypath = keys$$1.join('.');
+      parent.addAttr(node);
+
+      this.renderChildren(extend({}, data, { parent: node }));
+    }
+  }]);
+  return Attribute;
+}(Node$2);
+
+var Directive = function (_Node) {
+  inherits(Directive, _Node);
+
+  function Directive(name) {
+    classCallCheck(this, Directive);
+
+    var _this = possibleConstructorReturn(this, (Directive.__proto__ || Object.getPrototypeOf(Directive)).call(this, DIRECTIVE));
+
+    _this.name = name;
+    return _this;
+  }
+
+  createClass(Directive, [{
+    key: 'render',
+    value: function render(data) {
+
+      var node = new Directive(this.name);
+      node.keypath = data.keys.join('.');
+      data.parent.addDirective(node);
+
+      this.renderChildren(extend({}, data, { parent: node }));
+    }
+  }]);
+  return Directive;
+}(Node$2);
+
+var Each = function (_Node) {
+  inherits(Each, _Node);
+
+  function Each(expr, index) {
+    classCallCheck(this, Each);
+
+    var _this = possibleConstructorReturn(this, (Each.__proto__ || Object.getPrototypeOf(Each)).call(this, EACH$1));
+
+    _this.expr = expr;
+    _this.index = index;
+    return _this;
+  }
+
+  createClass(Each, [{
+    key: 'render',
+    value: function render(data) {
+
+      var instance = this;
+      var expr = instance.expr,
+          index = instance.index;
+      var context = data.context,
+          keys$$1 = data.keys;
+
+      var _instance$execute = instance.execute(data),
+          value = _instance$execute.value;
+
+      var iterate = void 0;
+      if (array(value)) {
+        iterate = each$1;
+      } else if (object(value)) {
+        iterate = each$$1;
+      }
+
+      if (iterate) {
+        (function () {
+          var listContext = context.push(value);
+          keys$$1.push(expr.stringify());
+          iterate(value, function (item, i) {
+            if (index) {
+              listContext.set(index, i);
+            }
+            keys$$1.push(i);
+            listContext.set(SPECIAL_KEYPATH, keys$$1.join('.'));
+            instance.renderChildren(extend({}, data, { context: listContext.push(item) }));
+            keys$$1.pop();
+          });
+          keys$$1.pop();
+        })();
+      }
+    }
+  }]);
+  return Each;
+}(Node$2);
+
+var Element = function (_Node) {
+  inherits(Element, _Node);
+
+  function Element(name, component) {
+    classCallCheck(this, Element);
+
+    var _this = possibleConstructorReturn(this, (Element.__proto__ || Object.getPrototypeOf(Element)).call(this, ELEMENT));
+
+    _this.name = name;
+    _this.component = component;
+    _this.attrs = [];
+    _this.directives = [];
+    return _this;
+  }
+
+  createClass(Element, [{
+    key: 'addAttr',
+    value: function addAttr(node) {
+      this.attrs.push(node);
+    }
+  }, {
+    key: 'addDirective',
+    value: function addDirective(node) {
+      this.directives.push(node);
+    }
+  }, {
+    key: 'render',
+    value: function render(data) {
+
+      var instance = this;
+      var name = instance.name,
+          component = instance.component,
+          attrs = instance.attrs,
+          directives = instance.directives;
+
+      var node = new Element(name, component);
+      node.keypath = data.keys.join('.');
+      data.parent.addChild(node);
+
+      data = extend({}, data, { parent: node });
+      instance.renderChildren(data, attrs);
+      instance.renderChildren(data, directives);
+      instance.renderChildren(data);
+    }
+  }]);
+  return Element;
+}(Node$2);
+
+var Else = function (_Node) {
+  inherits(Else, _Node);
+
+  function Else() {
+    classCallCheck(this, Else);
+    return possibleConstructorReturn(this, (Else.__proto__ || Object.getPrototypeOf(Else)).call(this, ELSE$1));
+  }
+
+  createClass(Else, [{
+    key: 'render',
+    value: function render(data, prev) {
+      if (prev) {
+        this.renderChildren(data);
+      }
+    }
+  }]);
+  return Else;
+}(Node$2);
+
+var ElseIf = function (_Node) {
+  inherits(ElseIf, _Node);
+
+  function ElseIf(expr) {
+    classCallCheck(this, ElseIf);
+
+    var _this = possibleConstructorReturn(this, (ElseIf.__proto__ || Object.getPrototypeOf(ElseIf)).call(this, ELSE_IF$1));
+
+    _this.expr = expr;
+    return _this;
+  }
+
+  createClass(ElseIf, [{
+    key: 'render',
+    value: function render(data, prev) {
+      if (prev) {
+        var _execute = this.execute(data),
+            value = _execute.value;
+
+        if (value) {
+          this.renderChildren(data);
+        } else {
+          return prev;
+        }
+      }
+    }
+  }]);
+  return ElseIf;
+}(Node$2);
+
+var Text = function (_Node) {
+  inherits(Text, _Node);
+
+  function Text(content) {
+    classCallCheck(this, Text);
+
+    var _this = possibleConstructorReturn(this, (Text.__proto__ || Object.getPrototypeOf(Text)).call(this, TEXT, FALSE));
+
+    _this.content = content;
+    return _this;
+  }
+
+  createClass(Text, [{
+    key: 'render',
+    value: function render(data) {
+      var node = new Text(this.content);
+      node.keypath = data.keys.join('.');
+      data.parent.addChild(node);
+    }
+  }]);
+  return Text;
+}(Node$2);
+
+var Expression = function (_Node) {
+  inherits(Expression, _Node);
+
+  function Expression(expr, safe) {
+    classCallCheck(this, Expression);
+
+    var _this = possibleConstructorReturn(this, (Expression.__proto__ || Object.getPrototypeOf(Expression)).call(this, EXPRESSION, FALSE));
+
+    _this.expr = expr;
+    _this.safe = safe;
+    return _this;
+  }
+
+  createClass(Expression, [{
+    key: 'render',
+    value: function render(data) {
+      var _execute = this.execute(data),
+          value = _execute.value;
+
+      if (value == NULL) {
+        value = '';
+      } else if (func(value) && value.$computed) {
+        value = value();
+      }
+
+      if (!this.safe && string(value) && tag.test(value)) {
+        each$1(data.parse(value), function (node) {
+          node.render(data);
+        });
+      } else {
+        var node = new Text(value);
+        node.render(data);
+      }
+    }
+  }]);
+  return Expression;
+}(Node$2);
+
+var If = function (_Node) {
+  inherits(If, _Node);
+
+  function If(expr) {
+    classCallCheck(this, If);
+
+    var _this = possibleConstructorReturn(this, (If.__proto__ || Object.getPrototypeOf(If)).call(this, IF$1));
+
+    _this.expr = expr;
+    return _this;
+  }
+
+  createClass(If, [{
+    key: 'render',
+    value: function render(data) {
+      var _execute = this.execute(data),
+          value = _execute.value;
+
+      if (value) {
+        this.renderChildren(data);
+      } else {
+        return TRUE;
+      }
+    }
+  }]);
+  return If;
+}(Node$2);
+
+var Import = function (_Node) {
+  inherits(Import, _Node);
+
+  function Import(name) {
+    classCallCheck(this, Import);
+
+    var _this = possibleConstructorReturn(this, (Import.__proto__ || Object.getPrototypeOf(Import)).call(this, IMPORT$1, FALSE));
+
+    _this.name = name;
+    return _this;
+  }
+
+  return Import;
+}(Node$2);
+
+var Partial = function (_Node) {
+  inherits(Partial, _Node);
+
+  function Partial(name) {
+    classCallCheck(this, Partial);
+
+    var _this = possibleConstructorReturn(this, (Partial.__proto__ || Object.getPrototypeOf(Partial)).call(this, PARTIAL$1));
+
+    _this.name = name;
+    return _this;
+  }
+
+  return Partial;
+}(Node$2);
+
+var Spread = function (_Node) {
+  inherits(Spread, _Node);
+
+  function Spread(expr) {
+    classCallCheck(this, Spread);
+
+    var _this = possibleConstructorReturn(this, (Spread.__proto__ || Object.getPrototypeOf(Spread)).call(this, SPREAD$1, FALSE));
+
+    _this.expr = expr;
+    return _this;
+  }
+
+  createClass(Spread, [{
+    key: 'render',
+    value: function render(data) {
+      var _execute = this.execute(data),
+          value = _execute.value;
+
+      if (object(value)) {
+        each$$1(value, function (value, key) {
+          var node = new Attribute(key);
+          node.addChild(new Text(value));
+          node.render(data);
+        });
+      }
+    }
+  }]);
+  return Spread;
+}(Node$2);
 
 var openingDelimiter = '\\{\\{\\s*';
 var closingDelimiter = '\\s*\\}\\}';
@@ -2096,7 +2077,7 @@ var parsers = [{
   },
   create: function create(source) {
     var terms = source.slice(EACH.length).trim().split(':');
-    var expr = parse$1(terms[0]);
+    var expr = parse$2(terms[0]);
     var index = void 0;
     if (terms[1]) {
       index = terms[1].trim();
@@ -2125,7 +2106,7 @@ var parsers = [{
   },
   create: function create(source) {
     var expr = source.slice(IF.length).trim();
-    return expr ? new If(parse$1(expr)) : ERROR_EXPRESSION;
+    return expr ? new If(parse$2(expr)) : ERROR_EXPRESSION;
   }
 }, {
   test: function test(source) {
@@ -2135,7 +2116,7 @@ var parsers = [{
     var expr = source.slice(ELSE_IF.length);
     if (expr) {
       popStack();
-      return new ElseIf(parse$1(expr));
+      return new ElseIf(parse$2(expr));
     }
     return ERROR_EXPRESSION;
   }
@@ -2154,7 +2135,7 @@ var parsers = [{
   create: function create(source) {
     var expr = source.slice(SPREAD.length);
     if (expr) {
-      return new Spread(parse$1(expr));
+      return new Spread(parse$2(expr));
     }
     return ERROR_EXPRESSION;
   }
@@ -2168,7 +2149,7 @@ var parsers = [{
       safe = FALSE;
       source = source.slice(1);
     }
-    return new Expression(parse$1(source), safe);
+    return new Expression(parse$2(source), safe);
   }
 }];
 
@@ -2444,6 +2425,46 @@ function _parse(template, getPartial, setPartial) {
   return rootNode;
 }
 
+function camelCase(str) {
+  return str.replace(/-([a-z])/gi, function ($0, $1) {
+    return $1.toUpperCase();
+  });
+}
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function parse$3(str, separator, pair) {
+  var result = {};
+  if (string(str)) {
+    (function () {
+      var terms = void 0,
+          key = void 0,
+          value = void 0;
+      each$1(str.split(separator), function (term) {
+        terms = term.split(pair);
+        key = terms[0];
+        value = terms[1];
+        if (key && value) {
+          key = key.trim();
+          value = value.trim();
+          if (key) {
+            result[key] = value;
+          }
+        }
+      });
+    })();
+  }
+  return result;
+}
+
+var string$1 = Object.freeze({
+	camelCase: camelCase,
+	capitalize: capitalize,
+	parse: parse$3
+});
+
 var nextTick$1 = void 0;
 
 if (typeof MutationObserver === 'function') {
@@ -2467,7 +2488,6 @@ if (typeof MutationObserver === 'function') {
 
 var nextTick$2 = nextTick$1;
 
-var currentTasks = void 0;
 var nextTasks = [];
 
 function add(task) {
@@ -2478,105 +2498,11 @@ function add(task) {
 }
 
 function run() {
-  currentTasks = nextTasks;
+  var tasks = nextTasks;
   nextTasks = [];
-  each$1(currentTasks, function (task) {
+  each$1(tasks, function (task) {
     task();
   });
-  currentTasks = NULL;
-}
-
-var Event = function () {
-  function Event(event) {
-    classCallCheck(this, Event);
-
-    if (event.type) {
-      this.type = event.type;
-      this.originalEvent = event;
-    } else {
-      this.type = event;
-    }
-  }
-
-  createClass(Event, [{
-    key: 'prevent',
-    value: function prevent() {
-      if (!this.isPrevented) {
-        var originalEvent = this.originalEvent;
-
-        if (originalEvent && func(originalEvent.preventDefault)) {
-          originalEvent.preventDefault();
-        }
-        this.isPrevented = TRUE;
-      }
-    }
-  }, {
-    key: 'stop',
-    value: function stop() {
-      if (!this.isStoped) {
-        var originalEvent = this.originalEvent;
-
-        if (originalEvent && func(originalEvent.stopPropagation)) {
-          originalEvent.stopPropagation();
-        }
-        this.isStoped = TRUE;
-      }
-    }
-  }]);
-  return Event;
-}();
-
-function compileValue$1(instance, keypath, value) {
-  if (value.indexOf('(') > 0) {
-    var _ret = function () {
-      var ast = parse$1(value);
-      if (ast.type === CALL) {
-        return {
-          v: function v(e) {
-            var isEvent = e instanceof Event;
-            var args = copy(ast.args);
-            if (!args.length) {
-              if (isEvent) {
-                args.push(e);
-              }
-            } else {
-              args = args.map(function (item) {
-                var name = item.name,
-                    type = item.type;
-
-                if (type === LITERAL) {
-                  return item.value;
-                }
-                if (type === IDENTIFIER) {
-                  if (name === SPECIAL_EVENT) {
-                    if (isEvent) {
-                      return e;
-                    }
-                  } else if (name === SPECIAL_KEYPATH) {
-                    return keypath;
-                  }
-                } else if (type === MEMBER) {
-                  name = item.stringify();
-                }
-
-                var result = testKeypath(instance, keypath, name);
-                if (result) {
-                  return result.value;
-                }
-              });
-            }
-            instance[ast.callee.name].apply(instance, args);
-          }
-        };
-      }
-    }();
-
-    if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
-  } else {
-    return function (event) {
-      instance.fire(value, event);
-    };
-  }
 }
 
 function testKeypath(instance, keypath, name) {
@@ -2586,13 +2512,16 @@ function testKeypath(instance, keypath, name) {
     name = terms.pop();
   }
 
-  var data = instance.$data,
-      result = void 0;
+  var $data = instance.$data,
+      $computedGetters = instance.$computedGetters;
+
+
+  var result = void 0;
 
   do {
     terms.push(name);
     keypath = terms.join('.');
-    result = get$1(data, keypath);
+    result = get$1($data, keypath);
     if (result) {
       return {
         keypath: keypath,
@@ -2601,34 +2530,104 @@ function testKeypath(instance, keypath, name) {
     }
     terms.splice(-2);
   } while (terms.length || keypath.indexOf('.') > 0);
+
+  if ($computedGetters && has$1($computedGetters, name)) {
+    return {
+      keypath: name,
+      value: $computedGetters[name]()
+    };
+  }
 }
 
-function get$3(instance, type, name, silent) {
-  var result = get$1(instance, '$' + type + 's.' + name);
-  if (result) {
-    return result.value;
+function updateDeps(instance, newDeps, oldDeps, watcher) {
+
+  var addedDeps = void 0,
+      removedDeps = void 0;
+  if (array(oldDeps)) {
+    addedDeps = diff(oldDeps, newDeps);
+    removedDeps = diff(newDeps, oldDeps);
   } else {
-    var globalRegistry = registry[type];
-    var value = globalRegistry && globalRegistry.get(name);
-    if (value) {
-      return value;
-    } else if (!silent) {
-      error$1(name + ' ' + type + ' is not found.');
+    addedDeps = newDeps;
+  }
+
+  each$1(addedDeps, function (keypath) {
+    instance.watch(keypath, watcher);
+  });
+
+  if (removedDeps) {
+    each$1(removedDeps, function (dep) {
+      instance.$watchEmitter.off(dep, watcher);
+    });
+  }
+}
+
+function refresh(instance, immediate) {
+  if (immediate) {
+    diff$1(instance);
+  } else if (!instance.$diffing) {
+    instance.$diffing = TRUE;
+    add(function () {
+      delete instance.$diffing;
+      diff$1(instance);
+    });
+  }
+}
+
+function diff$1(instance) {
+  var $children = instance.$children,
+      $watchCache = instance.$watchCache,
+      $watchEmitter = instance.$watchEmitter,
+      $computedDeps = instance.$computedDeps;
+
+  var keys$$1 = [];
+  var addKey = function addKey(key, push) {
+    if (!has$2(keys$$1, key)) {
+      if (push) {
+        keys$$1.push(key);
+      } else {
+        keys$$1.unshift(key);
+      }
     }
+  };
+
+  var pickDeps = function pickDeps(key) {
+    if ($computedDeps && !falsy($computedDeps[key])) {
+      each$1($computedDeps[key], pickDeps);
+      addKey(key, TRUE);
+    } else {
+      addKey(key);
+    }
+  };
+
+  each$$1($watchCache, function (value, key) {
+    pickDeps(key);
+  });
+
+  var changes = {};
+
+  each$1(keys$$1, function (key) {
+    var oldValue = $watchCache[key];
+    var newValue = instance.get(key);
+    if (newValue !== oldValue) {
+      $watchCache[key] = newValue;
+      $watchEmitter.fire(key, [newValue, oldValue, key], instance);
+    }
+  });
+
+  if (instance.$dirty) {
+    instance.update();
+  } else if ($children) {
+    each$1($children, function (child) {
+      diff$1(child);
+    });
   }
 }
 
-function set$3(instance, type, name, value) {
-  if (object(name)) {
-    set$1(instance, '$' + type + 's', name);
-  } else if (string(name)) {
-    set$1(instance, '$' + type + 's.' + name, value);
-  }
-}
-
-function remove$2(instance, type, name) {
-  set$1(instance, '$' + type + 's.' + name);
-}
+var component$1 = Object.freeze({
+	testKeypath: testKeypath,
+	updateDeps: updateDeps,
+	refresh: refresh
+});
 
 function validate(data, schema) {
   each$$1(schema, function (rule, key) {
@@ -3189,6 +3188,46 @@ function updateAttrs(oldVnode, vnode) {
 
 var attributes = { create: updateAttrs, update: updateAttrs };
 
+var Event = function () {
+  function Event(event) {
+    classCallCheck(this, Event);
+
+    if (event.type) {
+      this.type = event.type;
+      this.originalEvent = event;
+    } else {
+      this.type = event;
+    }
+  }
+
+  createClass(Event, [{
+    key: 'prevent',
+    value: function prevent() {
+      if (!this.isPrevented) {
+        var originalEvent = this.originalEvent;
+
+        if (originalEvent && func(originalEvent.preventDefault)) {
+          originalEvent.preventDefault();
+        }
+        this.isPrevented = TRUE;
+      }
+    }
+  }, {
+    key: 'stop',
+    value: function stop() {
+      if (!this.isStoped) {
+        var originalEvent = this.originalEvent;
+
+        if (originalEvent && func(originalEvent.stopPropagation)) {
+          originalEvent.stopPropagation();
+        }
+        this.isStoped = TRUE;
+      }
+    }
+  }]);
+  return Event;
+}();
+
 var Emitter = function () {
   function Emitter(options) {
     classCallCheck(this, Emitter);
@@ -3268,7 +3307,7 @@ var Emitter = function () {
           if (listener == NULL) {
             list.length = 0;
           } else {
-            remove$1(list, listener);
+            remove(list, listener);
           }
           if (!list.length) {
             removed.push(type);
@@ -3323,7 +3362,7 @@ var Emitter = function () {
       if (done) {
         each$$1(listeners, function (list, key) {
           if (key !== type || key.indexOf('*') >= 0) {
-            key = ['^', key.replace(/\*\*?/g, '(\\w+)').replace(/\./g, '\\.'), key.endsWith('**') ? '' : '$'];
+            key = ['^', key.replace(/\./g, '\\.').replace(/\*\*/g, '([\.\\w]+?)').replace(/\*/g, '(\\w+)'), key.endsWith('**') ? '' : '$'];
             var match = type.match(new RegExp(key.join('')));
             if (match) {
               handle(list, merge(data, toArray(match).slice(1)));
@@ -3418,33 +3457,6 @@ var native = Object.freeze({
 
 var patch = snabbdom.init([attributes, style]);
 
-function parseStyle(str) {
-
-  var result = {};
-
-  if (string(str)) {
-    (function () {
-      var terms = void 0,
-          name = void 0,
-          value = void 0;
-      each$1(str.split(';'), function (term) {
-        terms = term.split(':');
-        name = terms[0];
-        value = terms[1];
-        if (name && value) {
-          name = name.trim();
-          value = value.trim();
-          if (name) {
-            result[camelCase(name)] = value;
-          }
-        }
-      });
-    })();
-  }
-
-  return result;
-}
-
 function create$1(root, instance) {
 
   var counter = 0;
@@ -3475,7 +3487,7 @@ function create$1(root, instance) {
   }, function (node, children) {
     counter--;
     if (node.type === ELEMENT) {
-      var _ret2 = function () {
+      var _ret = function () {
 
         var attrs = {},
             directives = [],
@@ -3496,7 +3508,13 @@ function create$1(root, instance) {
             var name = node.name,
                 value = node.getValue();
             if (name === 'style') {
-              styles = parseStyle(value);
+              var _data = parse$3(value, ';', ':');
+              if (count(_data)) {
+                styles = {};
+                each$$1(_data, function (value, key) {
+                  styles[camelCase(key)] = value;
+                });
+              }
             } else {
               attrs[name] = value;
             }
@@ -3513,18 +3531,19 @@ function create$1(root, instance) {
             directiveName = 'event';
           } else if (name.startsWith(DIRECTIVE_PREFIX)) {
             name = directiveName = name.slice(DIRECTIVE_PREFIX.length);
-          } else if (name === KEY_UNIQUE) {
-            data.key = node.getValue();
-            return;
           } else if (name === KEY_REF) {
             name = directiveName = 'ref';
+          } else if (name === KEY_UNIQUE) {
+            data.key = node.getValue();
           }
 
-          directives.push({
-            name: name,
-            node: node,
-            directive: instance.directive(directiveName)
-          });
+          if (directiveName) {
+            directives.push({
+              name: name,
+              node: node,
+              directive: instance.directive(directiveName)
+            });
+          }
         });
 
         if (styles) {
@@ -3570,18 +3589,43 @@ function create$1(root, instance) {
         };
       }();
 
-      if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+      if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
     } else if (node.type === TEXT) {
       return node.content;
     }
   });
 }
 
-var toNumber = function (str, defaultValue) {
+var magic = function (options) {
+  var args = options.args,
+      get = options.get,
+      set = options.set;
+
+  args = toArray(args);
+
+  var key = args[0],
+      value = args[1];
+  if (object(key)) {
+    execute$1(set, NULL, key);
+  } else if (string(key)) {
+    var _args = args,
+        length = _args.length;
+
+    if (length === 2) {
+      execute$1(set, NULL, args);
+    } else if (length === 1) {
+      return execute$1(get, NULL, key);
+    }
+  }
+};
+
+var toNumber = function (str) {
+  var defaultValue = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+
   if (numeric(str)) {
     return +str;
   }
-  return arguments.length === 2 ? defaultValue : 0;
+  return defaultValue;
 };
 
 var refDt = {
@@ -3591,27 +3635,51 @@ var refDt = {
         node = _ref.node,
         instance = _ref.instance;
 
-
     var value = node.getValue();
-    if (value) {
-      if (get$3(instance, 'ref', value, TRUE)) {
-        error$1('Ref ' + value + ' is existed.');
-      }
-      set$3(instance, 'ref', value, el.$component || el);
-      el.$ref = value;
+    if (value && string(value)) {
+      (function () {
+        var $refs = instance.$refs;
+
+        if (object($refs)) {
+          if (has$1($refs, value)) {
+            error$1('Ref ' + value + ' is existed.');
+          }
+        } else {
+          $refs = instance.$refs = {};
+        }
+
+        var setRef = function setRef(target) {
+          $refs[value] = target;
+          el.$ref = function () {
+            delete $refs[value];
+            el.$ref = NULL;
+          };
+        };
+
+        var $component = el.$component;
+
+        if ($component) {
+          if (array($component)) {
+            $component.push(setRef);
+          } else {
+            setRef($component);
+          }
+        } else {
+          setRef(el);
+        }
+      })();
     }
   },
 
   detach: function detach(_ref2) {
-    var el = _ref2.el,
-        instance = _ref2.instance;
+    var el = _ref2.el;
+    var $ref = el.$ref;
 
-
-    if (el.$ref) {
-      remove$2(instance, 'ref', el.$ref);
-      el.$ref = NULL;
+    if ($ref) {
+      $ref();
     }
   }
+
 };
 
 var debounce = function (fn, delay, lazy) {
@@ -3670,7 +3738,13 @@ var event = {
       var $component = el.$component;
 
       if ($component) {
-        $component.on(name, listener);
+        if (array($component)) {
+          $component.push(function ($component) {
+            $component.on(name, listener);
+          });
+        } else {
+          $component.on(name, listener);
+        }
       } else {
         on$1(el, name, listener);
         el.$event = function () {
@@ -3692,70 +3766,75 @@ var event = {
 
 };
 
-var supportInputTypes = ['text', 'number', 'tel', 'url', 'email', 'search'];
+var supportInputControls = ['text', 'number', 'password', 'tel', 'url', 'email', 'search'];
 
-var controlTypes = {
-  normal: {
-    set: function set(_ref) {
-      var el = _ref.el,
-          keypath = _ref.keypath,
-          instance = _ref.instance;
+var normalControl = {
+  set: function set(_ref) {
+    var el = _ref.el,
+        keypath = _ref.keypath,
+        instance = _ref.instance;
 
-      el.value = instance.get(keypath);
-    },
-    sync: function sync(_ref2) {
-      var el = _ref2.el,
-          keypath = _ref2.keypath,
-          instance = _ref2.instance;
+    el.value = instance.get(keypath);
+  },
+  update: function update(_ref2) {
+    var el = _ref2.el,
+        keypath = _ref2.keypath,
+        instance = _ref2.instance;
 
+    instance.set(keypath, el.value);
+  }
+};
+
+var radioControl = {
+  set: function set(_ref3) {
+    var el = _ref3.el,
+        keypath = _ref3.keypath,
+        instance = _ref3.instance;
+
+    el.checked = el.value == instance.get(keypath);
+  },
+  update: function update(_ref4) {
+    var el = _ref4.el,
+        keypath = _ref4.keypath,
+        instance = _ref4.instance;
+
+    if (el.checked) {
       instance.set(keypath, el.value);
     }
+  }
+};
+
+var checkboxControl = {
+  set: function set(_ref5) {
+    var el = _ref5.el,
+        keypath = _ref5.keypath,
+        instance = _ref5.instance;
+
+    var value = instance.get(keypath);
+    el.checked = array(value) ? has$2(value, el.value, FALSE) : !!value;
   },
-  radio: {
-    set: function set(_ref3) {
-      var el = _ref3.el,
-          keypath = _ref3.keypath,
-          instance = _ref3.instance;
+  update: function update(_ref6) {
+    var el = _ref6.el,
+        keypath = _ref6.keypath,
+        instance = _ref6.instance;
 
-      el.checked = el.value == instance.get(keypath);
-    },
-    sync: function sync(_ref4) {
-      var el = _ref4.el,
-          keypath = _ref4.keypath,
-          instance = _ref4.instance;
-
+    var value = instance.get(keypath);
+    if (array(value)) {
       if (el.checked) {
-        instance.set(keypath, el.value);
-      }
-    }
-  },
-  checkbox: {
-    set: function set(_ref5) {
-      var el = _ref5.el,
-          keypath = _ref5.keypath,
-          instance = _ref5.instance;
-
-      var value = instance.get(keypath);
-      el.checked = array(value) ? has$2(value, el.value, FALSE) : !!value;
-    },
-    sync: function sync(_ref6) {
-      var el = _ref6.el,
-          keypath = _ref6.keypath,
-          instance = _ref6.instance;
-
-      var value = instance.get(keypath);
-      if (array(value)) {
-        if (el.checked) {
-          value.push(el.value);
-        } else {
-          remove$1(value, el.value, FALSE);
-        }
-        instance.set(keypath, copy(value));
+        value.push(el.value);
       } else {
-        instance.set(keypath, el.checked);
+        remove(value, el.value, FALSE);
       }
+      instance.set(keypath, copy(value));
+    } else {
+      instance.set(keypath, el.checked);
     }
   }
+};
+
+var specialControls = {
+  radio: radioControl,
+  checkbox: checkboxControl
 };
 
 var modelDt = {
@@ -3772,7 +3851,7 @@ var modelDt = {
     var type = el.type,
         tagName = el.tagName;
 
-    if (tagName === 'INPUT' && has$2(supportInputTypes, type) || tagName === 'TEXTAREA') {
+    if (tagName === 'INPUT' && has$2(supportInputControls, type) || tagName === 'TEXTAREA') {
       name = 'input';
     }
 
@@ -3793,12 +3872,17 @@ var modelDt = {
       instance: instance
     };
 
-    var control = controlTypes[type] || controlTypes.normal;
-    control.set(data);
-
-    instance.watch(keypath, function () {
+    var control = specialControls[type] || normalControl;
+    var set$$1 = function set$$1() {
       control.set(data);
-    });
+    };
+    var listener = function listener() {
+      control.update(data);
+    };
+
+    set$$1();
+
+    instance.watch(keypath, set$$1);
 
     event.attach({
       el: el,
@@ -3806,9 +3890,7 @@ var modelDt = {
       name: name,
       instance: instance,
       directives: directives,
-      listener: function listener() {
-        control.sync(data);
-      }
+      listener: listener
     });
   },
 
@@ -3827,7 +3909,7 @@ function getComponentInfo(node, instance, callback) {
   instance.component(component, function (options) {
     var props = {};
     each$1(attrs, function (node) {
-      props[node.name] = node.getValue();
+      props[camelCase(node.name)] = node.getValue();
     });
     if (has$1(options, 'propTypes')) {
       validate(props, options.propTypes);
@@ -3843,15 +3925,20 @@ var componentDt = {
         node = _ref.node,
         instance = _ref.instance;
 
+    el.$component = [];
     getComponentInfo(node, instance, function (props, options) {
-      if (el.$component === NULL) {
-        return;
+      var $component = el.$component;
+
+      if (array($component)) {
+        el.$component = instance.create(options, {
+          el: el,
+          props: props,
+          replace: TRUE
+        });
+        each$1($component, function (callback) {
+          callback(el.$component);
+        });
       }
-      el.$component = instance.create(options, {
-        el: el,
-        props: props,
-        replace: TRUE
-      });
     });
   },
 
@@ -3859,17 +3946,23 @@ var componentDt = {
     var el = _ref2.el,
         node = _ref2.node,
         instance = _ref2.instance;
+    var $component = el.$component;
 
-    getComponentInfo(node, instance, function (props) {
-      el.$component.set(props, TRUE);
-    });
+    if (object($component)) {
+      getComponentInfo(node, instance, function (props) {
+        $component.set(props, TRUE);
+      });
+    }
   },
 
   detach: function detach(_ref3) {
     var el = _ref3.el;
+    var $component = el.$component;
 
-    if (el.$component) {
-      el.$component.destroy(TRUE);
+    if ($component) {
+      if (object($component)) {
+        $component.destroy(TRUE);
+      }
       el.$component = NULL;
     }
   }
@@ -3901,6 +3994,8 @@ var Yox = function () {
         partials = options.partials,
         extensions = options.extensions;
 
+    instance.$options = options;
+
     if (props && !object(props)) {
       props = NULL;
     }
@@ -3913,22 +4008,80 @@ var Yox = function () {
 
     extend(instance.$data, func(data) ? data.call(instance) : data);
 
-    instance.$options = options;
+    if (object(computed)) {
+      instance.$computedGetters = {};
+      instance.$computedSetters = {};
+
+      instance.$computedStack = [];
+      instance.$computedDeps = {};
+
+      each$$1(computed, function (item, keypath) {
+        var get$$1 = void 0,
+            set$$1 = void 0,
+            deps = void 0,
+            cache = TRUE;
+        if (func(item)) {
+          get$$1 = item;
+        } else if (object(item)) {
+          if (boolean(item.cache)) {
+            cache = item.cache;
+          }
+          if (array(item.deps)) {
+            deps = item.deps;
+          }
+          if (func(item.get)) {
+            get$$1 = item.get;
+          }
+          if (func(item.set)) {
+            set$$1 = item.set;
+          }
+        }
+
+        if (get$$1) {
+          (function () {
+
+            var watcher = function watcher() {
+              getter.$dirty = TRUE;
+            };
+
+            var getter = function getter() {
+              if (!getter.$dirty) {
+                if (cache && has$1($watchCache, keypath)) {
+                  return $watchCache[keypath];
+                }
+              } else {
+                delete getter.$dirty;
+              }
+
+              if (!deps) {
+                instance.$computedStack.push([]);
+              }
+              var result = execute$1(get$$1, instance);
+
+              var newDeps = deps || instance.$computedStack.pop();
+              var oldDeps = instance.$computedDeps[keypath];
+              if (newDeps !== oldDeps) {
+                updateDeps(instance, newDeps, oldDeps, watcher);
+              }
+
+              instance.$computedDeps[keypath] = newDeps;
+              $watchCache[keypath] = result;
+
+              return result;
+            };
+            getter.$binded = getter.$computed = TRUE;
+            instance.$computedGetters[keypath] = getter;
+          })();
+        }
+
+        if (set$$1) {
+          instance.$computedSetters[keypath] = set$$1;
+        }
+      });
+    }
 
     instance.$eventEmitter = new Emitter();
     instance.on(events);
-
-    instance.$viewUpdater = function () {
-      if (instance.$sync) {
-        instance.update();
-      } else if (!instance.$syncing) {
-        instance.$syncing = TRUE;
-        add(function () {
-          delete instance.$syncing;
-          instance.update();
-        });
-      }
-    };
 
     var $watchCache = instance.$watchCache = {};
     instance.$watchEmitter = new Emitter({
@@ -3949,72 +4102,6 @@ var Yox = function () {
     });
     instance.watch(watchers);
 
-    if (object(computed)) {
-      (function () {
-
-        instance.$cacheCleaner = function (newValue, oldValue, keypath) {
-          if (has$1($watchCache, keypath)) {
-            delete $watchCache[keypath];
-          }
-        };
-
-        var $computedGetters = instance.$computedGetters = {};
-
-        var $computedSetters = instance.$computedSetters = {};
-
-        var $computedStack = instance.$computedStack = [];
-
-        var $computedDeps = instance.$computedDeps = {};
-
-        each$$1(computed, function (item, keypath) {
-          var get$$1 = void 0,
-              set$$1 = void 0,
-              cache = TRUE;
-          if (func(item)) {
-            get$$1 = item;
-          } else if (object(item)) {
-            if (has$1(item, 'cache')) {
-              cache = item.cache;
-            }
-            if (func(item.get)) {
-              get$$1 = item.get;
-            }
-            if (func(item.set)) {
-              set$$1 = item.set;
-            }
-          }
-
-          if (get$$1) {
-            var getter$$1 = function getter$$1() {
-
-              if (cache && has$1($watchCache, keypath)) {
-                return $watchCache[keypath];
-              }
-
-              $computedStack.push([]);
-              var result = get$$1.call(instance);
-
-              var newDeps = $computedStack.pop();
-              var oldDeps = $computedDeps[keypath];
-
-              instance.updateWatcher(newDeps, oldDeps, instance.$cacheCleaner);
-
-              $computedDeps[keypath] = newDeps;
-              $watchCache[keypath] = result;
-
-              return result;
-            };
-            getter$$1.binded = getter$$1.computed = TRUE;
-            $computedGetters[keypath] = getter$$1;
-          }
-
-          if (set$$1) {
-            $computedSetters[keypath] = set$$1;
-          }
-        });
-      })();
-    }
-
     execute$1(options[AFTER_CREATE], instance);
 
     if (string(template)) {
@@ -4023,9 +4110,6 @@ var Yox = function () {
       }
       if (!tag.test(template)) {
         error$1('Passing a `template` option must have a root element.');
-      }
-      if (!template.trim()) {
-        template = NULL;
       }
     } else {
       template = NULL;
@@ -4059,76 +4143,24 @@ var Yox = function () {
     instance.partial(partials);
 
     if (el && template) {
+      instance.$viewWatcher = function () {
+        instance.$dirty = TRUE;
+      };
       execute$1(options[BEFORE_MOUNT], instance);
-      if (string(template)) {
-        template = instance.compileTemplate(template);
-      }
-      instance.$template = template;
+      instance.$template = instance.compileTemplate(template);
       instance.update(el);
     }
   }
 
   createClass(Yox, [{
-    key: 'updateWatcher',
-    value: function updateWatcher(newDeps, oldDeps, watcher) {
-
-      var addedDeps = void 0,
-          removedDeps = void 0;
-      if (array(oldDeps)) {
-        addedDeps = diff$1(oldDeps, newDeps);
-        removedDeps = diff$1(newDeps, oldDeps);
-      } else {
-        addedDeps = newDeps;
-      }
-
-      var instance = this;
-
-      each$1(addedDeps, function (keypath) {
-        instance.watch(keypath, watcher);
-      });
-
-      if (removedDeps) {
-        each$1(removedDeps, function (dep) {
-          instance.$watchEmitter.off(dep, watcher);
-        });
-      }
-    }
-  }, {
-    key: 'diff',
-    value: function diff(changes) {
-
-      if (!object(changes)) {
-        changes = {};
-      }
-
-      var instance = this;
-      var $watchCache = instance.$watchCache,
-          $watchEmitter = instance.$watchEmitter;
-
-
-      each$$1($watchCache, function (oldValue, key) {
-        var newValue = instance.get(key);
-        if (newValue !== oldValue) {
-          $watchCache[key] = newValue;
-          if (!has$1(changes, key)) {
-            changes[key] = [newValue, oldValue, key];
-          }
-        }
-      });
-
-      each$$1(changes, function (args, key) {
-        $watchEmitter.fire(key, args, instance);
-      });
-
-      return changes;
-    }
-  }, {
     key: 'get',
-    value: function get(keypath) {
+    value: function get(keypath, trim) {
       var $data = this.$data,
           $computedStack = this.$computedStack,
           $computedGetters = this.$computedGetters;
 
+
+      keypath = normalize(keypath);
 
       if ($computedStack) {
         var deps = last($computedStack);
@@ -4137,46 +4169,56 @@ var Yox = function () {
         }
       }
 
+      var value = void 0,
+          hasValue = void 0;
       if ($computedGetters) {
-        var getter$$1 = $computedGetters[keypath];
-        if (getter$$1) {
-          return getter$$1();
+        var _getter = $computedGetters[keypath];
+        if (_getter) {
+          value = _getter();
+          hasValue = TRUE;
         }
       }
 
-      var result = get$1($data, keypath);
-      if (result) {
-        return result.value;
+      if (!hasValue) {
+        var result = get$1($data, keypath);
+        if (result) {
+          value = result.value;
+        }
       }
+
+      if (trim === TRUE && string(value)) {
+        value = value.trim();
+      }
+
+      return value;
     }
   }, {
     key: 'set',
     value: function set(keypath, value) {
 
       var model = void 0,
-          forceSync = void 0;
+          immediate = void 0;
       if (string(keypath)) {
         model = {};
         model[keypath] = value;
       } else if (object(keypath)) {
-        model = keypath;
-        forceSync = value;
+        model = copy(keypath);
+        immediate = value === TRUE;
       } else {
         return;
       }
 
-      var instance = this,
-          changes = {};
+      var instance = this;
 
       var $data = instance.$data,
-          $children = instance.$children,
           $computedSetters = instance.$computedSetters;
 
 
-      each$$1(model, function (newValue, keypath) {
-        var oldValue = instance.get(keypath);
-        if (newValue !== oldValue) {
-          changes[keypath] = [newValue, oldValue, keypath];
+      each$$1(model, function (newValue, key) {
+        var keypath = normalize(key);
+        if (keypath !== key) {
+          delete model[key];
+          model[keypath] = newValue;
         }
       });
 
@@ -4191,17 +4233,7 @@ var Yox = function () {
         set$1($data, keypath, value);
       });
 
-      instance.$sync = forceSync;
-      instance.diff(changes);
-      delete instance.$sync;
-
-      if ($children) {
-        each$1($children, function (child) {
-          child.$sync = forceSync;
-          child.diff();
-          delete child.$sync;
-        });
-      }
+      refresh(instance, immediate);
     }
   }, {
     key: 'on',
@@ -4221,8 +4253,6 @@ var Yox = function () {
   }, {
     key: 'fire',
     value: function fire(type, data, noBubble) {
-
-      var instance = this;
 
       if (data === TRUE) {
         noBubble = data;
@@ -4247,12 +4277,14 @@ var Yox = function () {
         }
       }
 
+      var instance = this;
+      var $parent = instance.$parent,
+          $eventEmitter = instance.$eventEmitter;
+
+
       if (!event$$1.target) {
         event$$1.target = instance;
       }
-
-      var $parent = instance.$parent,
-          $eventEmitter = instance.$eventEmitter;
 
       var done = $eventEmitter.fire(type, event$$1, instance);
       if (done && $parent && !noBubble) {
@@ -4278,7 +4310,8 @@ var Yox = function () {
       var instance = this;
 
       var $viewDeps = instance.$viewDeps,
-          $viewUpdater = instance.$viewUpdater,
+          $viewWatcher = instance.$viewWatcher,
+          $dirty = instance.$dirty,
           $data = instance.$data,
           $options = instance.$options,
           $filters = instance.$filters,
@@ -4290,23 +4323,26 @@ var Yox = function () {
       if ($currentNode) {
         execute$1($options[BEFORE_UPDATE], instance);
       }
+      if ($dirty) {
+        delete instance.$dirty;
+      }
 
       var context = {};
 
-      extend(context, filter$1.data, $data, $filters, $computedGetters);
+      extend(context, filter$1.data, $data, $filters.data, $computedGetters);
 
       each$$1(context, function (value, key) {
-        if (func(value) && !value.binded) {
+        if (func(value) && !value.$binded) {
           context[key] = value.bind(instance);
         }
       });
 
-      var _mustache$render = render$1($template, context),
-          root = _mustache$render.root,
-          deps = _mustache$render.deps;
+      var _view$render = render$1($template, context),
+          root = _view$render.root,
+          deps = _view$render.deps;
 
       instance.$viewDeps = keys(deps);
-      instance.updateWatcher(instance.$viewDeps, $viewDeps, $viewUpdater);
+      updateDeps(instance, instance.$viewDeps, $viewDeps, $viewWatcher);
 
       var newNode = create$1(root, instance),
           afterHook = void 0;
@@ -4336,74 +4372,170 @@ var Yox = function () {
     key: 'compileTemplate',
     value: function compileTemplate(template) {
       var instance = this;
-      return _parse(template, function (name) {
-        return instance.partial(name);
-      }, function (name, node) {
-        instance.partial(name, node);
-      });
+      if (string(template)) {
+        return _parse(template, function (id) {
+          var partial$$1 = instance.partial(id);
+          return string(partial$$1) ? instance.compileTemplate(partial$$1) : partial$$1;
+        }, function (id, node) {
+          instance.partial(id, node);
+        });
+      }
+      return template;
     }
   }, {
     key: 'compileValue',
     value: function compileValue(keypath, value) {
-      return compileValue$1(this, keypath, value);
+
+      if (!value || !string(value)) {
+        return;
+      }
+
+      var instance = this;
+      if (value.indexOf('(') > 0) {
+        var _ret2 = function () {
+          var ast = parse$2(value);
+          if (ast.type === CALL) {
+            return {
+              v: function v(e) {
+                var isEvent = e instanceof Event;
+                var args = copy(ast.args);
+                if (!args.length) {
+                  if (isEvent) {
+                    args.push(e);
+                  }
+                } else {
+                  args = args.map(function (node) {
+                    var name = node.name,
+                        type = node.type;
+
+                    if (type === LITERAL) {
+                      return node.value;
+                    }
+                    if (type === IDENTIFIER) {
+                      if (name === SPECIAL_EVENT) {
+                        if (isEvent) {
+                          return e;
+                        }
+                      } else if (name === SPECIAL_KEYPATH) {
+                        return keypath;
+                      }
+                    } else if (type === MEMBER) {
+                      name = node.stringify();
+                    }
+
+                    var result = testKeypath(instance, keypath, name);
+                    if (result) {
+                      return result.value;
+                    }
+                  });
+                }
+                execute$1(instance[ast.callee.name], instance, args);
+              }
+            };
+          }
+        }();
+
+        if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+      } else {
+        return function (event$$1) {
+          instance.fire(value, event$$1);
+        };
+      }
     }
   }, {
     key: 'component',
-    value: function component(name, value) {
-      var instance = this,
-          callback = void 0;
+    value: function component$1(id, value) {
+
+      var callback = void 0;
       if (func(value)) {
         callback = value;
         value = NULL;
       }
-      if (getter(name, value)) {
-        var options = get$3(instance, 'component', name);
-        if (func(options) && callback) {
-          (function () {
-            var pending = options.pending;
 
-            if (!pending) {
-              pending = options.pending = [callback];
-              options(function (replacement) {
-                each$1(pending, function (callback) {
-                  callback(replacement);
+      var store = this.$components || (this.$components = new Store());
+      magic({
+        args: value ? [id, value] : [id],
+        get: function get(id) {
+
+          var options = store.get(id),
+              fromGlobal = void 0;
+          if (!options) {
+            options = Yox.component(id);
+            fromGlobal = TRUE;
+          }
+
+          if (func(options)) {
+            (function () {
+              var _options = options,
+                  $pending = _options.$pending;
+
+              if (!$pending) {
+                $pending = options.$pending = [callback];
+                options(function (replacement) {
+                  delete options.$pending;
+                  if (fromGlobal) {
+                    Yox.component(id, replacement);
+                  } else {
+                    store.set(id, replacement);
+                  }
+                  each$1($pending, function (callback) {
+                    callback(replacement);
+                  });
                 });
-                set$3(instance, 'component', name, replacement);
-              });
-            } else {
-              pending.push(callback);
-            }
-          })();
-        } else if (object(options)) {
-          callback(options);
+              } else {
+                $pending.push(callback);
+              }
+            })();
+          } else if (object(options)) {
+            callback(options);
+          }
+        },
+        set: function set(id, value) {
+          store.set(id, value);
         }
-      }
-      set$3(instance, 'component', name, value);
+      });
     }
   }, {
     key: 'filter',
-    value: function filter(name, value) {
-      if (getter(name, value)) {
-        return get$3(this, 'filter', name);
-      }
-      set$3(this, 'filter', name, value);
+    value: function filter() {
+      var store = this.$filters || (this.$filters = new Store());
+      return magic({
+        args: arguments,
+        get: function get(id) {
+          return store.get(id) || Yox.filter(id);
+        },
+        set: function set(id, value) {
+          store.set(id, value);
+        }
+      });
     }
   }, {
     key: 'directive',
-    value: function directive(name, value) {
-      if (getter(name, value)) {
-        return get$3(this, 'directive', name, TRUE);
-      }
-      set$3(this, 'directive', name, value);
+    value: function directive() {
+      var store = this.$directives || (this.$directives = new Store());
+      return magic({
+        args: arguments,
+        get: function get(id) {
+          return store.get(id) || Yox.directive(id);
+        },
+        set: function set(id, value) {
+          store.set(id, value);
+        }
+      });
     }
   }, {
     key: 'partial',
-    value: function partial$$1(name, value) {
-      if (getter(name, value)) {
-        var partial$$1 = get$3(this, 'partial', name);
-        return string(partial$$1) ? this.compileTemplate(partial$$1) : partial$$1;
-      }
-      set$3(this, 'partial', name, value);
+    value: function partial() {
+      var store = this.$partials || (this.$partials = new Store());
+      return magic({
+        args: arguments,
+        get: function get(id) {
+          return store.get(id) || Yox.partial(id);
+        },
+        set: function set(id, value) {
+          store.set(id, value);
+        }
+      });
     }
   }, {
     key: 'destroy',
@@ -4428,7 +4560,7 @@ var Yox = function () {
       }
 
       if ($parent && $parent.$children) {
-        remove$1($parent.$children, instance);
+        remove($parent.$children, instance);
       }
 
       if ($currentNode) {
@@ -4454,7 +4586,9 @@ var Yox = function () {
   }, {
     key: 'toggle',
     value: function toggle(keypath) {
-      this.set(keypath, !this.get(keypath));
+      var value = !this.get(keypath);
+      this.set(keypath, value);
+      return value;
     }
   }, {
     key: 'increase',
@@ -4463,6 +4597,7 @@ var Yox = function () {
       if (!numeric(max) || value <= max) {
         this.set(keypath, value);
       }
+      return value;
     }
   }, {
     key: 'decrease',
@@ -4471,38 +4606,33 @@ var Yox = function () {
       if (!numeric(min) || value >= min) {
         this.set(keypath, value);
       }
+      return value;
     }
   }]);
   return Yox;
 }();
 
-Yox.version = '0.17.3';
+Yox.version = '0.18.6';
 
 Yox.switcher = switcher;
 
 Yox.syntax = syntax;
 
-Yox.cache = cache;
+Yox.utils = { is: is$1, array: array$1, object: object$1, string: string$1, logger: logger, native: native, expression: expression, Store: Store, Emitter: Emitter, Event: Event };
 
-Yox.utils = { is: is$1, array: array$1, object: object$1, logger: logger, native: native, expression: expression, Store: Store, Emitter: Emitter, Event: Event };
-
-Yox.component = function (id, value) {
-  component$1.set(id, value);
-};
-
-Yox.directive = function (id, value) {
-  directive$1.set(id, value);
-};
-
-Yox.filter = function (id, value) {
-  filter$1.set(id, value);
-};
-
-Yox.partial = function (id, value) {
-  partial.set(id, value);
-};
-
-Yox.nextTick = add;
+each$1(['component', 'directive', 'filter', 'partial'], function (type) {
+  Yox[type] = function () {
+    return magic({
+      args: arguments,
+      get: function get(id) {
+        return registry[type].get(id);
+      },
+      set: function set(id, value) {
+        registry[type].set(id, value);
+      }
+    });
+  };
+});
 
 Yox.validate = validate;
 

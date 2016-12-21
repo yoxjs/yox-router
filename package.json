@@ -1,7 +1,7 @@
 {
   "name": "yox-router",
-  "version": "0.7.0",
-  "description": "router for yox.js",
+  "version": "0.8.0",
+  "description": "Router for yox.js",
   "main": "dist/yox-router.min.js",
   "keywords": [
     "router",

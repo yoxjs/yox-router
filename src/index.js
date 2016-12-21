@@ -10,6 +10,8 @@ const DIVIDER_PATH = '/'
 // query 分隔符
 const DIVIDER_QUERY = '&'
 
+const CHAR_ARRAY = '[]'
+
 /**
  * 把 GET 参数解析成对象
  *
@@ -27,8 +29,10 @@ function parseQuery(query) {
           value = is.string(value)
             ? decodeURIComponent(value)
             : true
-          if (key.endsWith('[]')) {
-            (result[key] || (result[key] = [ ])).push(value)
+          if (key.endsWith(CHAR_ARRAY)) {
+            key = key.slice(0, -CHAR_ARRAY.length)
+            let list = result[key] || (result[key] = [ ])
+            list.push(value)
           }
           else {
             result[key] = value
@@ -56,7 +60,7 @@ function stringifyQuery(query) {
           value,
           function (value) {
             result.push(
-              `${key}[]=${encodeURIComponent(value)}`
+              `${key}${CHAR_ARRAY}=${encodeURIComponent(value)}`
             )
           }
         )
@@ -531,7 +535,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.7.0'
+Router.version = '0.8.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件

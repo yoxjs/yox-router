@@ -150,6 +150,8 @@ var DIVIDER_PATH = '/';
 
 var DIVIDER_QUERY = '&';
 
+var CHAR_ARRAY = '[]';
+
 function parseQuery(query) {
   var result = {};
   if (is.string(query)) {
@@ -161,8 +163,10 @@ function parseQuery(query) {
 
       if (key) {
         value = is.string(value) ? decodeURIComponent(value) : true;
-        if (key.endsWith('[]')) {
-          (result[key] || (result[key] = [])).push(value);
+        if (key.endsWith(CHAR_ARRAY)) {
+          key = key.slice(0, -CHAR_ARRAY.length);
+          var list = result[key] || (result[key] = []);
+          list.push(value);
         } else {
           result[key] = value;
         }
@@ -177,7 +181,7 @@ function stringifyQuery(query) {
   object.each(query, function (value, key) {
     if (is.array(value)) {
       array.each(value, function (value) {
-        result.push(key + '[]=' + encodeURIComponent(value));
+        result.push('' + key + CHAR_ARRAY + '=' + encodeURIComponent(value));
       });
     } else {
       result.push(key + '=' + encodeURIComponent(value));
@@ -510,7 +514,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.7.0';
+Router.version = '0.8.0';
 
 Router.HOOK_REROUTE = 'reroute';
 
