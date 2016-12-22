@@ -1,5 +1,5 @@
 
-let root, is, array, object, native, Component
+let root, is, array, object, string, native, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '#!'
@@ -9,8 +9,10 @@ const PREFIX_PARAM = ':'
 const DIVIDER_PATH = '/'
 // query 分隔符
 const DIVIDER_QUERY = '&'
+// 键值对分隔符
+const DIVIDER_PAIR = '='
 
-const CHAR_ARRAY = '[]'
+const FLAG_ARRAY = '[]'
 
 /**
  * 把 GET 参数解析成对象
@@ -20,28 +22,40 @@ const CHAR_ARRAY = '[]'
  */
 function parseQuery(query) {
   let result = { }
-  if (is.string(query)) {
-    array.each(
-      query.split(DIVIDER_QUERY),
-      function (item) {
-        let [ key, value ] = item.split('=')
-        if (key) {
-          value = is.string(value)
-            ? decodeURIComponent(value)
-            : true
-          if (key.endsWith(CHAR_ARRAY)) {
-            key = key.slice(0, -CHAR_ARRAY.length)
-            let list = result[key] || (result[key] = [ ])
-            list.push(value)
-          }
-          else {
-            result[key] = value
-          }
-        }
+  array.each(
+    string.parse(query, DIVIDER_QUERY, DIVIDER_PAIR),
+    function (item) {
+      let { key, value } = item
+      value = is.string(value)
+        ? decodeURIComponent(value)
+        : true
+      if (key.endsWith(FLAG_ARRAY)) {
+        key = key.slice(0, -FLAG_ARRAY.length)
+        let list = result[key] || (result[key] = [ ])
+        list.push(value)
       }
+      else {
+        result[key] = value
+      }
+    }
+  )
+  return result
+}
+
+function stringifyPair(key, value) {
+  let result = [ key ]
+  if (is.string(value)) {
+    result.push(
+      encodeURIComponent(value)
     )
   }
-  return result
+  else if (is.number(value)) {
+    result.push(value)
+  }
+  else if (value !== true) {
+    result.pop()
+  }
+  return result.join(DIVIDER_PAIR)
 }
 
 /**
@@ -59,16 +73,18 @@ function stringifyQuery(query) {
         array.each(
           value,
           function (value) {
-            result.push(
-              `${key}${CHAR_ARRAY}=${encodeURIComponent(value)}`
-            )
+            value = stringifyPair(key + FLAG_ARRAY, value)
+            if (value) {
+              result.push(value)
+            }
           }
         )
       }
       else {
-        result.push(
-          `${key}=${encodeURIComponent(value)}`
-        )
+        value = stringifyPair(key, value)
+        if (value) {
+          result.push(value)
+        }
       }
     }
   )
@@ -535,7 +551,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.8.0'
+Router.version = '0.9.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
@@ -594,6 +610,7 @@ Router.install = function (Yox) {
   is = utils.is
   array = utils.array
   object = utils.object
+  string = utils.string
   native = utils.native
 }
 

@@ -97,48 +97,11 @@ var set = function set(object, property, value, receiver) {
   return value;
 };
 
-var slicedToArray = function () {
-  function sliceIterator(arr, i) {
-    var _arr = [];
-    var _n = true;
-    var _d = false;
-    var _e = undefined;
-
-    try {
-      for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
-        _arr.push(_s.value);
-
-        if (i && _arr.length === i) break;
-      }
-    } catch (err) {
-      _d = true;
-      _e = err;
-    } finally {
-      try {
-        if (!_n && _i["return"]) _i["return"]();
-      } finally {
-        if (_d) throw _e;
-      }
-    }
-
-    return _arr;
-  }
-
-  return function (arr, i) {
-    if (Array.isArray(arr)) {
-      return arr;
-    } else if (Symbol.iterator in Object(arr)) {
-      return sliceIterator(arr, i);
-    } else {
-      throw new TypeError("Invalid attempt to destructure non-iterable instance");
-    }
-  };
-}();
-
 var root = void 0;
 var is = void 0;
 var array = void 0;
 var object = void 0;
+var string = void 0;
 var native = void 0;
 var Component = void 0;
 
@@ -150,30 +113,38 @@ var DIVIDER_PATH = '/';
 
 var DIVIDER_QUERY = '&';
 
-var CHAR_ARRAY = '[]';
+var DIVIDER_PAIR = '=';
+
+var FLAG_ARRAY = '[]';
 
 function parseQuery(query) {
   var result = {};
-  if (is.string(query)) {
-    array.each(query.split(DIVIDER_QUERY), function (item) {
-      var _item$split = item.split('='),
-          _item$split2 = slicedToArray(_item$split, 2),
-          key = _item$split2[0],
-          value = _item$split2[1];
+  array.each(string.parse(query, DIVIDER_QUERY, DIVIDER_PAIR), function (item) {
+    var key = item.key,
+        value = item.value;
 
-      if (key) {
-        value = is.string(value) ? decodeURIComponent(value) : true;
-        if (key.endsWith(CHAR_ARRAY)) {
-          key = key.slice(0, -CHAR_ARRAY.length);
-          var list = result[key] || (result[key] = []);
-          list.push(value);
-        } else {
-          result[key] = value;
-        }
-      }
-    });
-  }
+    value = is.string(value) ? decodeURIComponent(value) : true;
+    if (key.endsWith(FLAG_ARRAY)) {
+      key = key.slice(0, -FLAG_ARRAY.length);
+      var list = result[key] || (result[key] = []);
+      list.push(value);
+    } else {
+      result[key] = value;
+    }
+  });
   return result;
+}
+
+function stringifyPair(key, value) {
+  var result = [key];
+  if (is.string(value)) {
+    result.push(encodeURIComponent(value));
+  } else if (is.number(value)) {
+    result.push(value);
+  } else if (value !== true) {
+    result.pop();
+  }
+  return result.join(DIVIDER_PAIR);
 }
 
 function stringifyQuery(query) {
@@ -181,10 +152,16 @@ function stringifyQuery(query) {
   object.each(query, function (value, key) {
     if (is.array(value)) {
       array.each(value, function (value) {
-        result.push('' + key + CHAR_ARRAY + '=' + encodeURIComponent(value));
+        value = stringifyPair(key + FLAG_ARRAY, value);
+        if (value) {
+          result.push(value);
+        }
       });
     } else {
-      result.push(key + '=' + encodeURIComponent(value));
+      value = stringifyPair(key, value);
+      if (value) {
+        result.push(value);
+      }
     }
   });
   return result.join(DIVIDER_QUERY);
@@ -514,7 +491,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.8.0';
+Router.version = '0.9.0';
 
 Router.HOOK_REROUTE = 'reroute';
 
@@ -538,6 +515,7 @@ Router.install = function (Yox) {
   is = utils.is;
   array = utils.array;
   object = utils.object;
+  string = utils.string;
   native = utils.native;
 };
 

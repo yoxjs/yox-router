@@ -112,18 +112,6 @@ var is$1 = Object.freeze({
 	numeric: numeric
 });
 
-var toString$1 = function (str) {
-  var defaultValue = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
-
-  if (string(str)) {
-    return str;
-  }
-  if (numeric(str)) {
-    return '' + str;
-  }
-  return defaultValue;
-};
-
 var slice = Array.prototype.slice;
 
 function each$1(array$$1, callback, reversed) {
@@ -239,12 +227,8 @@ function each$$1(object$$1, callback) {
   });
 }
 
-function count(object$$1) {
-  return keys(object$$1).length;
-}
-
-function has$1(object$$1, name) {
-  return object$$1.hasOwnProperty(name);
+function has$1(object$$1, key) {
+  return object$$1.hasOwnProperty(key);
 }
 
 function extend() {
@@ -277,15 +261,13 @@ function copy(object$$1, deep) {
 }
 
 function get$1(object$$1, keypath) {
-  keypath = toString$1(keypath);
-
   if (has$1(object$$1, keypath)) {
     return {
       value: object$$1[keypath]
     };
   }
 
-  if (keypath.indexOf('.') > 0) {
+  if (string(keypath) && keypath.indexOf('.') > 0) {
     var list = keypath.split('.');
     for (var i = 0, len = list.length; i < len && object$$1; i++) {
       if (i < len - 1) {
@@ -299,18 +281,15 @@ function get$1(object$$1, keypath) {
   }
 }
 
-function set$1(object$$1, keypath, value) {
-  var autoFill = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : TRUE;
-
-  keypath = toString$1(keypath);
-  if (keypath.indexOf('.') > 0) {
+function set$1(object$$1, keypath, value, autofill) {
+  if (string(keypath) && keypath.indexOf('.') > 0) {
     var originalObject = object$$1;
     var list = keypath.split('.');
     var prop = list.pop();
     each$1(list, function (item, index) {
       if (object$$1[item]) {
         object$$1 = object$$1[item];
-      } else if (autoFill) {
+      } else if (autofill !== FALSE) {
         object$$1 = object$$1[item] = {};
       } else {
         object$$1 = NULL;
@@ -328,7 +307,6 @@ function set$1(object$$1, keypath, value) {
 var object$1 = Object.freeze({
 	keys: keys,
 	each: each$$1,
-	count: count,
 	has: has$1,
 	extend: extend,
 	copy: copy,
@@ -667,12 +645,19 @@ function parseError$1(expression) {
 }
 
 var ARRAY = 1;
+
 var BINARY = 2;
+
 var CALL = 3;
+
 var CONDITIONAL = 4;
+
 var IDENTIFIER = 5;
+
 var LITERAL = 6;
+
 var MEMBER = 7;
+
 var UNARY = 8;
 
 var Node = function Node(type) {
@@ -2436,22 +2421,25 @@ function capitalize(str) {
 }
 
 function parse$3(str, separator, pair) {
-  var result = {};
+  var result = [];
   if (string(str)) {
     (function () {
       var terms = void 0,
           key = void 0,
-          value = void 0;
+          value = void 0,
+          item = void 0;
       each$1(str.split(separator), function (term) {
         terms = term.split(pair);
         key = terms[0];
         value = terms[1];
-        if (key && value) {
-          key = key.trim();
-          value = value.trim();
-          if (key) {
-            result[key] = value;
+        if (key) {
+          item = {
+            key: key.trim()
+          };
+          if (value) {
+            item.value = value.trim();
           }
+          result.push(item);
         }
       });
     })();
@@ -2614,8 +2602,20 @@ function diff$1(instance) {
     }
   });
 
-  if (instance.$dirty) {
-    instance.update();
+  var $dirty = instance.$dirty,
+      $dirtyIgnore = instance.$dirtyIgnore;
+
+
+  if ($dirty) {
+    delete instance.$dirty;
+  }
+  if ($dirtyIgnore) {
+    delete instance.$dirtyIgnore;
+    return;
+  }
+
+  if ($dirty) {
+    instance.updateView();
   } else if ($children) {
     each$1($children, function (child) {
       diff$1(child);
@@ -3403,7 +3403,9 @@ function findElement(selector, context) {
   return (context || doc).querySelector(selector);
 }
 
-var find = findElement;
+function find(selector, context) {
+  return findElement(selector, context);
+}
 
 function create$2(parent, tagName) {
   parent.innerHTML = '<' + tagName + '></' + tagName + '>';
@@ -3495,8 +3497,6 @@ function create$1(root, instance) {
 
         var data = { attrs: attrs };
 
-        var attributes$$1 = node.attrs;
-
         if (node.component) {
           directives.push({
             name: 'component',
@@ -3504,15 +3504,17 @@ function create$1(root, instance) {
             directive: instance.directive('component')
           });
         } else {
-          each$1(attributes$$1, function (node) {
+          each$1(node.attrs, function (node) {
             var name = node.name,
                 value = node.getValue();
             if (name === 'style') {
-              var _data = parse$3(value, ';', ':');
-              if (count(_data)) {
+              var list = parse$3(value, ';', ':');
+              if (list.length) {
                 styles = {};
-                each$$1(_data, function (value, key) {
-                  styles[camelCase(key)] = value;
+                each$1(list, function (item) {
+                  if (item.value) {
+                    styles[camelCase(item.key)] = item.value;
+                  }
                 });
               }
             } else {
@@ -3530,7 +3532,11 @@ function create$1(root, instance) {
             name = name.slice(DIRECTIVE_EVENT_PREFIX.length);
             directiveName = 'event';
           } else if (name.startsWith(DIRECTIVE_PREFIX)) {
-            name = directiveName = name.slice(DIRECTIVE_PREFIX.length);
+            name = name.slice(DIRECTIVE_PREFIX.length);
+
+            if (name !== KEY_REF) {
+              directiveName = name;
+            }
           } else if (name === KEY_REF) {
             name = directiveName = 'ref';
           } else if (name === KEY_UNIQUE) {
@@ -3552,6 +3558,7 @@ function create$1(root, instance) {
 
         if (!counter || directives.length) {
           (function () {
+
             var map = toObject(directives, 'name');
 
             var notify = function notify(vnode, type) {
@@ -3564,6 +3571,7 @@ function create$1(root, instance) {
                     node: item.node,
                     name: item.name,
                     directives: map,
+                    attrs: attrs,
                     instance: instance
                   });
                 }
@@ -3766,37 +3774,54 @@ var event = {
 
 };
 
-var supportInputControls = ['text', 'number', 'password', 'tel', 'url', 'email', 'search'];
-
-var normalControl = {
+var componentControl = {
   set: function set(_ref) {
     var el = _ref.el,
         keypath = _ref.keypath,
         instance = _ref.instance;
+    var $component = el.$component;
 
-    el.value = instance.get(keypath);
+    $component.set('value', instance.get(keypath));
   },
   update: function update(_ref2) {
     var el = _ref2.el,
         keypath = _ref2.keypath,
         instance = _ref2.instance;
+    var $component = el.$component;
+
+    instance.set(keypath, $component.get('value'));
+  }
+};
+
+var inputControl = {
+  set: function set(_ref3) {
+    var el = _ref3.el,
+        keypath = _ref3.keypath,
+        instance = _ref3.instance;
+
+    el.value = instance.get(keypath);
+  },
+  update: function update(_ref4) {
+    var el = _ref4.el,
+        keypath = _ref4.keypath,
+        instance = _ref4.instance;
 
     instance.set(keypath, el.value);
   }
 };
 
 var radioControl = {
-  set: function set(_ref3) {
-    var el = _ref3.el,
-        keypath = _ref3.keypath,
-        instance = _ref3.instance;
+  set: function set(_ref5) {
+    var el = _ref5.el,
+        keypath = _ref5.keypath,
+        instance = _ref5.instance;
 
     el.checked = el.value == instance.get(keypath);
   },
-  update: function update(_ref4) {
-    var el = _ref4.el,
-        keypath = _ref4.keypath,
-        instance = _ref4.instance;
+  update: function update(_ref6) {
+    var el = _ref6.el,
+        keypath = _ref6.keypath,
+        instance = _ref6.instance;
 
     if (el.checked) {
       instance.set(keypath, el.value);
@@ -3805,18 +3830,18 @@ var radioControl = {
 };
 
 var checkboxControl = {
-  set: function set(_ref5) {
-    var el = _ref5.el,
-        keypath = _ref5.keypath,
-        instance = _ref5.instance;
+  set: function set(_ref7) {
+    var el = _ref7.el,
+        keypath = _ref7.keypath,
+        instance = _ref7.instance;
 
     var value = instance.get(keypath);
     el.checked = array(value) ? has$2(value, el.value, FALSE) : !!value;
   },
-  update: function update(_ref6) {
-    var el = _ref6.el,
-        keypath = _ref6.keypath,
-        instance = _ref6.instance;
+  update: function update(_ref8) {
+    var el = _ref8.el,
+        keypath = _ref8.keypath,
+        instance = _ref8.instance;
 
     var value = instance.get(keypath);
     if (array(value)) {
@@ -3839,32 +3864,39 @@ var specialControls = {
 
 var modelDt = {
 
-  attach: function attach(_ref7) {
-    var el = _ref7.el,
-        node = _ref7.node,
-        instance = _ref7.instance,
-        directives = _ref7.directives;
-
-
-    var name = 'change';
-
-    var type = el.type,
-        tagName = el.tagName;
-
-    if (tagName === 'INPUT' && has$2(supportInputControls, type) || tagName === 'TEXTAREA') {
-      name = 'input';
-    }
-
+  attach: function attach(_ref9) {
+    var el = _ref9.el,
+        node = _ref9.node,
+        instance = _ref9.instance,
+        directives = _ref9.directives,
+        attrs = _ref9.attrs;
     var keypath = node.keypath;
 
 
-    var value = node.getValue();
-    var result = testKeypath(instance, keypath, value);
-    if (!result) {
+    var result = testKeypath(instance, keypath, node.getValue());
+    if (result) {
+      keypath = result.keypath;
+    } else {
       error$1('The ' + keypath + ' being used for two-way binding is ambiguous.');
     }
 
-    keypath = result.keypath;
+    var name = 'change',
+        control = void 0;
+
+    var type = el.type,
+        $component = el.$component;
+
+    if ($component) {
+      control = componentControl;
+    } else {
+      control = specialControls[type];
+      if (!control) {
+        control = inputControl;
+        if ('oninput' in el) {
+          name = 'input';
+        }
+      }
+    }
 
     var data = {
       el: el,
@@ -3872,17 +3904,15 @@ var modelDt = {
       instance: instance
     };
 
-    var control = specialControls[type] || normalControl;
     var set$$1 = function set$$1() {
       control.set(data);
     };
-    var listener = function listener() {
-      control.update(data);
-    };
-
-    set$$1();
 
     instance.watch(keypath, set$$1);
+
+    if (control !== componentControl && !has$1(attrs, 'value')) {
+      set$$1();
+    }
 
     event.attach({
       el: el,
@@ -3890,27 +3920,41 @@ var modelDt = {
       name: name,
       instance: instance,
       directives: directives,
-      listener: listener
+      listener: function listener() {
+        control.update(data);
+      }
     });
   },
 
-  detach: function detach(_ref8) {
-    var el = _ref8.el;
+  detach: function detach(_ref10) {
+    var el = _ref10.el;
 
     event.detach({ el: el });
   }
 
 };
 
-function getComponentInfo(node, instance, callback) {
-  var component = node.component,
-      attrs = node.attrs;
+function getComponentInfo(node, instance, directives, callback) {
+  var _node = node,
+      component = _node.component,
+      attrs = _node.attrs;
 
   instance.component(component, function (options) {
     var props = {};
     each$1(attrs, function (node) {
       props[camelCase(node.name)] = node.getValue();
     });
+    if (!has$1(props, 'value')) {
+      var model = directives.model;
+
+      if (model) {
+        node = model.node;
+        var result = testKeypath(instance, node.keypath, node.getValue());
+        if (result) {
+          props.value = instance.get(result.keypath);
+        }
+      }
+    }
     if (has$1(options, 'propTypes')) {
       validate(props, options.propTypes);
     }
@@ -3923,10 +3967,11 @@ var componentDt = {
   attach: function attach(_ref) {
     var el = _ref.el,
         node = _ref.node,
-        instance = _ref.instance;
+        instance = _ref.instance,
+        directives = _ref.directives;
 
     el.$component = [];
-    getComponentInfo(node, instance, function (props, options) {
+    getComponentInfo(node, instance, directives, function (props, options) {
       var $component = el.$component;
 
       if (array($component)) {
@@ -3945,11 +3990,12 @@ var componentDt = {
   update: function update(_ref2) {
     var el = _ref2.el,
         node = _ref2.node,
-        instance = _ref2.instance;
+        instance = _ref2.instance,
+        directives = _ref2.directives;
     var $component = el.$component;
 
     if (object($component)) {
-      getComponentInfo(node, instance, function (props) {
+      getComponentInfo(node, instance, directives, function (props) {
         $component.set(props, TRUE);
       });
     }
@@ -4148,7 +4194,7 @@ var Yox = function () {
       };
       execute$1(options[BEFORE_MOUNT], instance);
       instance.$template = instance.compileTemplate(template);
-      instance.update(el);
+      instance.updateView(el);
     }
   }
 
@@ -4208,32 +4254,7 @@ var Yox = function () {
         return;
       }
 
-      var instance = this;
-
-      var $data = instance.$data,
-          $computedSetters = instance.$computedSetters;
-
-
-      each$$1(model, function (newValue, key) {
-        var keypath = normalize(key);
-        if (keypath !== key) {
-          delete model[key];
-          model[keypath] = newValue;
-        }
-      });
-
-      each$$1(model, function (value, keypath) {
-        if ($computedSetters) {
-          var setter = $computedSetters[keypath];
-          if (setter) {
-            setter.call(instance, value);
-            return;
-          }
-        }
-        set$1($data, keypath, value);
-      });
-
-      refresh(instance, immediate);
+      this.updateModel(model, immediate);
     }
   }, {
     key: 'on',
@@ -4304,14 +4325,52 @@ var Yox = function () {
       this.$watchEmitter.once(keypath, watcher);
     }
   }, {
-    key: 'update',
-    value: function update(el) {
+    key: 'updateModel',
+    value: function updateModel(model) {
+
+      var instance = this;
+
+      var $data = instance.$data,
+          $computedSetters = instance.$computedSetters;
+
+
+      each$$1(model, function (newValue, key) {
+        var keypath = normalize(key);
+        if (keypath !== key) {
+          delete model[key];
+          model[keypath] = newValue;
+        }
+      });
+
+      each$$1(model, function (value, keypath) {
+        if ($computedSetters) {
+          var setter = $computedSetters[keypath];
+          if (setter) {
+            setter.call(instance, value);
+            return;
+          }
+        }
+        set$1($data, keypath, value);
+      });
+
+      var args = arguments,
+          immediate = void 0;
+      if (args.length === 1) {
+        immediate = instance.$dirtyIgnore = TRUE;
+      } else if (args.length === 2) {
+        immediate = args[1];
+      }
+
+      refresh(instance, immediate);
+    }
+  }, {
+    key: 'updateView',
+    value: function updateView() {
 
       var instance = this;
 
       var $viewDeps = instance.$viewDeps,
           $viewWatcher = instance.$viewWatcher,
-          $dirty = instance.$dirty,
           $data = instance.$data,
           $options = instance.$options,
           $filters = instance.$filters,
@@ -4322,9 +4381,6 @@ var Yox = function () {
 
       if ($currentNode) {
         execute$1($options[BEFORE_UPDATE], instance);
-      }
-      if ($dirty) {
-        delete instance.$dirty;
       }
 
       var context = {};
@@ -4351,7 +4407,7 @@ var Yox = function () {
         $currentNode = patch($currentNode, newNode);
       } else {
         afterHook = AFTER_MOUNT;
-        $currentNode = patch(el, newNode);
+        $currentNode = patch(arguments[0], newNode);
         instance.$el = $currentNode.elm;
       }
 
@@ -4539,7 +4595,7 @@ var Yox = function () {
     }
   }, {
     key: 'destroy',
-    value: function destroy(removed) {
+    value: function destroy() {
 
       var instance = this;
 
@@ -4564,7 +4620,7 @@ var Yox = function () {
       }
 
       if ($currentNode) {
-        if (removed !== TRUE) {
+        if (arguments[0] !== TRUE) {
           patch($currentNode, { text: '' });
         }
       }
@@ -4612,7 +4668,7 @@ var Yox = function () {
   return Yox;
 }();
 
-Yox.version = '0.18.6';
+Yox.version = '0.18.10';
 
 Yox.switcher = switcher;
 
