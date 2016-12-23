@@ -429,8 +429,8 @@ var Router = function () {
             props = object.extend({}, params, query);
           }
 
-          if (props && object.has(component, 'propTypes')) {
-            Component.validate(props, component.propTypes);
+          if (props && is.object(component.propTypes)) {
+            props = Component.validate(props, component.propTypes);
           }
 
           instance = new Component(object.extend({
@@ -497,7 +497,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.9.1';
+Router.version = '0.9.2';
 
 Router.HOOK_REROUTE = 'reroute';
 

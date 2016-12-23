@@ -454,8 +454,8 @@ export default class Router {
             props = object.extend({ }, params, query)
           }
 
-          if (props && object.has(component, 'propTypes')) {
-            Component.validate(props, component.propTypes)
+          if (props && is.object(component.propTypes)) {
+            props = Component.validate(props, component.propTypes)
           }
 
           instance = new Component(
@@ -557,7 +557,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.9.1'
+Router.version = '0.9.2'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
