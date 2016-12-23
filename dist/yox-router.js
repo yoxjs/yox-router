@@ -109,21 +109,27 @@ var PREFIX_HASH = '#!';
 
 var PREFIX_PARAM = ':';
 
-var DIVIDER_PATH = '/';
+var SEPARATOR_PATH = '/';
 
-var DIVIDER_QUERY = '&';
+var SEPARATOR_QUERY = '&';
 
-var DIVIDER_PAIR = '=';
+var SEPARATOR_PAIR = '=';
 
 var FLAG_ARRAY = '[]';
 
 function parseQuery(query) {
   var result = {};
-  array.each(string.parse(query, DIVIDER_QUERY, DIVIDER_PAIR), function (item) {
+  array.each(string.parse(query, SEPARATOR_QUERY, SEPARATOR_PAIR), function (item) {
     var key = item.key,
         value = item.value;
 
-    value = is.string(value) ? decodeURIComponent(value) : true;
+    if (is.numeric(value)) {
+      value = +value;
+    } else if (is.string(value)) {
+      value = decodeURIComponent(value);
+    } else {
+      value = true;
+    }
     if (key.endsWith(FLAG_ARRAY)) {
       key = key.slice(0, -FLAG_ARRAY.length);
       var list = result[key] || (result[key] = []);
@@ -144,7 +150,7 @@ function stringifyPair(key, value) {
   } else if (value !== true) {
     result.pop();
   }
-  return result.join(DIVIDER_PAIR);
+  return result.join(SEPARATOR_PAIR);
 }
 
 function stringifyQuery(query) {
@@ -164,15 +170,15 @@ function stringifyQuery(query) {
       }
     }
   });
-  return result.join(DIVIDER_QUERY);
+  return result.join(SEPARATOR_QUERY);
 }
 
 function parseParams(realpath, path) {
 
   var result = {};
 
-  var realpathTerms = realpath.split(DIVIDER_PATH);
-  var pathTerms = path.split(DIVIDER_PATH);
+  var realpathTerms = realpath.split(SEPARATOR_PATH);
+  var pathTerms = path.split(SEPARATOR_PATH);
 
   if (realpathTerms.length === pathTerms.length) {
     array.each(pathTerms, function (item, index) {
@@ -189,9 +195,9 @@ function getPathByRealpath(path2Route, realpath) {
 
   var result = void 0;
 
-  var realpathTerms = realpath.split(DIVIDER_PATH);
+  var realpathTerms = realpath.split(SEPARATOR_PATH);
   object.each(path2Route, function (route, path) {
-    var pathTerms = path.split(DIVIDER_PATH);
+    var pathTerms = path.split(SEPARATOR_PATH);
     if (realpathTerms.length === pathTerms.length) {
       array.each(pathTerms, function (item, index) {
         if (!item.startsWith(PREFIX_PARAM) && item !== realpathTerms[index]) {
@@ -236,11 +242,11 @@ function stringifyHash(path, params, query) {
   var realpath = [],
       search = '';
 
-  array.each(path.split(DIVIDER_PATH), function (item) {
+  array.each(path.split(SEPARATOR_PATH), function (item) {
     realpath.push(item.startsWith(PREFIX_PARAM) ? params[item.slice(PREFIX_PARAM.length)] : item);
   });
 
-  realpath = realpath.join(DIVIDER_PATH);
+  realpath = realpath.join(SEPARATOR_PATH);
 
   if (query) {
     query = stringifyQuery(query);
@@ -491,7 +497,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.9.0';
+Router.version = '0.9.1';
 
 Router.HOOK_REROUTE = 'reroute';
 

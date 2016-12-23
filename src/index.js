@@ -6,12 +6,12 @@ const PREFIX_HASH = '#!'
 // path 中的参数前缀，如 #!/user/:userId
 const PREFIX_PARAM = ':'
 // path 分隔符
-const DIVIDER_PATH = '/'
+const SEPARATOR_PATH = '/'
 // query 分隔符
-const DIVIDER_QUERY = '&'
+const SEPARATOR_QUERY = '&'
 // 键值对分隔符
-const DIVIDER_PAIR = '='
-
+const SEPARATOR_PAIR = '='
+// 参数中的数组标识
 const FLAG_ARRAY = '[]'
 
 /**
@@ -23,12 +23,18 @@ const FLAG_ARRAY = '[]'
 function parseQuery(query) {
   let result = { }
   array.each(
-    string.parse(query, DIVIDER_QUERY, DIVIDER_PAIR),
+    string.parse(query, SEPARATOR_QUERY, SEPARATOR_PAIR),
     function (item) {
       let { key, value } = item
-      value = is.string(value)
-        ? decodeURIComponent(value)
-        : true
+      if (is.numeric(value)) {
+        value = +value
+      }
+      else if (is.string(value)) {
+        value = decodeURIComponent(value)
+      }
+      else {
+        value = true
+      }
       if (key.endsWith(FLAG_ARRAY)) {
         key = key.slice(0, -FLAG_ARRAY.length)
         let list = result[key] || (result[key] = [ ])
@@ -55,7 +61,7 @@ function stringifyPair(key, value) {
   else if (value !== true) {
     result.pop()
   }
-  return result.join(DIVIDER_PAIR)
+  return result.join(SEPARATOR_PAIR)
 }
 
 /**
@@ -88,7 +94,7 @@ function stringifyQuery(query) {
       }
     }
   )
-  return result.join(DIVIDER_QUERY)
+  return result.join(SEPARATOR_QUERY)
 }
 
 /**
@@ -102,8 +108,8 @@ function parseParams(realpath, path) {
 
   let result = { }
 
-  let realpathTerms = realpath.split(DIVIDER_PATH)
-  let pathTerms = path.split(DIVIDER_PATH)
+  let realpathTerms = realpath.split(SEPARATOR_PATH)
+  let pathTerms = path.split(SEPARATOR_PATH)
 
   if (realpathTerms.length === pathTerms.length) {
     array.each(
@@ -131,11 +137,11 @@ function getPathByRealpath(path2Route, realpath) {
 
   let result
 
-  let realpathTerms = realpath.split(DIVIDER_PATH)
+  let realpathTerms = realpath.split(SEPARATOR_PATH)
   object.each(
     path2Route,
     function (route, path) {
-      let pathTerms = path.split(DIVIDER_PATH)
+      let pathTerms = path.split(SEPARATOR_PATH)
       if (realpathTerms.length === pathTerms.length) {
         array.each(
           pathTerms,
@@ -201,7 +207,7 @@ function stringifyHash(path, params, query) {
   let realpath = [ ], search = ''
 
   array.each(
-    path.split(DIVIDER_PATH),
+    path.split(SEPARATOR_PATH),
     function (item) {
       realpath.push(
         item.startsWith(PREFIX_PARAM)
@@ -211,7 +217,7 @@ function stringifyHash(path, params, query) {
     }
   )
 
-  realpath = realpath.join(DIVIDER_PATH)
+  realpath = realpath.join(SEPARATOR_PATH)
 
   if (query) {
     query = stringifyQuery(query)
@@ -551,7 +557,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.9.0'
+Router.version = '0.9.1'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
