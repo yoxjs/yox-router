@@ -428,7 +428,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.9.2';
+Router.version = '0.10.0';
 
 Router.HOOK_REROUTE = 'reroute';
 

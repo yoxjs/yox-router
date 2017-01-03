@@ -557,7 +557,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.9.2'
+Router.version = '0.10.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
