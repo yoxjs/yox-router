@@ -28,75 +28,6 @@ var createClass = function () {
   };
 }();
 
-
-
-
-
-
-
-var get = function get(object, property, receiver) {
-  if (object === null) object = Function.prototype;
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent === null) {
-      return undefined;
-    } else {
-      return get(parent, property, receiver);
-    }
-  } else if ("value" in desc) {
-    return desc.value;
-  } else {
-    var getter = desc.get;
-
-    if (getter === undefined) {
-      return undefined;
-    }
-
-    return getter.call(receiver);
-  }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-var set = function set(object, property, value, receiver) {
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent !== null) {
-      set(parent, property, value, receiver);
-    }
-  } else if ("value" in desc && desc.writable) {
-    desc.value = value;
-  } else {
-    var setter = desc.set;
-
-    if (setter !== undefined) {
-      setter.call(receiver, value);
-    }
-  }
-
-  return value;
-};
-
 var root = void 0;
 var is = void 0;
 var array = void 0;
@@ -130,7 +61,7 @@ function parseQuery(query) {
     } else {
       value = true;
     }
-    if (key.endsWith(FLAG_ARRAY)) {
+    if (string.endsWith(key, FLAG_ARRAY)) {
       key = key.slice(0, -FLAG_ARRAY.length);
       var list = result[key] || (result[key] = []);
       list.push(value);
@@ -182,7 +113,7 @@ function parseParams(realpath, path) {
 
   if (realpathTerms.length === pathTerms.length) {
     array.each(pathTerms, function (item, index) {
-      if (item.startsWith(PREFIX_PARAM)) {
+      if (string.startsWith(item, PREFIX_PARAM)) {
         result[item.slice(PREFIX_PARAM.length)] = realpathTerms[index];
       }
     });
@@ -200,7 +131,7 @@ function getPathByRealpath(path2Route, realpath) {
     var pathTerms = path.split(SEPARATOR_PATH);
     if (realpathTerms.length === pathTerms.length) {
       array.each(pathTerms, function (item, index) {
-        if (!item.startsWith(PREFIX_PARAM) && item !== realpathTerms[index]) {
+        if (!string.startsWith(item, PREFIX_PARAM) && item !== realpathTerms[index]) {
           path = null;
           return false;
         }
@@ -243,7 +174,7 @@ function stringifyHash(path, params, query) {
       search = '';
 
   array.each(path.split(SEPARATOR_PATH), function (item) {
-    realpath.push(item.startsWith(PREFIX_PARAM) ? params[item.slice(PREFIX_PARAM.length)] : item);
+    realpath.push(string.startsWith(item, PREFIX_PARAM) ? params[item.slice(PREFIX_PARAM.length)] : item);
   });
 
   realpath = realpath.join(SEPARATOR_PATH);
@@ -347,7 +278,7 @@ var Router = function () {
       var _location = location,
           hash = _location.hash;
 
-      hash = hash.startsWith(PREFIX_HASH) ? hash.slice(PREFIX_HASH.length) : '';
+      hash = string.startsWith(hash, PREFIX_HASH) ? hash.slice(PREFIX_HASH.length) : '';
 
       var data = parseHash(path2Route, hash);
       if (data) {

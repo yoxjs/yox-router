@@ -35,7 +35,7 @@ function parseQuery(query) {
       else {
         value = true
       }
-      if (key.endsWith(FLAG_ARRAY)) {
+      if (string.endsWith(key, FLAG_ARRAY)) {
         key = key.slice(0, -FLAG_ARRAY.length)
         let list = result[key] || (result[key] = [ ])
         list.push(value)
@@ -115,7 +115,7 @@ function parseParams(realpath, path) {
     array.each(
       pathTerms,
       function (item, index) {
-        if (item.startsWith(PREFIX_PARAM)) {
+        if (string.startsWith(item, PREFIX_PARAM)) {
           result[item.slice(PREFIX_PARAM.length)] = realpathTerms[index]
         }
       }
@@ -147,7 +147,7 @@ function getPathByRealpath(path2Route, realpath) {
           pathTerms,
           function (item, index) {
             // 非参数段不相同
-            if (!item.startsWith(PREFIX_PARAM) && item !== realpathTerms[index]) {
+            if (!string.startsWith(item, PREFIX_PARAM) && item !== realpathTerms[index]) {
               path = null
               return false
             }
@@ -210,7 +210,7 @@ function stringifyHash(path, params, query) {
     path.split(SEPARATOR_PATH),
     function (item) {
       realpath.push(
-        item.startsWith(PREFIX_PARAM)
+        string.startsWith(item, PREFIX_PARAM)
         ? params[item.slice(PREFIX_PARAM.length)]
         : item
       )
@@ -369,7 +369,7 @@ export default class Router {
     let { hash } = location
 
     // 如果不以 PREFIX_HASH 开头，表示不合法
-    hash = hash.startsWith(PREFIX_HASH)
+    hash = string.startsWith(hash, PREFIX_HASH)
       ? hash.slice(PREFIX_HASH.length)
       : ''
 
