@@ -37,11 +37,11 @@ function parseQuery(query) {
       }
       if (string.endsWith(key, FLAG_ARRAY)) {
         key = key.slice(0, -FLAG_ARRAY.length)
-        let list = result[key] || (result[key] = [ ])
+        let list = result[ key ] || (result[ key ] = [ ])
         list.push(value)
       }
       else {
-        result[key] = value
+        result[ key ] = value
       }
     }
   )
@@ -116,7 +116,7 @@ function parseParams(realpath, path) {
       pathTerms,
       function (item, index) {
         if (string.startsWith(item, PREFIX_PARAM)) {
-          result[item.slice(PREFIX_PARAM.length)] = realpathTerms[index]
+          result[ item.slice(PREFIX_PARAM.length) ] = realpathTerms[ index ]
         }
       }
     )
@@ -147,7 +147,7 @@ function getPathByRealpath(path2Route, realpath) {
           pathTerms,
           function (item, index) {
             // 非参数段不相同
-            if (!string.startsWith(item, PREFIX_PARAM) && item !== realpathTerms[index]) {
+            if (!string.startsWith(item, PREFIX_PARAM) && item !== realpathTerms[ index ]) {
               path = null
               return false
             }
@@ -211,7 +211,7 @@ function stringifyHash(path, params, query) {
     function (item) {
       realpath.push(
         string.startsWith(item, PREFIX_PARAM)
-        ? params[item.slice(PREFIX_PARAM.length)]
+        ? params[ item.slice(PREFIX_PARAM.length) ]
         : item
       )
     }
@@ -248,8 +248,8 @@ class Chain {
     let next = function (value) {
       if (value == null) {
         i++
-        if (list[i]) {
-          list[i].fn.call(list[i].context, to, from, next)
+        if (list[ i ]) {
+          list[ i ].fn.call(list[ i ].context, to, from, next)
         }
         else if (success) {
           success()
@@ -298,9 +298,9 @@ export default class Router {
         routes,
         function (data, path) {
           if (has(data, 'name')) {
-            router.name2Path[data.name] = path
+            router.name2Path[ data.name ] = path
           }
-          router.path2Route[path] = data
+          router.path2Route[ path ] = data
         }
       )
     }
@@ -351,7 +351,7 @@ export default class Router {
       }
       else if (object.has(data, 'name')) {
         location.hash = stringifyHash(
-          this.name2Path[data.name],
+          this.name2Path[ data.name ],
           data.params,
           data.query
         )
@@ -411,16 +411,16 @@ export default class Router {
       component, props,
       path, params, query
 
-    if (args[2]) {
-      path = args[0]
-      params = args[1]
-      query = args[2]
-      route = path2Route[path]
+    if (args[ 2 ]) {
+      path = args[ 0 ]
+      params = args[ 1 ]
+      query = args[ 2 ]
+      route = path2Route[ path ]
       component = route.component
     }
     else {
-      component = args[0]
-      props = args[1]
+      component = args[ 0 ]
+      props = args[ 1 ]
     }
 
     let nextRoute = { component, props, path, params, query }
@@ -438,9 +438,9 @@ export default class Router {
 
     let callHook = function (name, success, failure) {
       let chain = new Chain()
-      chain.use(options && options[name], instance)
-      chain.use(route && route[name], route)
-      chain.use(router && router[name], router)
+      chain.use(options && options[ name ], instance)
+      chain.use(route && route[ name ], route)
+      chain.use(router && router[ name ], router)
       chain.run(nextRoute, currentRoute, success, failure)
     }
 
@@ -557,7 +557,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.10.0'
+Router.version = '0.11.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
@@ -612,12 +612,11 @@ Router.register = function (name, component) {
 Router.install = function (Yox) {
   root = new Yox({ })
   Component = Yox
-  let { utils } = Yox
-  is = utils.is
-  array = utils.array
-  object = utils.object
-  string = utils.string
-  native = utils.native
+  is = Yox.is
+  array = Yox.array
+  object = Yox.object
+  string = Yox.string
+  native = Yox.native
 }
 
 // 如果全局环境已有 Yox，自动安装

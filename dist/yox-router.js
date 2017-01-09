@@ -428,7 +428,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.10.0';
+Router.version = '0.11.0';
 
 Router.HOOK_REROUTE = 'reroute';
 
@@ -447,13 +447,11 @@ Router.register = function (name, component) {
 Router.install = function (Yox) {
   root = new Yox({});
   Component = Yox;
-  var utils = Yox.utils;
-
-  is = utils.is;
-  array = utils.array;
-  object = utils.object;
-  string = utils.string;
-  native = utils.native;
+  is = Yox.is;
+  array = Yox.array;
+  object = Yox.object;
+  string = Yox.string;
+  native = Yox.native;
 };
 
 if (typeof Yox !== 'undefined' && Yox.use) {
