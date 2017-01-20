@@ -532,10 +532,9 @@ export default class Router {
    * @param {string|HTMLElement} el
    */
   start(el) {
-    if (is.string(el)) {
-      el = native.find(el)
-    }
-    this.el = el
+    this.el = is.string(el)
+      ? document.querySelector(el)
+      : el
     this.handleHashChange()
     native.on(window, 'hashchange', this.handleHashChange)
   }
@@ -557,7 +556,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.11.0'
+Router.version = '0.11.1'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件

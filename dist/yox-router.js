@@ -1,7 +1,7 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-  typeof define === 'function' && define.amd ? define(factory) :
-  (global.YoxRouter = factory());
+	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+	typeof define === 'function' && define.amd ? define(factory) :
+	(global.YoxRouter = factory());
 }(this, (function () { 'use strict';
 
 var classCallCheck = function (instance, Constructor) {
@@ -411,10 +411,7 @@ var Router = function () {
   }, {
     key: 'start',
     value: function start(el) {
-      if (is.string(el)) {
-        el = native.find(el);
-      }
-      this.el = el;
+      this.el = is.string(el) ? document.querySelector(el) : el;
       this.handleHashChange();
       native.on(window, 'hashchange', this.handleHashChange);
     }
@@ -428,7 +425,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.11.0';
+Router.version = '0.11.1';
 
 Router.HOOK_REROUTE = 'reroute';
 
