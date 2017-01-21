@@ -1,5 +1,5 @@
 
-let root, is, array, object, string, native, Component
+let root, is, dom, array, object, string, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '#!'
@@ -532,11 +532,9 @@ export default class Router {
    * @param {string|HTMLElement} el
    */
   start(el) {
-    this.el = is.string(el)
-      ? document.querySelector(el)
-      : el
+    this.el = is.string(el) ? dom.find(el) : el
     this.handleHashChange()
-    native.on(window, 'hashchange', this.handleHashChange)
+    dom.on(window, 'hashchange', this.handleHashChange)
   }
 
   /**
@@ -544,7 +542,7 @@ export default class Router {
    */
   stop() {
     this.el = null
-    native.off(window, 'hashchange', this.handleHashChange)
+    dom.off(window, 'hashchange', this.handleHashChange)
   }
 
 }
@@ -556,7 +554,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.11.1'
+Router.version = '0.12.0'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
@@ -612,10 +610,10 @@ Router.install = function (Yox) {
   root = new Yox({ })
   Component = Yox
   is = Yox.is
+  dom = Yox.dom
   array = Yox.array
   object = Yox.object
   string = Yox.string
-  native = Yox.native
 }
 
 // 如果全局环境已有 Yox，自动安装

@@ -30,10 +30,10 @@ var createClass = function () {
 
 var root = void 0;
 var is = void 0;
+var dom = void 0;
 var array = void 0;
 var object = void 0;
 var string = void 0;
-var native = void 0;
 var Component = void 0;
 
 var PREFIX_HASH = '#!';
@@ -411,21 +411,21 @@ var Router = function () {
   }, {
     key: 'start',
     value: function start(el) {
-      this.el = is.string(el) ? document.querySelector(el) : el;
+      this.el = is.string(el) ? dom.find(el) : el;
       this.handleHashChange();
-      native.on(window, 'hashchange', this.handleHashChange);
+      dom.on(window, 'hashchange', this.handleHashChange);
     }
   }, {
     key: 'stop',
     value: function stop() {
       this.el = null;
-      native.off(window, 'hashchange', this.handleHashChange);
+      dom.off(window, 'hashchange', this.handleHashChange);
     }
   }]);
   return Router;
 }();
 
-Router.version = '0.11.1';
+Router.version = '0.12.0';
 
 Router.HOOK_REROUTE = 'reroute';
 
@@ -445,10 +445,10 @@ Router.install = function (Yox) {
   root = new Yox({});
   Component = Yox;
   is = Yox.is;
+  dom = Yox.dom;
   array = Yox.array;
   object = Yox.object;
   string = Yox.string;
-  native = Yox.native;
 };
 
 if (typeof Yox !== 'undefined' && Yox.use) {
