@@ -292,18 +292,23 @@ export default class Router {
      */
     router.handleHashChange = router.onHashChange.bind(router)
 
-    if (routes) {
-      let { each, has } = object
-      each(
-        routes,
-        function (data, path) {
-          if (has(data, 'name')) {
-            router.name2Path[ data.name ] = path
-          }
-          router.path2Route[ path ] = data
-        }
-      )
+    let { each, has } = object
+    if (!has(routes, Router.ROUTE_DEFAULT)) {
+      console.warn('Route for default[""] is required.')
     }
+    if (!has(routes, Router.ROUTE_404)) {
+      console.warn('Route for 404["*"] is required.')
+    }
+
+    each(
+      routes,
+      function (data, path) {
+        if (has(data, 'name')) {
+          router.name2Path[ data.name ] = path
+        }
+        router.path2Route[ path ] = data
+      }
+    )
 
   }
 
@@ -379,7 +384,7 @@ export default class Router {
       this.setComponent(path, params, query)
     }
     else {
-      let path = hash ? '*' : '', data = { }
+      let path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT, data = { }
       this.setComponent(path, data, data)
     }
 
@@ -554,7 +559,21 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.12.0'
+Router.version = '0.13.0'
+
+/**
+ * 默认路由
+ *
+ * @type {string}
+ */
+Router.ROUTE_DEFAULT = ''
+
+/**
+ * 404 路由
+ *
+ * @type {string}
+ */
+Router.ROUTE_404 = '*'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件

@@ -240,20 +240,23 @@ var Router = function () {
 
     router.handleHashChange = router.onHashChange.bind(router);
 
-    if (routes) {
-      (function () {
-        var _object = object,
-            each = _object.each,
-            has = _object.has;
+    var _object = object,
+        each = _object.each,
+        has = _object.has;
 
-        each(routes, function (data, path) {
-          if (has(data, 'name')) {
-            router.name2Path[data.name] = path;
-          }
-          router.path2Route[path] = data;
-        });
-      })();
+    if (!has(routes, Router.ROUTE_DEFAULT)) {
+      console.warn('Route for default[""] is required.');
     }
+    if (!has(routes, Router.ROUTE_404)) {
+      console.warn('Route for 404["*"] is required.');
+    }
+
+    each(routes, function (data, path) {
+      if (has(data, 'name')) {
+        router.name2Path[data.name] = path;
+      }
+      router.path2Route[path] = data;
+    });
   }
 
   createClass(Router, [{
@@ -288,7 +291,7 @@ var Router = function () {
 
         this.setComponent(path, params, query);
       } else {
-        var _path = hash ? '*' : '',
+        var _path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT,
             _data = {};
         this.setComponent(_path, _data, _data);
       }
@@ -425,7 +428,11 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.12.0';
+Router.version = '0.13.0';
+
+Router.ROUTE_DEFAULT = '';
+
+Router.ROUTE_404 = '*';
 
 Router.HOOK_REROUTE = 'reroute';
 
