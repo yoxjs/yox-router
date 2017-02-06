@@ -183,15 +183,15 @@ function parseHash(path2Route, hash) {
     realpath = hash
   }
 
+  let result = { realpath }
+
   let path = getPathByRealpath(path2Route, realpath)
   if (path) {
-    return {
-      path,
-      realpath,
-      params: parseParams(realpath, path),
-      query: parseQuery(search)
-    }
+    result.path = path
+    result.params = parseParams(realpath, path)
+    result.query = parseQuery(search)
   }
+  return result
 }
 
 /**
@@ -352,10 +352,7 @@ export default class Router {
     }
     else if (is.object(data)) {
       if (object.has(data, 'component')) {
-        this.setComponent(
-          data.component,
-          data.props
-        )
+        this.setComponent(data)
       }
       else if (object.has(data, 'name')) {
         let path = this.name2Path[ data.name ]
@@ -387,21 +384,17 @@ export default class Router {
       : ''
 
     let data = parseHash(path2Route, hash)
-    if (data) {
-      let { path, params, query } = data
-      this.setComponent(path, params, query)
+    if (!object.has(data, 'path')) {
+      data.path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT
     }
-    else {
-      let path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT, data = { }
-      this.setComponent(path, data, data)
-    }
+    this.setComponent(data)
 
   }
 
   /**
    * 设置当前组件
    */
-  setComponent() {
+  setComponent(data) {
 
     let router = this
 
@@ -420,23 +413,15 @@ export default class Router {
       instance,
     } = currentComponent
 
-    let args = arguments, route,
-      component, props,
-      path, params, query
+    let { path, realpath, params, query, component, props } = data
 
-    if (args[ 2 ]) {
-      path = args[ 0 ]
-      params = args[ 1 ]
-      query = args[ 2 ]
+    let route
+    if (!component) {
       route = path2Route[ path ]
       component = route.component
     }
-    else {
-      component = args[ 0 ]
-      props = args[ 1 ]
-    }
 
-    let nextRoute = { component, props, path, params, query }
+    let nextRoute = { path, realpath, params, query, component, props }
 
     let failure = function (value) {
       if (value === false) {
@@ -546,8 +531,8 @@ export default class Router {
    */
   start(el) {
     this.el = is.string(el) ? dom.find(el) : el
-    this.handleHashChange()
     dom.on(window, 'hashchange', this.handleHashChange)
+    this.handleHashChange()
   }
 
   /**
@@ -567,7 +552,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.14.0'
+Router.version = '0.15.0'
 
 /**
  * 默认路由

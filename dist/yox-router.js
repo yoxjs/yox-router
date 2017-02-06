@@ -157,15 +157,15 @@ function parseHash(path2Route, hash) {
     realpath = hash;
   }
 
+  var result = { realpath: realpath };
+
   var path = getPathByRealpath(path2Route, realpath);
   if (path) {
-    return {
-      path: path,
-      realpath: realpath,
-      params: parseParams(realpath, path),
-      query: parseQuery(search)
-    };
+    result.path = path;
+    result.params = parseParams(realpath, path);
+    result.query = parseQuery(search);
   }
+  return result;
 }
 
 function stringifyHash(path, params, query) {
@@ -270,7 +270,7 @@ var Router = function () {
         location.hash = stringifyHash(data);
       } else if (is.object(data)) {
         if (object.has(data, 'component')) {
-          this.setComponent(data.component, data.props);
+          this.setComponent(data);
         } else if (object.has(data, 'name')) {
           var path = this.name2Path[data.name];
           if (!is.string(path)) {
@@ -293,21 +293,14 @@ var Router = function () {
       hash = string.startsWith(hash, PREFIX_HASH) ? hash.slice(PREFIX_HASH.length) : '';
 
       var data = parseHash(path2Route, hash);
-      if (data) {
-        var path = data.path,
-            params = data.params,
-            query = data.query;
-
-        this.setComponent(path, params, query);
-      } else {
-        var _path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT,
-            _data = {};
-        this.setComponent(_path, _data, _data);
+      if (!object.has(data, 'path')) {
+        data.path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT;
       }
+      this.setComponent(data);
     }
   }, {
     key: 'setComponent',
-    value: function setComponent() {
+    value: function setComponent(data) {
 
       var router = this;
 
@@ -323,28 +316,21 @@ var Router = function () {
       var _currentComponent = currentComponent,
           options = _currentComponent.options,
           instance = _currentComponent.instance;
+      var path = data.path,
+          realpath = data.realpath,
+          params = data.params,
+          query = data.query,
+          component = data.component,
+          props = data.props;
 
 
-      var args = arguments,
-          route = void 0,
-          component = void 0,
-          props = void 0,
-          path = void 0,
-          params = void 0,
-          query = void 0;
-
-      if (args[2]) {
-        path = args[0];
-        params = args[1];
-        query = args[2];
+      var route = void 0;
+      if (!component) {
         route = path2Route[path];
         component = route.component;
-      } else {
-        component = args[0];
-        props = args[1];
       }
 
-      var nextRoute = { component: component, props: props, path: path, params: params, query: query };
+      var nextRoute = { path: path, realpath: realpath, params: params, query: query, component: component, props: props };
 
       var failure = function failure(value) {
         if (value === false) {
@@ -424,8 +410,8 @@ var Router = function () {
     key: 'start',
     value: function start(el) {
       this.el = is.string(el) ? dom.find(el) : el;
-      this.handleHashChange();
       dom.on(window, 'hashchange', this.handleHashChange);
+      this.handleHashChange();
     }
   }, {
     key: 'stop',
@@ -437,7 +423,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.14.0';
+Router.version = '0.15.0';
 
 Router.ROUTE_DEFAULT = '';
 
