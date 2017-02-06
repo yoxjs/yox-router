@@ -327,10 +327,10 @@ var Router = function () {
       var route = void 0;
       if (!component) {
         route = path2Route[path];
-        component = route.component;
+        component = data.component = route.component;
       }
 
-      var nextRoute = { path: path, realpath: realpath, params: params, query: query, component: component, props: props };
+      var nextRoute = data;
 
       var failure = function failure(value) {
         if (value === false) {

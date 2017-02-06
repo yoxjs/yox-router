@@ -418,10 +418,10 @@ export default class Router {
     let route
     if (!component) {
       route = path2Route[ path ]
-      component = route.component
+      component = data.component = route.component
     }
 
-    let nextRoute = { path, realpath, params, query, component, props }
+    let nextRoute = data
 
     let failure = function (value) {
       if (value === false) {
