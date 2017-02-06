@@ -59,6 +59,18 @@ function parseValue(value) {
   return value;
 }
 
+function stringifyPair(key, value) {
+  var result = [key];
+  if (is.string(value)) {
+    result.push(encodeURIComponent(value));
+  } else if (is.number(value)) {
+    result.push(value);
+  } else if (value !== true) {
+    result.pop();
+  }
+  return result.join(SEPARATOR_PAIR);
+}
+
 function parseQuery(query) {
   var result = void 0;
   array.each(string.parse(query, SEPARATOR_QUERY, SEPARATOR_PAIR), function (item) {
@@ -81,18 +93,6 @@ function parseQuery(query) {
     }
   });
   return result;
-}
-
-function stringifyPair(key, value) {
-  var result = [key];
-  if (is.string(value)) {
-    result.push(encodeURIComponent(value));
-  } else if (is.number(value)) {
-    result.push(value);
-  } else if (value !== true) {
-    result.pop();
-  }
-  return result.join(SEPARATOR_PAIR);
 }
 
 function stringifyQuery(query) {
@@ -374,9 +374,6 @@ var Router = function () {
             props = Component.validate(props, component.propTypes);
           }
 
-          router.currentRoute = data;
-          router.currentComponent = { options: options, instance: instance };
-
           instance = new Component(object.extend({
             el: router.el,
             props: props,
@@ -386,6 +383,9 @@ var Router = function () {
           }, component));
 
           callHook(Router.HOOK_AFTER_ENTER);
+
+          router.currentRoute = data;
+          router.currentComponent = { options: options, instance: instance };
         }, failure);
       };
 

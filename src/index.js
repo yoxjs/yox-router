@@ -33,6 +33,22 @@ function parseValue(value) {
   return value
 }
 
+function stringifyPair(key, value) {
+  let result = [ key ]
+  if (is.string(value)) {
+    result.push(
+      encodeURIComponent(value)
+    )
+  }
+  else if (is.number(value)) {
+    result.push(value)
+  }
+  else if (value !== true) {
+    result.pop()
+  }
+  return result.join(SEPARATOR_PAIR)
+}
+
 /**
  * 把 GET 参数解析成对象
  *
@@ -63,22 +79,6 @@ function parseQuery(query) {
     }
   )
   return result
-}
-
-function stringifyPair(key, value) {
-  let result = [ key ]
-  if (is.string(value)) {
-    result.push(
-      encodeURIComponent(value)
-    )
-  }
-  else if (is.number(value)) {
-    result.push(value)
-  }
-  else if (value !== true) {
-    result.pop()
-  }
-  return result.join(SEPARATOR_PAIR)
 }
 
 /**
@@ -474,9 +474,6 @@ export default class Router {
             props = Component.validate(props, component.propTypes)
           }
 
-          router.currentRoute = data
-          router.currentComponent = { options, instance }
-
           instance = new Component(
             object.extend(
               {
@@ -491,6 +488,9 @@ export default class Router {
           )
 
           callHook(Router.HOOK_AFTER_ENTER)
+
+          router.currentRoute = data
+          router.currentComponent = { options, instance }
 
         },
         failure
