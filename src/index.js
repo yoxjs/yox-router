@@ -418,10 +418,8 @@ export default class Router {
     let route
     if (!component) {
       route = path2Route[ path ]
-      component = data.component = route.component
+      component = route.component
     }
-
-    let nextRoute = data
 
     let failure = function (value) {
       if (value === false) {
@@ -439,7 +437,7 @@ export default class Router {
       chain.use(options && options[ name ], instance)
       chain.use(route && route[ name ], route)
       chain.use(router && router[ name ], router)
-      chain.run(nextRoute, currentRoute, success, failure)
+      chain.run(data, currentRoute, success, failure)
     }
 
     let createComponent = function (component) {
@@ -471,7 +469,7 @@ export default class Router {
 
           callHook(Router.HOOK_AFTER_ENTER)
 
-          router.currentRoute = nextRoute
+          router.currentRoute = data
           router.currentComponent = { options, instance }
         },
         failure
@@ -508,7 +506,7 @@ export default class Router {
                   changeComponent(componentOptions)
                 },
                 function () {
-                  router.currentRoute = nextRoute
+                  router.currentRoute = data
                 }
               )
             }

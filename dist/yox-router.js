@@ -327,10 +327,8 @@ var Router = function () {
       var route = void 0;
       if (!component) {
         route = path2Route[path];
-        component = data.component = route.component;
+        component = route.component;
       }
-
-      var nextRoute = data;
 
       var failure = function failure(value) {
         if (value === false) {
@@ -347,7 +345,7 @@ var Router = function () {
         chain.use(options && options[name], instance);
         chain.use(route && route[name], route);
         chain.use(router && router[name], router);
-        chain.run(nextRoute, currentRoute, success, failure);
+        chain.run(data, currentRoute, success, failure);
       };
 
       var createComponent = function createComponent(component) {
@@ -372,7 +370,7 @@ var Router = function () {
 
           callHook(Router.HOOK_AFTER_ENTER);
 
-          router.currentRoute = nextRoute;
+          router.currentRoute = data;
           router.currentComponent = { options: options, instance: instance };
         }, failure);
       };
@@ -395,7 +393,7 @@ var Router = function () {
               callHook(Router.HOOK_REROUTE, function () {
                 changeComponent(componentOptions);
               }, function () {
-                router.currentRoute = nextRoute;
+                router.currentRoute = data;
               });
             } else {
               changeComponent(componentOptions);
