@@ -15,26 +15,43 @@ const SEPARATOR_PAIR = '='
 const FLAG_ARRAY = '[]'
 
 /**
+ * 把 value 解析成最合适的类型
+ *
+ * @param {*} value
+ * @return {*}
+ */
+function parseValue(value) {
+  if (is.numeric(value)) {
+    value = +value
+  }
+  else if (is.string(value)) {
+    value = decodeURIComponent(value)
+  }
+  else {
+    value = true
+  }
+  return value
+}
+
+/**
  * 把 GET 参数解析成对象
  *
  * @param {string} query
- * @return {Object}
+ * @return {?Object}
  */
 function parseQuery(query) {
-  let result = { }
+  let result
   array.each(
     string.parse(query, SEPARATOR_QUERY, SEPARATOR_PAIR),
     function (item) {
+
+      if (!result) {
+        result = { }
+      }
+
       let { key, value } = item
-      if (is.numeric(value)) {
-        value = +value
-      }
-      else if (is.string(value)) {
-        value = decodeURIComponent(value)
-      }
-      else {
-        value = true
-      }
+      value = parseValue(value)
+
       if (string.endsWith(key, FLAG_ARRAY)) {
         key = key.slice(0, -FLAG_ARRAY.length)
         let list = result[ key ] || (result[ key ] = [ ])
@@ -102,11 +119,11 @@ function stringifyQuery(query) {
  *
  * @param {string} realpath 真实的路径
  * @param {string} path 配置的路径
- * @return {Object}
+ * @return {?Object}
  */
 function parseParams(realpath, path) {
 
-  let result = { }
+  let result
 
   let realpathTerms = realpath.split(SEPARATOR_PATH)
   let pathTerms = path.split(SEPARATOR_PATH)
@@ -116,7 +133,10 @@ function parseParams(realpath, path) {
       pathTerms,
       function (item, index) {
         if (string.startsWith(item, PREFIX_PARAM)) {
-          result[ item.slice(PREFIX_PARAM.length) ] = realpathTerms[ index ]
+          if (!result) {
+            result = { }
+          }
+          result[ item.slice(PREFIX_PARAM.length) ] = parseValue(realpathTerms[ index ])
         }
       }
     )
@@ -454,6 +474,9 @@ export default class Router {
             props = Component.validate(props, component.propTypes)
           }
 
+          router.currentRoute = data
+          router.currentComponent = { options, instance }
+
           instance = new Component(
             object.extend(
               {
@@ -469,8 +492,6 @@ export default class Router {
 
           callHook(Router.HOOK_AFTER_ENTER)
 
-          router.currentRoute = data
-          router.currentComponent = { options, instance }
         },
         failure
       )
@@ -550,7 +571,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.15.0'
+Router.version = '0.16.0'
 
 /**
  * 默认路由

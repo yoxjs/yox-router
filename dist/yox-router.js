@@ -48,19 +48,30 @@ var SEPARATOR_PAIR = '=';
 
 var FLAG_ARRAY = '[]';
 
+function parseValue(value) {
+  if (is.numeric(value)) {
+    value = +value;
+  } else if (is.string(value)) {
+    value = decodeURIComponent(value);
+  } else {
+    value = true;
+  }
+  return value;
+}
+
 function parseQuery(query) {
-  var result = {};
+  var result = void 0;
   array.each(string.parse(query, SEPARATOR_QUERY, SEPARATOR_PAIR), function (item) {
+
+    if (!result) {
+      result = {};
+    }
+
     var key = item.key,
         value = item.value;
 
-    if (is.numeric(value)) {
-      value = +value;
-    } else if (is.string(value)) {
-      value = decodeURIComponent(value);
-    } else {
-      value = true;
-    }
+    value = parseValue(value);
+
     if (string.endsWith(key, FLAG_ARRAY)) {
       key = key.slice(0, -FLAG_ARRAY.length);
       var list = result[key] || (result[key] = []);
@@ -106,7 +117,7 @@ function stringifyQuery(query) {
 
 function parseParams(realpath, path) {
 
-  var result = {};
+  var result = void 0;
 
   var realpathTerms = realpath.split(SEPARATOR_PATH);
   var pathTerms = path.split(SEPARATOR_PATH);
@@ -114,7 +125,10 @@ function parseParams(realpath, path) {
   if (realpathTerms.length === pathTerms.length) {
     array.each(pathTerms, function (item, index) {
       if (string.startsWith(item, PREFIX_PARAM)) {
-        result[item.slice(PREFIX_PARAM.length)] = realpathTerms[index];
+        if (!result) {
+          result = {};
+        }
+        result[item.slice(PREFIX_PARAM.length)] = parseValue(realpathTerms[index]);
       }
     });
   }
@@ -360,6 +374,9 @@ var Router = function () {
             props = Component.validate(props, component.propTypes);
           }
 
+          router.currentRoute = data;
+          router.currentComponent = { options: options, instance: instance };
+
           instance = new Component(object.extend({
             el: router.el,
             props: props,
@@ -369,9 +386,6 @@ var Router = function () {
           }, component));
 
           callHook(Router.HOOK_AFTER_ENTER);
-
-          router.currentRoute = data;
-          router.currentComponent = { options: options, instance: instance };
         }, failure);
       };
 
@@ -421,7 +435,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.15.0';
+Router.version = '0.16.0';
 
 Router.ROUTE_DEFAULT = '';
 
