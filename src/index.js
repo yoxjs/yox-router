@@ -293,11 +293,14 @@ export default class Router {
     router.handleHashChange = router.onHashChange.bind(router)
 
     let { each, has } = object
-    if (!has(routes, Router.ROUTE_DEFAULT)) {
-      console.warn('Route for default[""] is required.')
+    let { ROUTE_DEFAULT, ROUTE_404 } = Router
+    if (!has(routes, ROUTE_DEFAULT)) {
+      console.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
+      return
     }
-    if (!has(routes, Router.ROUTE_404)) {
-      console.warn('Route for 404["*"] is required.')
+    if (!has(routes, ROUTE_404)) {
+      console.error(`Route for 404["${ROUTE_404}"] is required.`)
+      return
     }
 
     each(
@@ -355,8 +358,13 @@ export default class Router {
         )
       }
       else if (object.has(data, 'name')) {
+        let path = this.name2Path[ data.name ]
+        if (!is.string(path)) {
+          console.error(`Name[${data.name}] of the route is not found.`)
+          return
+        }
         location.hash = stringifyHash(
-          this.name2Path[ data.name ],
+          path,
           data.params,
           data.query
         )
@@ -559,7 +567,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.13.0'
+Router.version = '0.14.0'
 
 /**
  * 默认路由

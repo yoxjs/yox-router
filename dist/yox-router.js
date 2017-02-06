@@ -243,12 +243,16 @@ var Router = function () {
     var _object = object,
         each = _object.each,
         has = _object.has;
+    var ROUTE_DEFAULT = Router.ROUTE_DEFAULT,
+        ROUTE_404 = Router.ROUTE_404;
 
-    if (!has(routes, Router.ROUTE_DEFAULT)) {
-      console.warn('Route for default[""] is required.');
+    if (!has(routes, ROUTE_DEFAULT)) {
+      console.error('Route for default["' + ROUTE_DEFAULT + '"] is required.');
+      return;
     }
-    if (!has(routes, Router.ROUTE_404)) {
-      console.warn('Route for 404["*"] is required.');
+    if (!has(routes, ROUTE_404)) {
+      console.error('Route for 404["' + ROUTE_404 + '"] is required.');
+      return;
     }
 
     each(routes, function (data, path) {
@@ -268,7 +272,12 @@ var Router = function () {
         if (object.has(data, 'component')) {
           this.setComponent(data.component, data.props);
         } else if (object.has(data, 'name')) {
-          location.hash = stringifyHash(this.name2Path[data.name], data.params, data.query);
+          var path = this.name2Path[data.name];
+          if (!is.string(path)) {
+            console.error('Name[' + data.name + '] of the route is not found.');
+            return;
+          }
+          location.hash = stringifyHash(path, data.params, data.query);
         }
       }
     }
@@ -428,7 +437,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.13.0';
+Router.version = '0.14.0';
 
 Router.ROUTE_DEFAULT = '';
 
