@@ -28,12 +28,13 @@ var createClass = function () {
   };
 }();
 
-var root = void 0;
+var shared = void 0;
 var is = void 0;
 var dom = void 0;
 var array = void 0;
 var object = void 0;
 var string = void 0;
+var logger = void 0;
 var Component = void 0;
 
 var PREFIX_HASH = '#!';
@@ -261,11 +262,11 @@ var Router = function () {
         ROUTE_404 = Router.ROUTE_404;
 
     if (!has(routes, ROUTE_DEFAULT)) {
-      console.error('Route for default["' + ROUTE_DEFAULT + '"] is required.');
+      logger.error('Route for default["' + ROUTE_DEFAULT + '"] is required.');
       return;
     }
     if (!has(routes, ROUTE_404)) {
-      console.error('Route for 404["' + ROUTE_404 + '"] is required.');
+      logger.error('Route for 404["' + ROUTE_404 + '"] is required.');
       return;
     }
 
@@ -288,7 +289,7 @@ var Router = function () {
         } else if (object.has(data, 'name')) {
           var path = this.name2Path[data.name];
           if (!is.string(path)) {
-            console.error('Name[' + data.name + '] of the route is not found.');
+            logger.error('Name[' + data.name + '] of the route is not found.');
             return;
           }
           location.hash = stringifyHash(path, data.params, data.query);
@@ -370,10 +371,6 @@ var Router = function () {
             props = object.extend({}, params, query);
           }
 
-          if (props && is.object(component.propTypes)) {
-            props = Component.validate(props, component.propTypes);
-          }
-
           instance = new Component(object.extend({
             el: router.el,
             props: props,
@@ -400,7 +397,7 @@ var Router = function () {
 
       currentComponent.name = component;
 
-      root.component(component, function (componentOptions) {
+      shared.component(component, function (componentOptions) {
         if (component === currentComponent.name) {
           if (instance) {
             if (options === componentOptions) {
@@ -435,7 +432,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.16.0';
+Router.version = '0.17.0';
 
 Router.ROUTE_DEFAULT = '';
 
@@ -452,17 +449,18 @@ Router.HOOK_BEFORE_LEAVE = 'beforeLeave';
 Router.HOOK_AFTER_LEAVE = 'afterLeave';
 
 Router.register = function (name, component) {
-  root.component(name, component);
+  shared.component(name, component);
 };
 
 Router.install = function (Yox) {
-  root = new Yox({});
+  shared = new Yox({});
   Component = Yox;
   is = Yox.is;
   dom = Yox.dom;
   array = Yox.array;
   object = Yox.object;
   string = Yox.string;
+  logger = Yox.logger;
 };
 
 if (typeof Yox !== 'undefined' && Yox.use) {

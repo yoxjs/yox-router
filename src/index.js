@@ -1,5 +1,5 @@
 
-let root, is, dom, array, object, string, Component
+let shared, is, dom, array, object, string, logger, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '#!'
@@ -315,11 +315,11 @@ export default class Router {
     let { each, has } = object
     let { ROUTE_DEFAULT, ROUTE_404 } = Router
     if (!has(routes, ROUTE_DEFAULT)) {
-      console.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
+      logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
       return
     }
     if (!has(routes, ROUTE_404)) {
-      console.error(`Route for 404["${ROUTE_404}"] is required.`)
+      logger.error(`Route for 404["${ROUTE_404}"] is required.`)
       return
     }
 
@@ -377,7 +377,7 @@ export default class Router {
       else if (object.has(data, 'name')) {
         let path = this.name2Path[ data.name ]
         if (!is.string(path)) {
-          console.error(`Name[${data.name}] of the route is not found.`)
+          logger.error(`Name[${data.name}] of the route is not found.`)
           return
         }
         location.hash = stringifyHash(
@@ -470,10 +470,6 @@ export default class Router {
             props = object.extend({ }, params, query)
           }
 
-          if (props && is.object(component.propTypes)) {
-            props = Component.validate(props, component.propTypes)
-          }
-
           instance = new Component(
             object.extend(
               {
@@ -512,7 +508,7 @@ export default class Router {
 
     currentComponent.name = component
 
-    root.component(
+    shared.component(
       component,
       function (componentOptions) {
         // 当连续调用此方法，且可能出现异步组件时
@@ -571,7 +567,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.16.0'
+Router.version = '0.17.0'
 
 /**
  * 默认路由
@@ -629,7 +625,7 @@ Router.HOOK_AFTER_LEAVE = 'afterLeave'
  * @param {?Object} component
  */
 Router.register = function (name, component) {
-  root.component(name, component)
+  shared.component(name, component)
 }
 
 /**
@@ -638,13 +634,14 @@ Router.register = function (name, component) {
  * @param {Yox} Yox
  */
 Router.install = function (Yox) {
-  root = new Yox({ })
+  shared = new Yox({ })
   Component = Yox
   is = Yox.is
   dom = Yox.dom
   array = Yox.array
   object = Yox.object
   string = Yox.string
+  logger = Yox.logger
 }
 
 // 如果全局环境已有 Yox，自动安装
