@@ -63,9 +63,9 @@ function parseValue(value) {
 function stringifyPair(key, value) {
   var result = [key];
   if (is.string(value)) {
-    result.push(encodeURIComponent(value));
+    array.push(result, encodeURIComponent(value));
   } else if (is.number(value)) {
-    result.push(value);
+    array.push(result, value);
   } else if (value !== true) {
     result.pop();
   }
@@ -73,24 +73,26 @@ function stringifyPair(key, value) {
 }
 
 function parseQuery(query) {
-  var result = void 0;
-  array.each(string.parse(query, SEPARATOR_QUERY, SEPARATOR_PAIR), function (item) {
-
-    if (!result) {
-      result = {};
-    }
-
-    var key = item.key,
-        value = item.value;
-
-    value = parseValue(value);
-
-    if (string.endsWith(key, FLAG_ARRAY)) {
-      key = key.slice(0, -FLAG_ARRAY.length);
-      var list = result[key] || (result[key] = []);
-      list.push(value);
-    } else {
-      result[key] = value;
+  var result = void 0,
+      terms = void 0,
+      key = void 0,
+      value = void 0;
+  array.each(string.split(query, SEPARATOR_QUERY), function (term) {
+    terms = string.split(term, SEPARATOR_PAIR);
+    key = string.trim(terms[0]);
+    value = terms[1];
+    if (key) {
+      if (!result) {
+        result = {};
+      }
+      value = parseValue(value);
+      if (string.endsWith(key, FLAG_ARRAY)) {
+        key = string.slice(key, 0, -FLAG_ARRAY.length);
+        var list = result[key] || (result[key] = []);
+        array.push(list, value);
+      } else {
+        result[key] = value;
+      }
     }
   });
   return result;
@@ -103,13 +105,13 @@ function stringifyQuery(query) {
       array.each(value, function (value) {
         value = stringifyPair(key + FLAG_ARRAY, value);
         if (value) {
-          result.push(value);
+          array.push(result, value);
         }
       });
     } else {
       value = stringifyPair(key, value);
       if (value) {
-        result.push(value);
+        array.push(result, value);
       }
     }
   });
@@ -189,7 +191,7 @@ function stringifyHash(path, params, query) {
       search = '';
 
   array.each(path.split(SEPARATOR_PATH), function (item) {
-    realpath.push(string.startsWith(item, PREFIX_PARAM) ? params[item.slice(PREFIX_PARAM.length)] : item);
+    array.push(realpath, string.startsWith(item, PREFIX_PARAM) ? params[item.slice(PREFIX_PARAM.length)] : item);
   });
 
   realpath = realpath.join(SEPARATOR_PATH);
@@ -215,7 +217,7 @@ var Chain = function () {
     key: 'use',
     value: function use(fn, context) {
       if (is.func(fn)) {
-        this.list.push({ fn: fn, context: context });
+        array.push(this.list, { fn: fn, context: context });
       }
     }
   }, {
@@ -432,7 +434,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.17.0';
+Router.version = '0.18.0';
 
 Router.ROUTE_DEFAULT = '';
 

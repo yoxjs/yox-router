@@ -36,17 +36,56 @@ function parseValue(value) {
 function stringifyPair(key, value) {
   let result = [ key ]
   if (is.string(value)) {
-    result.push(
+    array.push(
+      result,
       encodeURIComponent(value)
     )
   }
   else if (is.number(value)) {
-    result.push(value)
+    array.push(
+      result,
+      value
+    )
   }
   else if (value !== true) {
     result.pop()
   }
   return result.join(SEPARATOR_PAIR)
+}
+
+/**
+ * 把字符串解析成对象形式
+ *
+ * 为了给外部去重的机会，返回的是数组而不是对象
+ *
+ * @param {string} str
+ * @param {string} separator 分隔符，如 & ;
+ * @param {string} pair 键值对分隔符，如 = :
+ * @return {Array}
+ */
+function parseString(str, separator, pair) {
+  let result = [ ]
+  if (is.string(str)) {
+    let terms, key, value, item
+    array.each(
+      split(str, separator),
+      function (term) {
+        terms = split(term, pair)
+        key = terms[0]
+        value = terms[1]
+        if (key) {
+          item = {
+            key: trim(key),
+          }
+          if (is.string(value)) {
+            item.value = trim(value)
+          }
+          array.push(result, item)
+        }
+      }
+    )
+  }
+  return result
 }
 
 /**
@@ -56,25 +95,26 @@ function stringifyPair(key, value) {
  * @return {?Object}
  */
 function parseQuery(query) {
-  let result
+  let result, terms, key, value
   array.each(
-    string.parse(query, SEPARATOR_QUERY, SEPARATOR_PAIR),
-    function (item) {
-
-      if (!result) {
-        result = { }
-      }
-
-      let { key, value } = item
-      value = parseValue(value)
-
-      if (string.endsWith(key, FLAG_ARRAY)) {
-        key = key.slice(0, -FLAG_ARRAY.length)
-        let list = result[ key ] || (result[ key ] = [ ])
-        list.push(value)
-      }
-      else {
-        result[ key ] = value
+    string.split(query, SEPARATOR_QUERY),
+    function (term) {
+      terms = string.split(term, SEPARATOR_PAIR)
+      key = string.trim(terms[ 0 ])
+      value = terms[ 1 ]
+      if (key) {
+        if (!result) {
+          result = { }
+        }
+        value = parseValue(value)
+        if (string.endsWith(key, FLAG_ARRAY)) {
+          key = string.slice(key, 0, -FLAG_ARRAY.length)
+          let list = result[ key ] || (result[ key ] = [ ])
+          array.push(list, value)
+        }
+        else {
+          result[ key ] = value
+        }
       }
     }
   )
@@ -98,7 +138,7 @@ function stringifyQuery(query) {
           function (value) {
             value = stringifyPair(key + FLAG_ARRAY, value)
             if (value) {
-              result.push(value)
+              array.push(result, value)
             }
           }
         )
@@ -106,7 +146,7 @@ function stringifyQuery(query) {
       else {
         value = stringifyPair(key, value)
         if (value) {
-          result.push(value)
+          array.push(result, value)
         }
       }
     }
@@ -229,7 +269,8 @@ function stringifyHash(path, params, query) {
   array.each(
     path.split(SEPARATOR_PATH),
     function (item) {
-      realpath.push(
+      array.push(
+        realpath,
         string.startsWith(item, PREFIX_PARAM)
         ? params[ item.slice(PREFIX_PARAM.length) ]
         : item
@@ -258,7 +299,10 @@ class Chain {
 
   use(fn, context) {
     if (is.func(fn)) {
-      this.list.push({ fn, context })
+      array.push(
+        this.list,
+        { fn, context }
+      )
     }
   }
 
@@ -567,7 +611,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.17.0'
+Router.version = '0.18.0'
 
 /**
  * 默认路由
