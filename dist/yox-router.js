@@ -53,9 +53,17 @@ function parseValue(value) {
   if (is.numeric(value)) {
     value = +value;
   } else if (is.string(value)) {
-    value = decodeURIComponent(value);
-  } else {
-    value = true;
+    if (value === 'true') {
+      value = true;
+    } else if (value === 'false') {
+      value = false;
+    } else if (value === 'null') {
+      value = null;
+    } else if (value === 'undefined') {
+      value = undefined;
+    } else {
+      value = decodeURIComponent(value);
+    }
   }
   return value;
 }
@@ -64,10 +72,12 @@ function stringifyPair(key, value) {
   var result = [key];
   if (is.string(value)) {
     array.push(result, encodeURIComponent(value));
-  } else if (is.number(value)) {
-    array.push(result, value);
-  } else if (value !== true) {
-    result.pop();
+  } else if (is.number(value) || is.boolean(value)) {
+    array.push(result, value.toString());
+  } else if (value === null) {
+    array.push(result, 'null');
+  } else if (value === undefined) {
+    array.push(result, 'undefined');
   }
   return result.join(SEPARATOR_PAIR);
 }
@@ -403,7 +413,7 @@ var Router = function () {
         if (component === currentComponent.name) {
           if (instance) {
             if (options === componentOptions) {
-              callHook(Router.HOOK_REROUTE, function () {
+              callHook(Router.HOOK_REFRESHING, function () {
                 changeComponent(componentOptions);
               }, function () {
                 router.currentRoute = data;
@@ -434,13 +444,13 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.18.0';
+Router.version = '0.19.0';
 
 Router.ROUTE_DEFAULT = '';
 
 Router.ROUTE_404 = '*';
 
-Router.HOOK_REROUTE = 'reroute';
+Router.HOOK_REFRESHING = 'refreshing';
 
 Router.HOOK_BEFORE_ENTER = 'beforeEnter';
 

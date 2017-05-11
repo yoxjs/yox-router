@@ -25,10 +25,21 @@ function parseValue(value) {
     value = +value
   }
   else if (is.string(value)) {
-    value = decodeURIComponent(value)
-  }
-  else {
-    value = true
+    if (value === 'true') {
+      value = true
+    }
+    else if (value === 'false') {
+      value = false
+    }
+    else if (value === 'null') {
+      value = null
+    }
+    else if (value === 'undefined') {
+      value = undefined
+    }
+    else {
+      value = decodeURIComponent(value)
+    }
   }
   return value
 }
@@ -41,51 +52,16 @@ function stringifyPair(key, value) {
       encodeURIComponent(value)
     )
   }
-  else if (is.number(value)) {
-    array.push(
-      result,
-      value
-    )
+  else if (is.number(value) || is.boolean(value)) {
+    array.push(result, value.toString())
   }
-  else if (value !== true) {
-    result.pop()
+  else if (value === null) {
+    array.push(result, 'null')
+  }
+  else if (value === undefined) {
+    array.push(result, 'undefined')
   }
   return result.join(SEPARATOR_PAIR)
-}
-
-/**
- * 把字符串解析成对象形式
- *
- * 为了给外部去重的机会，返回的是数组而不是对象
- *
- * @param {string} str
- * @param {string} separator 分隔符，如 & ;
- * @param {string} pair 键值对分隔符，如 = :
- * @return {Array}
- */
-function parseString(str, separator, pair) {
-  let result = [ ]
-  if (is.string(str)) {
-    let terms, key, value, item
-    array.each(
-      split(str, separator),
-      function (term) {
-        terms = split(term, pair)
-        key = terms[0]
-        value = terms[1]
-        if (key) {
-          item = {
-            key: trim(key),
-          }
-          if (is.string(value)) {
-            item.value = trim(value)
-          }
-          array.push(result, item)
-        }
-      }
-    )
-  }
-  return result
 }
 
 /**
@@ -562,7 +538,7 @@ export default class Router {
           if (instance) {
             if (options === componentOptions) {
               callHook(
-                Router.HOOK_REROUTE,
+                Router.HOOK_REFRESHING,
                 function () {
                   changeComponent(componentOptions)
                 },
@@ -611,7 +587,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.18.0'
+Router.version = '0.19.0'
 
 /**
  * 默认路由
@@ -628,11 +604,11 @@ Router.ROUTE_DEFAULT = ''
 Router.ROUTE_404 = '*'
 
 /**
- * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 reroute 事件
+ * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
  *
  * @type {string}
  */
-Router.HOOK_REROUTE = 'reroute'
+Router.HOOK_REFRESHING = 'refreshing'
 
 /**
  * 导航钩子 - 路由进入之前

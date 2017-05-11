@@ -54,6 +54,10 @@
                 this.$router.go('/login')
               }
             },
+            refreshing: function (to, from, next) {
+              this.set(to.query)
+              console.log('component beforeEnter', to, from)
+            },
             beforeEnter: function (to, from, next) {
               console.log('component beforeEnter', to, from)
               next()
@@ -84,8 +88,8 @@
                       {{stringify(this)}}
                     </div>
                   `,
-                  reroute: function (to, from, next) {
-                    console.log('component reroute', to)
+                  refreshing: function (to, from, next) {
+                    console.log('component refreshing', to)
                   },
                   methods: {
                     index: function () {
@@ -121,8 +125,8 @@
           },
           '/index': {
             component: 'index',
-            reroute: function (to, from, next) {
-              console.log('reroute index', to)
+            refreshing: function (to, from, next) {
+              console.log('refreshing index', to)
             }
           },
           '/register': {
