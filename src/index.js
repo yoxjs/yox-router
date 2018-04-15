@@ -72,28 +72,30 @@ function stringifyPair(key, value) {
  */
 function parseQuery(query) {
   let result, terms, key, value
-  array.each(
-    string.split(query, SEPARATOR_QUERY),
-    function (term) {
-      terms = string.split(term, SEPARATOR_PAIR)
-      key = string.trim(terms[ 0 ])
-      value = terms[ 1 ]
-      if (key) {
-        if (!result) {
-          result = { }
-        }
-        value = parseValue(value)
-        if (string.endsWith(key, FLAG_ARRAY)) {
-          key = string.slice(key, 0, -FLAG_ARRAY.length)
-          let list = result[ key ] || (result[ key ] = [ ])
-          array.push(list, value)
-        }
-        else {
-          result[ key ] = value
+  if (query) {
+    array.each(
+      query.split(SEPARATOR_QUERY),
+      function (term) {
+        terms = term.split(SEPARATOR_PAIR)
+        key = string.trim(terms[ 0 ])
+        value = terms[ 1 ]
+        if (key) {
+          if (!result) {
+            result = { }
+          }
+          value = parseValue(value)
+          if (string.endsWith(key, FLAG_ARRAY)) {
+            key = string.slice(key, 0, -FLAG_ARRAY.length)
+            let list = result[ key ] || (result[ key ] = [ ])
+            array.push(list, value)
+          }
+          else {
+            result[ key ] = value
+          }
         }
       }
-    }
-  )
+    )
+  }
   return result
 }
 
@@ -587,7 +589,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.19.0'
+Router.version = '0.20.0'
 
 /**
  * 默认路由

@@ -87,24 +87,26 @@ function parseQuery(query) {
       terms = void 0,
       key = void 0,
       value = void 0;
-  array.each(string.split(query, SEPARATOR_QUERY), function (term) {
-    terms = string.split(term, SEPARATOR_PAIR);
-    key = string.trim(terms[0]);
-    value = terms[1];
-    if (key) {
-      if (!result) {
-        result = {};
+  if (query) {
+    array.each(query.split(SEPARATOR_QUERY), function (term) {
+      terms = term.split(SEPARATOR_PAIR);
+      key = string.trim(terms[0]);
+      value = terms[1];
+      if (key) {
+        if (!result) {
+          result = {};
+        }
+        value = parseValue(value);
+        if (string.endsWith(key, FLAG_ARRAY)) {
+          key = string.slice(key, 0, -FLAG_ARRAY.length);
+          var list = result[key] || (result[key] = []);
+          array.push(list, value);
+        } else {
+          result[key] = value;
+        }
       }
-      value = parseValue(value);
-      if (string.endsWith(key, FLAG_ARRAY)) {
-        key = string.slice(key, 0, -FLAG_ARRAY.length);
-        var list = result[key] || (result[key] = []);
-        array.push(list, value);
-      } else {
-        result[key] = value;
-      }
-    }
-  });
+    });
+  }
   return result;
 }
 
@@ -444,7 +446,7 @@ var Router = function () {
   return Router;
 }();
 
-Router.version = '0.19.0';
+Router.version = '0.20.0';
 
 Router.ROUTE_DEFAULT = '';
 
