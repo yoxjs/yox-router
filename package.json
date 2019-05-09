@@ -31,5 +31,8 @@
     "rollup-plugin-typescript": "^1.0.1",
     "tslib": "^1.9.3",
     "typescript": "^3.4.4"
+  },
+  "dependencies": {
+    "yox-type": "^0.0.66"
   }
 }

@@ -1,5 +1,11 @@
+import * as type from 'yox-type/src/type'
 
-let shared, is, dom, array, object, string, logger, Component
+import API from 'yox-type/src/interface/API'
+import Yox from 'yox-type/src/interface/Yox'
+import YoxClass from 'yox-type/src/interface/YoxClass'
+import CustomEvent from 'yox-type/src/event/CustomEvent'
+
+let Yox: YoxClass, store: Yox, domApi: API
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const PREFIX_HASH = '#!',
@@ -17,73 +23,118 @@ SEPARATOR_QUERY = '&',
 SEPARATOR_PAIR = '=',
 
 // 参数中的数组标识
-FLAG_ARRAY = '[]'
+FLAG_ARRAY = '[]',
 
-/**
- * 把 value 解析成最合适的类型
- *
- * @param {*} value
- * @return {*}
- */
-function parseValue(value) {
-  if (is.numeric(value)) {
-    value = +value
-  }
-  else if (is.string(value)) {
-    if (value === 'true') {
-      value = true
-    }
-    else if (value === 'false') {
-      value = false
-    }
-    else if (value === 'null') {
-      value = null
-    }
-    else if (value === 'undefined') {
-      value = undefined
-    }
-    else {
-      value = decodeURIComponent(value)
-    }
-  }
-  return value
+// 默认路由
+ROUTE_DEFAULT = '',
+
+// 404 路由
+ROUTE_404 = '*',
+
+// 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
+HOOK_REFRESHING = 'refreshing',
+
+// 导航钩子 - 路由进入之前
+HOOK_BEFORE_ENTER = 'beforeEnter',
+
+// 导航钩子 - 路由进入之后
+HOOK_AFTER_ENTER = 'afterEnter',
+
+// 导航钩子 - 路由离开之前
+HOOK_BEFORE_LEAVE = 'beforeLeave',
+
+// 导航钩子 - 路由离开之后
+HOOK_AFTER_LEAVE = 'afterLeave'
+
+interface ComponentTarget {
+  component: string,
+  props?: type.data
 }
 
-function stringifyPair(key, value) {
+interface RouteTarget {
+  name: string,
+  params?: type.data,
+  query?: type.data
+}
+
+interface RouteOptions {
+  component: string,
+  name?: string,
+  beforeEnter?: Function,
+  afterEnter?: Function,
+  beforeLeave?: Function,
+  afterLeave?: Function,
+  refreshing?: Function
+}
+
+/**
+ * 把字符串 value 解析成最合适的类型
+ */
+function parseValue(value: string) {
+  let result: any
+  if (Yox.is.numeric(value)) {
+    result = +value
+  }
+  else if (Yox.is.string(value)) {
+    if (value === 'true') {
+      result = true
+    }
+    else if (value === 'false') {
+      result = false
+    }
+    else if (value === 'null') {
+      result = null
+    }
+    else if (value === 'undefined') {
+      result = undefined
+    }
+    else {
+      result = decodeURIComponent(value)
+    }
+  }
+  return result
+}
+
+/**
+ * 把 key value 序列化成合适的 key=value 格式
+ */
+function stringifyPair(key: string, value: any) {
   let result = [key]
-  if (is.string(value)) {
-    array.push(
-      result,
+  if (Yox.is.string(value)) {
+    result.push(
       encodeURIComponent(value)
     )
   }
-  else if (is.number(value) || is.boolean(value)) {
-    array.push(result, value.toString())
+  else if (Yox.is.number(value) || Yox.is.boolean(value)) {
+    result.push(
+      value.toString()
+    )
   }
   else if (value === null) {
-    array.push(result, 'null')
+    result.push(
+      'null'
+    )
   }
   else if (value === undefined) {
-    array.push(result, 'undefined')
+    result.push(
+      'undefined'
+    )
   }
-  return array.join(result, SEPARATOR_PAIR)
+  return result.join(SEPARATOR_PAIR)
 }
 
 /**
  * 把 GET 参数解析成对象
- *
- * @param {string} query
- * @return {?Object}
  */
-function parseQuery(query) {
-  let result
-  array.each(
+function parseQuery(query: string) {
+  let result: Object | void
+  Yox.array.each(
     query.split(SEPARATOR_QUERY),
     function (term) {
 
       let terms = term.split(SEPARATOR_PAIR),
 
-      key = string.trim(terms[0]),
+      key = Yox.string.trim(terms[0]),
 
       value = terms[1]
 
@@ -92,9 +143,9 @@ function parseQuery(query) {
           result = {}
         }
         value = parseValue(value)
-        if (string.endsWith(key, FLAG_ARRAY)) {
-          key = string.slice(key, 0, -FLAG_ARRAY.length)
-          array.push(
+        if (Yox.string.endsWith(key, FLAG_ARRAY)) {
+          key = Yox.string.slice(key, 0, -FLAG_ARRAY.length)
+          Yox.array.push(
             result[key] || (result[key] = []),
             value
           )
@@ -111,61 +162,52 @@ function parseQuery(query) {
 
 /**
  * 把对象解析成 key1=value1&key2=value2
- *
- * @param {Object} query
- * @return {string}
  */
-function stringifyQuery(query) {
-  const result = []
-  object.each(
+function stringifyQuery(query: Object) {
+  const result: string[] = []
+  Yox.object.each(
     query,
     function (value, key) {
-      if (is.array(value)) {
-        array.each(
+      if (Yox.is.array(value)) {
+        Yox.array.each(
           value,
           function (value) {
-            array.push(
-              result,
+            result.push(
               stringifyPair(key + FLAG_ARRAY, value)
             )
           }
         )
       }
       else {
-        array.push(
-          result,
+        result.push(
           stringifyPair(key, value)
         )
       }
     }
   )
-  return array.join(result, SEPARATOR_QUERY)
+  return result.join(SEPARATOR_QUERY)
 }
 
 /**
  * 解析 path 中的参数
- *
- * @param {string} realpath 真实的路径
- * @param {string} path 配置的路径
- * @return {?Object}
  */
-function parseParams(realpath, path) {
+function parseParams(realpath: string, path: string) {
 
-  let result
+  let result: Object | void,
 
-  const realpathTerms = realpath.split(SEPARATOR_PATH),
+  realpathTerms = realpath.split(SEPARATOR_PATH),
 
   pathTerms = path.split(SEPARATOR_PATH)
 
   if (realpathTerms.length === pathTerms.length) {
-    array.each(
+    Yox.array.each(
       pathTerms,
       function (item, index) {
-        if (string.startsWith(item, PREFIX_PARAM)) {
+        if (Yox.string.startsWith(item, PREFIX_PARAM)) {
           if (!result) {
-            result = { }
+            result = {}
           }
-          result[string.slice(item, PREFIX_PARAM.length)] = parseValue(realpathTerms[index])
+          result[item.substr(PREFIX_PARAM.length)] = parseValue(realpathTerms[index])
         }
       }
     )
@@ -177,38 +219,30 @@ function parseParams(realpath, path) {
 
 /**
  * 通过 realpath 获取配置的 path
- *
- * @param {Object} path2Route 路由表
- * @param {string} realpath
- * @return {string}
  */
-function getPathByRealpath(path2Route, realpath) {
+function getPathByRealpath(path2Route: Object, realpath: string) {
 
-  let result
+  let result: string | void,
 
-  const realpathTerms = realpath.split(SEPARATOR_PATH)
+  realpathTerms = realpath.split(SEPARATOR_PATH),
 
-  object.each(
+  length = realpathTerms.length
+
+  Yox.object.each(
     path2Route,
     function (_, path) {
       const pathTerms = path.split(SEPARATOR_PATH)
-      if (realpathTerms.length === pathTerms.length) {
-        array.each(
-          pathTerms,
-          function (item, index) {
-            // 非参数段不相同
-            if (!string.startsWith(item, PREFIX_PARAM)
-              && item !== realpathTerms[index]
-            ) {
-              path = null
-              return false
-            }
+      if (length === pathTerms.length) {
+        for (let i = 0; i < length; i++) {
+          // 非参数段不相同
+          if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
+            && pathTerms[i] !== realpathTerms[i]
+          ) {
+            return
           }
-        )
-        if (path) {
-          result = path
-          return false
         }
+        result = path
+        return false
       }
     }
   )
@@ -217,67 +251,72 @@ function getPathByRealpath(path2Route, realpath) {
 
 }
 
+interface Hash {
+  realpath: string,
+  path?: string,
+  params?: Record<string, any>,
+  query?: Record<string, any>,
+}
+
 /**
  * 完整解析 hash 数据
- *
- * @param {Object} path2Route 路由表
- * @param {string} hash
- * @return {object}
  */
-function parseHash(path2Route, hash) {
-  let realpath, search
-  let index = hash.indexOf('?')
+function parseHash(path2Route: Object, hash: string) {
+
+  let realpath: string, search: string | void, index = hash.indexOf('?')
+
   if (index >= 0) {
     realpath = hash.substring(0, index)
-    search = hash.slice(index + 1)
+    search = hash.substring(index + 1)
   }
   else {
     realpath = hash
   }
 
-  let result = { realpath }
+  let result: Hash = { realpath }
 
   let path = getPathByRealpath(path2Route, realpath)
   if (path) {
     result.path = path
-    result.params = parseParams(realpath, path)
+    const params = parseParams(realpath, path)
+    if (params) {
+      result.params = params
+    }
     if (search) {
-      result.query = parseQuery(search)
+      const query = parseQuery(search)
+      if (query) {
+        result.query = query
+      }
     }
   }
+
   return result
 }
 
 /**
  * 把结构化数据序列化成 hash
- *
- * @param {string} path
- * @param {Object} params
- * @param {Object} query
- * @return {string}
  */
-function stringifyHash(path, params, query) {
+function stringifyHash(path: string, params: Object | void, query: Object | void) {
 
-  let realpath = [ ], search = ''
+  let terms = [ ], realpath: string, search = ''
 
-  array.each(
+  Yox.array.each(
     path.split(SEPARATOR_PATH),
     function (item) {
-      array.push(
-        realpath,
-        string.startsWith(item, PREFIX_PARAM)
-        ? params[ item.slice(PREFIX_PARAM.length) ]
-        : item
+      terms.push(
+        Yox.string.startsWith(item, PREFIX_PARAM)
+          ? params[item.substr(PREFIX_PARAM.length)]
+          : item
       )
     }
   )
 
-  realpath = array.join(realpath, SEPARATOR_PATH)
+  realpath = terms.join(SEPARATOR_PATH)
 
   if (query) {
-    query = stringifyQuery(query)
-    if (query) {
-      search = '?' + query
+    const queryStr = stringifyQuery(query)
+    if (queryStr) {
+      search = '?' + queryStr
     }
   }
 
@@ -324,50 +363,70 @@ class Chain {
 
 export class Router {
 
-  constructor(routes) {
+  el: Element
 
-    let router = this
+  name2Path: Record<string, string>
+
+  path2Route: Record<string, any>
+
+  onHashChange: type.listener
+
+  constructor(routes: Record<string, RouteOptions>) {
+
+    const instance = this
 
     /**
      * 路由表 name -> path
-     *
-     * @type {Object}
      */
-    router.name2Path = { }
+    instance.name2Path = {}
 
     /**
      * 路由表 path -> route
-     *
-     * @type {Object}
      */
-    router.path2Route = { }
+    instance.path2Route = {}
 
     /**
      * hashchange 事件处理函数
      * 此函数必须绑在实例上，不能使用原型的
      * 否则一旦解绑，所有实例都解绑了
-     *
-     * @type {Function}
      */
-    router.handleHashChange = router.onHashChange.bind(router)
+    instance.onHashChange = function (event: CustomEvent, data?: type.data) {
 
-    let { each, has } = object
-    if (!has(routes, ROUTE_DEFAULT)) {
-      logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
-      return
-    }
-    if (!has(routes, ROUTE_404)) {
-      logger.error(`Route for 404["${ROUTE_404}"] is required.`)
-      return
+      let hashStr = location.hash
+
+      // 如果不以 PREFIX_HASH 开头，表示不合法
+      hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
+        ? hashStr.substr(PREFIX_HASH.length)
+        : ''
+
+      const hash = parseHash(instance.path2Route, hashStr)
+
+      if (!hash.path) {
+        hash.path = hashStr ? ROUTE_404 : ROUTE_DEFAULT
+      }
+
+      instance.setComponent(hash)
+
     }
 
-    each(
+    if (process.env.NODE_ENV === 'dev') {
+      if (!Yox.object.has(routes, ROUTE_DEFAULT)) {
+        Yox.logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
+        return
+      }
+      if (!Yox.object.has(routes, ROUTE_404)) {
+        Yox.logger.error(`Route for 404["${ROUTE_404}"] is required.`)
+        return
+      }
+    }
+
+    Yox.object.each(
       routes,
-      function (data, path) {
-        if (has(data, 'name')) {
-          router.name2Path[ data.name ] = path
+      function (route, path) {
+        if (Yox.object.has(route, 'name')) {
+          instance.name2Path[route.name] = path
         }
-        router.path2Route[ path ] = data
+        instance.path2Route[path] = route
       }
     )
 
@@ -404,56 +463,46 @@ export class Router {
    * })
    *
    */
-  go(data) {
-    if (is.string(data)) {
-      location.hash = stringifyHash(data)
+  go(data: string | RouteTarget | ComponentTarget) {
+    if (Yox.is.string(data)) {
+      this.setPath(data as string)
     }
-    else if (is.object(data)) {
-      if (object.has(data, 'component')) {
-        this.setComponent(data)
+    else if (Yox.is.object(data)) {
+      if (Yox.object.has(data, 'component')) {
+        this.setComponent(data as ComponentTarget)
       }
-      else if (object.has(data, 'name')) {
-        let path = this.name2Path[ data.name ]
-        if (!is.string(path)) {
-          logger.error(`Name[${data.name}] of the route is not found.`)
-          return
-        }
-        location.hash = stringifyHash(
-          path,
-          data.params,
-          data.query
-        )
+      else if (Yox.object.has(data, 'name')) {
+        this.setRoute(data as RouteTarget)
       }
     }
   }
 
+  setPath(path: string) {
+    location.hash = stringifyHash(path)
+  }
+
   /**
-   * 处理浏览器的 hash 变化
+   * 设置当前路由
    */
-  onHashChange() {
+  setRoute(target: RouteTarget) {
 
-    let router = this
-    let { path2Route } = router
-    let { hash } = location
+    const path = this.name2Path[target.name]
 
-    // 如果不以 PREFIX_HASH 开头，表示不合法
-    hash = string.startsWith(hash, PREFIX_HASH)
-      ? hash.slice(PREFIX_HASH.length)
-      : ''
-
-    let data = parseHash(path2Route, hash)
-    if (!object.has(data, 'path')) {
-      data.path = hash ? ROUTE_404 :ROUTE_DEFAULT
+    if (process.env.NODE_ENV === 'dev') {
+      if (!Yox.is.string(path)) {
+        Yox.logger.error(`Name[${target.name}] of the route is not found.`)
+        return
+      }
     }
 
-    this.setComponent(data)
+    location.hash = stringifyHash(path, target.params, target.query)
 
   }
 
   /**
    * 设置当前组件
    */
-  setComponent(data) {
+  setComponent(target: ComponentTarget) {
 
     let router = this
 
@@ -472,7 +521,7 @@ export class Router {
       instance,
     } = currentComponent
 
-    let { path, realpath, params, query, component, props } = data
+    let { path, realpath, params, query, component, props } = target
 
     let route
     if (!component) {
@@ -496,7 +545,7 @@ export class Router {
       chain.use(options && options[ name ], instance)
       chain.use(route && route[ name ], route)
       chain.use(router && router[ name ], router)
-      chain.run(data, currentRoute, success, failure)
+      chain.run(target, currentRoute, success, failure)
     }
 
     let createComponent = function (component) {
@@ -524,7 +573,7 @@ export class Router {
 
           callHook(HOOK_AFTER_ENTER)
 
-          router.currentRoute = data
+          router.currentRoute = target
           router.currentComponent = { options, instance }
 
         },
@@ -547,7 +596,7 @@ export class Router {
 
     currentComponent.name = component
 
-    shared.component(
+    store.component(
       component,
       function (componentOptions) {
         // 当连续调用此方法，且可能出现异步组件时
@@ -562,7 +611,7 @@ export class Router {
                   changeComponent(componentOptions)
                 },
                 function () {
-                  router.currentRoute = data
+                  router.currentRoute = target
                 }
               )
             }
@@ -576,17 +625,24 @@ export class Router {
         }
       }
     )
+
   }
 
   /**
    * 启动路由
-   *
-   * @param {string|HTMLElement} el
    */
-  start(el) {
-    this.el = is.string(el) ? dom.find(el) : el
-    dom.on(window, 'hashchange', this.handleHashChange)
-    this.handleHashChange()
+  start(el: string | Element) {
+    if (Yox.is.string(el)) {
+      const element = domApi.find(el as string)
+      if (element) {
+        this.el = element
+      }
+    }
+    else {
+      this.el = el as Element
+    }
+    domApi.on(window, 'hashchange', this.onHashChange)
+    this.onHashChange()
   }
 
   /**
@@ -594,7 +650,7 @@ export class Router {
    */
   stop() {
     this.el = null
-    dom.off(window, 'hashchange', this.handleHashChange)
+    domApi.off(window, 'hashchange', this.onHashChange)
   }
 
 }
@@ -603,82 +659,24 @@ export class Router {
 
 /**
  * 版本
- *
- * @type {string}
  */
 export const version = process.env.NODE_VERSION
 
 /**
- * 默认路由
- *
- * @type {string}
- */
-export const ROUTE_DEFAULT = ''
-
-/**
- * 404 路由
- *
- * @type {string}
- */
-export const ROUTE_404 = '*'
-
-/**
- * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
- *
- * @type {string}
- */
-export const HOOK_REFRESHING = 'refreshing'
-
-/**
- * 导航钩子 - 路由进入之前
- *
- * @type {string}
- */
-export const HOOK_BEFORE_ENTER = 'beforeEnter'
-
-/**
- * 导航钩子 - 路由进入之后
- *
- * @type {string}
- */
-export const HOOK_AFTER_ENTER = 'afterEnter'
-
-/**
- * 导航钩子 - 路由离开之前
- *
- * @type {string}
- */
-export const HOOK_BEFORE_LEAVE = 'beforeLeave'
-
-/**
- * 导航钩子 - 路由离开之后
- *
- * @type {string}
- */
-export const HOOK_AFTER_LEAVE = 'afterLeave'
-
-/**
  * 注册全局组件，路由实例可共享
- *
- * @param {string|Object} name
- * @param {?Object} component
  */
-export function register(name, component) {
-  shared.component(name, component)
+export function register(
+  name: string | Record<string, type.component>,
+  component?: type.component
+): void {
+  store.component(name, component)
 }
 
 /**
  * 安装插件
- *
- * @param {Yox} Yox
  */
-export function install(Yox) {
-  shared = new Yox()
-  Component = Yox
-  is = Yox.is
-  dom = Yox.dom
-  array = Yox.array
-  object = Yox.object
-  string = Yox.string
-  logger = Yox.logger
+export function install(Class: YoxClass): void {
+  Yox = Class
+  store = new Class()
+  domApi = Class.dom as API
 }
