@@ -2,17 +2,22 @@
 let shared, is, dom, array, object, string, logger, Component
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-const PREFIX_HASH = '#!'
+const PREFIX_HASH = '#!',
+
 // path 中的参数前缀，如 #!/user/:userId
-const PREFIX_PARAM = ':'
+PREFIX_PARAM = ':',
+
 // path 分隔符
-const SEPARATOR_PATH = '/'
+SEPARATOR_PATH = '/',
+
 // query 分隔符
-const SEPARATOR_QUERY = '&'
+SEPARATOR_QUERY = '&',
+
 // 键值对分隔符
-const SEPARATOR_PAIR = '='
+SEPARATOR_PAIR = '=',
+
 // 参数中的数组标识
-const FLAG_ARRAY = '[]'
+FLAG_ARRAY = '[]'
 
 /**
  * 把 value 解析成最合适的类型
@@ -45,7 +50,7 @@ function parseValue(value) {
 }
 
 function stringifyPair(key, value) {
-  let result = [ key ]
+  let result = [key]
   if (is.string(value)) {
     array.push(
       result,
@@ -61,7 +66,7 @@ function stringifyPair(key, value) {
   else if (value === undefined) {
     array.push(result, 'undefined')
   }
-  return result.join(SEPARATOR_PAIR)
+  return array.join(result, SEPARATOR_PAIR)
 }
 
 /**
@@ -71,31 +76,36 @@ function stringifyPair(key, value) {
  * @return {?Object}
  */
 function parseQuery(query) {
-  let result, terms, key, value
-  if (query) {
-    array.each(
-      query.split(SEPARATOR_QUERY),
-      function (term) {
-        terms = term.split(SEPARATOR_PAIR)
-        key = string.trim(terms[ 0 ])
-        value = terms[ 1 ]
-        if (key) {
-          if (!result) {
-            result = { }
-          }
-          value = parseValue(value)
-          if (string.endsWith(key, FLAG_ARRAY)) {
-            key = string.slice(key, 0, -FLAG_ARRAY.length)
-            let list = result[ key ] || (result[ key ] = [ ])
-            array.push(list, value)
-          }
-          else {
-            result[ key ] = value
-          }
+  let result
+  array.each(
+    query.split(SEPARATOR_QUERY),
+    function (term) {
+
+      let terms = term.split(SEPARATOR_PAIR),
+
+      key = string.trim(terms[0]),
+
+      value = terms[1]
+
+      if (key) {
+        if (!result) {
+          result = {}
+        }
+        value = parseValue(value)
+        if (string.endsWith(key, FLAG_ARRAY)) {
+          key = string.slice(key, 0, -FLAG_ARRAY.length)
+          array.push(
+            result[key] || (result[key] = []),
+            value
+          )
+        }
+        else {
+          result[key] = value
         }
       }
-    )
-  }
+
+    }
+  )
   return result
 }
 
@@ -106,7 +116,7 @@ function parseQuery(query) {
  * @return {string}
  */
 function stringifyQuery(query) {
-  let result = [ ]
+  const result = []
   object.each(
     query,
     function (value, key) {
@@ -114,22 +124,22 @@ function stringifyQuery(query) {
         array.each(
           value,
           function (value) {
-            value = stringifyPair(key + FLAG_ARRAY, value)
-            if (value) {
-              array.push(result, value)
-            }
+            array.push(
+              result,
+              stringifyPair(key + FLAG_ARRAY, value)
+            )
           }
         )
       }
       else {
-        value = stringifyPair(key, value)
-        if (value) {
-          array.push(result, value)
-        }
+        array.push(
+          result,
+          stringifyPair(key, value)
+        )
       }
     }
   )
-  return result.join(SEPARATOR_QUERY)
+  return array.join(result, SEPARATOR_QUERY)
 }
 
 /**
@@ -143,8 +153,9 @@ function parseParams(realpath, path) {
 
   let result
 
-  let realpathTerms = realpath.split(SEPARATOR_PATH)
-  let pathTerms = path.split(SEPARATOR_PATH)
+  const realpathTerms = realpath.split(SEPARATOR_PATH),
+
+  pathTerms = path.split(SEPARATOR_PATH)
 
   if (realpathTerms.length === pathTerms.length) {
     array.each(
@@ -154,7 +165,7 @@ function parseParams(realpath, path) {
           if (!result) {
             result = { }
           }
-          result[ item.slice(PREFIX_PARAM.length) ] = parseValue(realpathTerms[ index ])
+          result[string.slice(item, PREFIX_PARAM.length)] = parseValue(realpathTerms[index])
         }
       }
     )
@@ -175,17 +186,20 @@ function getPathByRealpath(path2Route, realpath) {
 
   let result
 
-  let realpathTerms = realpath.split(SEPARATOR_PATH)
+  const realpathTerms = realpath.split(SEPARATOR_PATH)
+
   object.each(
     path2Route,
-    function (route, path) {
-      let pathTerms = path.split(SEPARATOR_PATH)
+    function (_, path) {
+      const pathTerms = path.split(SEPARATOR_PATH)
       if (realpathTerms.length === pathTerms.length) {
         array.each(
           pathTerms,
           function (item, index) {
             // 非参数段不相同
-            if (!string.startsWith(item, PREFIX_PARAM) && item !== realpathTerms[ index ]) {
+            if (!string.startsWith(item, PREFIX_PARAM)
+              && item !== realpathTerms[index]
+            ) {
               path = null
               return false
             }
@@ -227,7 +241,9 @@ function parseHash(path2Route, hash) {
   if (path) {
     result.path = path
     result.params = parseParams(realpath, path)
-    result.query = parseQuery(search)
+    if (search) {
+      result.query = parseQuery(search)
+    }
   }
   return result
 }
@@ -256,7 +272,7 @@ function stringifyHash(path, params, query) {
     }
   )
 
-  realpath = realpath.join(SEPARATOR_PATH)
+  realpath = array.join(realpath, SEPARATOR_PATH)
 
   if (query) {
     query = stringifyQuery(query)
@@ -306,7 +322,7 @@ class Chain {
 
 }
 
-export default class Router {
+export class Router {
 
   constructor(routes) {
 
@@ -336,7 +352,6 @@ export default class Router {
     router.handleHashChange = router.onHashChange.bind(router)
 
     let { each, has } = object
-    let { ROUTE_DEFAULT, ROUTE_404 } = Router
     if (!has(routes, ROUTE_DEFAULT)) {
       logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
       return
@@ -428,7 +443,7 @@ export default class Router {
 
     let data = parseHash(path2Route, hash)
     if (!object.has(data, 'path')) {
-      data.path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT
+      data.path = hash ? ROUTE_404 :ROUTE_DEFAULT
     }
 
     this.setComponent(data)
@@ -487,7 +502,7 @@ export default class Router {
     let createComponent = function (component) {
       options = component
       callHook(
-        Router.HOOK_BEFORE_ENTER,
+        HOOK_BEFORE_ENTER,
         function () {
 
           if (params || query) {
@@ -507,7 +522,7 @@ export default class Router {
             )
           )
 
-          callHook(Router.HOOK_AFTER_ENTER)
+          callHook(HOOK_AFTER_ENTER)
 
           router.currentRoute = data
           router.currentComponent = { options, instance }
@@ -519,11 +534,11 @@ export default class Router {
 
     let changeComponent = function (component) {
       callHook(
-        Router.HOOK_BEFORE_LEAVE,
+        HOOK_BEFORE_LEAVE,
         function () {
           instance.destroy()
           instance = null
-          callHook(Router.HOOK_AFTER_LEAVE)
+          callHook(HOOK_AFTER_LEAVE)
           createComponent(component)
         },
         failure
@@ -542,7 +557,7 @@ export default class Router {
           if (instance) {
             if (options === componentOptions) {
               callHook(
-                Router.HOOK_REFRESHING,
+                HOOK_REFRESHING,
                 function () {
                   changeComponent(componentOptions)
                 },
@@ -591,56 +606,56 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = process.env.NODE_VERSION
+export const version = process.env.NODE_VERSION
 
 /**
  * 默认路由
  *
  * @type {string}
  */
-Router.ROUTE_DEFAULT = ''
+export const ROUTE_DEFAULT = ''
 
 /**
  * 404 路由
  *
  * @type {string}
  */
-Router.ROUTE_404 = '*'
+export const ROUTE_404 = '*'
 
 /**
  * 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
  *
  * @type {string}
  */
-Router.HOOK_REFRESHING = 'refreshing'
+export const HOOK_REFRESHING = 'refreshing'
 
 /**
  * 导航钩子 - 路由进入之前
  *
  * @type {string}
  */
-Router.HOOK_BEFORE_ENTER = 'beforeEnter'
+export const HOOK_BEFORE_ENTER = 'beforeEnter'
 
 /**
  * 导航钩子 - 路由进入之后
  *
  * @type {string}
  */
-Router.HOOK_AFTER_ENTER = 'afterEnter'
+export const HOOK_AFTER_ENTER = 'afterEnter'
 
 /**
  * 导航钩子 - 路由离开之前
  *
  * @type {string}
  */
-Router.HOOK_BEFORE_LEAVE = 'beforeLeave'
+export const HOOK_BEFORE_LEAVE = 'beforeLeave'
 
 /**
  * 导航钩子 - 路由离开之后
  *
  * @type {string}
  */
-Router.HOOK_AFTER_LEAVE = 'afterLeave'
+export const HOOK_AFTER_LEAVE = 'afterLeave'
 
 /**
  * 注册全局组件，路由实例可共享
@@ -648,7 +663,7 @@ Router.HOOK_AFTER_LEAVE = 'afterLeave'
  * @param {string|Object} name
  * @param {?Object} component
  */
-Router.register = function (name, component) {
+export function register(name, component) {
   shared.component(name, component)
 }
 
@@ -657,7 +672,7 @@ Router.register = function (name, component) {
  *
  * @param {Yox} Yox
  */
-Router.install = function (Yox) {
+export function install(Yox) {
   shared = new Yox()
   Component = Yox
   is = Yox.is
