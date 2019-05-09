@@ -318,6 +318,7 @@ export default class Router {
      * @type {Object}
      */
     router.name2Path = { }
+
     /**
      * 路由表 path -> route
      *
@@ -429,6 +430,7 @@ export default class Router {
     if (!object.has(data, 'path')) {
       data.path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT
     }
+
     this.setComponent(data)
 
   }
@@ -641,7 +643,7 @@ Router.HOOK_BEFORE_LEAVE = 'beforeLeave'
 Router.HOOK_AFTER_LEAVE = 'afterLeave'
 
 /**
- * 注册全局组件，路由实例可共享之
+ * 注册全局组件，路由实例可共享
  *
  * @param {string|Object} name
  * @param {?Object} component
@@ -656,7 +658,7 @@ Router.register = function (name, component) {
  * @param {Yox} Yox
  */
 Router.install = function (Yox) {
-  shared = new Yox({ })
+  shared = new Yox()
   Component = Yox
   is = Yox.is
   dom = Yox.dom
@@ -664,9 +666,4 @@ Router.install = function (Yox) {
   object = Yox.object
   string = Yox.string
   logger = Yox.logger
-}
-
-// 如果全局环境已有 Yox，自动安装
-if (typeof Yox !== 'undefined' && Yox.use) {
-  Yox.use(Router)
 }
