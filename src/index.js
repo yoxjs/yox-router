@@ -591,7 +591,7 @@ export default class Router {
  *
  * @type {string}
  */
-Router.version = '0.20.0'
+Router.version = process.env.NODE_VERSION
 
 /**
  * 默认路由
