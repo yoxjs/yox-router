@@ -70,17 +70,19 @@ type success = () => void
 
 type failure = (value: false | Target) => void
 
-type hook = (to: Route, from: Route | void, next: next) => void
+type BeforeHook = (to: Route, from: Route | void, next: next) => void
+
+type AfterHook = (to: Route, from: Route | void) => void
 
 interface RouteOptions {
   path: string,
   component: string
   name?: string
-  [HOOK_REFRESHING]?: hook
-  [HOOK_BEFORE_ENTER]?: hook
-  [HOOK_AFTER_ENTER]?: hook
-  [HOOK_BEFORE_LEAVE]?: hook
-  [HOOK_AFTER_LEAVE]?: hook
+  [HOOK_REFRESHING]?: BeforeHook
+  [HOOK_BEFORE_ENTER]?: BeforeHook
+  [HOOK_AFTER_ENTER]?: AfterHook
+  [HOOK_BEFORE_LEAVE]?: BeforeHook
+  [HOOK_AFTER_LEAVE]?: AfterHook
 }
 
 interface Route {
@@ -419,15 +421,15 @@ export class Router {
 
   currentComponent?: Component
 
-  [HOOK_REFRESHING]?: hook
+  [HOOK_REFRESHING]?: BeforeHook
 
-  [HOOK_BEFORE_ENTER]?: hook
+  [HOOK_BEFORE_ENTER]?: BeforeHook
 
-  [HOOK_AFTER_ENTER]?: hook
+  [HOOK_AFTER_ENTER]?: AfterHook
 
-  [HOOK_BEFORE_LEAVE]?: hook
+  [HOOK_BEFORE_LEAVE]?: BeforeHook
 
-  [HOOK_AFTER_LEAVE]?: hook
+  [HOOK_AFTER_LEAVE]?: AfterHook
 
   constructor(routes: RouteOptions[]) {
 
