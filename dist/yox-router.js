@@ -245,9 +245,9 @@
       return Chain;
   }());
   var Router = /** @class */ (function () {
-      function Router(routes) {
+      function Router(options) {
           var instance = this;
-          instance.routes = routes;
+          instance.routes = options.routes;
           /**
            * 路由表 name -> path
            */
@@ -263,7 +263,7 @@
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parseHash(routes, hashStr), route = hash.route || (hashStr ? instance.route404 : instance.routeDefault);
+              var hash = parseHash(options.routes, hashStr), route = hash.route || (hashStr ? instance.route404 : instance.routeDefault);
               instance.setRoute({
                   component: route.component,
                   path: route.path,
@@ -272,7 +272,7 @@
               }, route);
           };
           var route404, routeDefault;
-          Yox.array.each(routes, function (route) {
+          Yox.array.each(options.routes, function (route) {
               if (route.name) {
                   instance.name2Path[route.name] = route.path;
               }
@@ -293,8 +293,8 @@
                   return;
               }
           }
-          this.route404 = route404;
-          this.routeDefault = routeDefault;
+          instance.route404 = route404;
+          instance.routeDefault = routeDefault;
       }
       /**
        * 真正执行路由切换操作的函数

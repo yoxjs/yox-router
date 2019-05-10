@@ -74,6 +74,10 @@ type BeforeHook = (to: Route, from: Route | void, next: next) => void
 
 type AfterHook = (to: Route, from: Route | void) => void
 
+interface RouterOptions {
+  routes: RouteOptions[]
+}
+
 interface RouteOptions {
   path: string,
   component: string
@@ -431,11 +435,11 @@ export class Router {
 
   [HOOK_AFTER_LEAVE]?: AfterHook
 
-  constructor(routes: RouteOptions[]) {
+  constructor(options: RouterOptions) {
 
     const instance = this
 
-    instance.routes = routes
+    instance.routes = options.routes
 
     /**
      * 路由表 name -> path
@@ -456,7 +460,7 @@ export class Router {
         ? hashStr.substr(PREFIX_HASH.length)
         : ''
 
-      const hash = parseHash(routes, hashStr),
+      const hash = parseHash(options.routes, hashStr),
 
       route = hash.route || (hashStr ? instance.route404 : instance.routeDefault)
 
@@ -475,7 +479,7 @@ export class Router {
     let route404: RouteOptions | undefined, routeDefault: RouteOptions | undefined
 
     Yox.array.each(
-      routes,
+      options.routes,
       function (route: RouteOptions) {
         if (route.name) {
           instance.name2Path[route.name] = route.path
@@ -500,8 +504,8 @@ export class Router {
       }
     }
 
-    this.route404 = route404 as RouteOptions
-    this.routeDefault = routeDefault as RouteOptions
+    instance.route404 = route404 as RouteOptions
+    instance.routeDefault = routeDefault as RouteOptions
 
   }
 

@@ -117,54 +117,56 @@
           }
         })
 
-        var router = new YoxRouter.Router([
-          {
-            path: '',
-            component: 'index',
-          },
-          {
-            path: '*',
-            component: 'index',
-          },
-          {
-            path: '/index',
-            component: 'index',
-            refreshing: function (to, from, next) {
-              console.log('refreshing index', to)
+        var router = new YoxRouter.Router({
+          routes: [
+            {
+              path: '',
+              component: 'index',
+            },
+            {
+              path: '*',
+              component: 'index',
+            },
+            {
+              path: '/index',
+              component: 'index',
+              refreshing: function (to, from, next) {
+                console.log('refreshing index', to)
+              }
+            },
+            {
+              path: '/register',
+              name: 'register',
+              component: 'register',
+              beforeEnter: function (to, from, next) {
+                console.log('route beforeEnter', to, from)
+                next()
+              },
+              afterEnter: function (to, from, next) {
+                console.log('route afterEnter', to, from)
+                next()
+              },
+              beforeLeave: function (to, from, next) {
+                console.log('route beforeLeave', to, from)
+                next()
+              },
+              afterLeave: function (to, from, next) {
+                console.log('route afterLeave', to, from)
+                next()
+              }
+            },
+            {
+              path: '/login',
+              name: 'login',
+              component: 'login'
+            },
+            {
+              path: '/profile/:id',
+              name: 'profile',
+              component: 'profile'
             }
-          },
-          {
-            path: '/register',
-            name: 'register',
-            component: 'register',
-            beforeEnter: function (to, from, next) {
-              console.log('route beforeEnter', to, from)
-              next()
-            },
-            afterEnter: function (to, from, next) {
-              console.log('route afterEnter', to, from)
-              next()
-            },
-            beforeLeave: function (to, from, next) {
-              console.log('route beforeLeave', to, from)
-              next()
-            },
-            afterLeave: function (to, from, next) {
-              console.log('route afterLeave', to, from)
-              next()
-            }
-          },
-          {
-            path: '/login',
-            name: 'login',
-            component: 'login'
-          },
-          {
-            path: '/profile/:id',
-            name: 'profile',
-            component: 'profile'
-          }
-        ])
+          ]
+        })
         router.beforeEnter = function (to, from, next) {
           console.log('router beforeEnter', to, from)
           next()
