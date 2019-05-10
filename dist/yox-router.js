@@ -142,12 +142,12 @@
       return result;
   }
   /**
-   * 通过 realpath 获取配置的 path
+   * 通过 realpath 获取配置的路由
    */
-  function getPathByRealpath(path2Route, realpath) {
+  function getRouteByRealpath(routes, realpath) {
       var result, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length;
-      Yox.object.each(path2Route, function (_, path) {
-          var pathTerms = path.split(SEPARATOR_PATH);
+      Yox.array.each(routes, function (route) {
+          var pathTerms = route.path.split(SEPARATOR_PATH);
           if (length === pathTerms.length) {
               for (var i = 0; i < length; i++) {
                   // 非参数段不相同
@@ -156,7 +156,7 @@
                       return;
                   }
               }
-              result = path;
+              result = route;
               return false;
           }
       });
@@ -165,7 +165,7 @@
   /**
    * 完整解析 hash 数据
    */
-  function parseHash(path2Route, hash) {
+  function parseHash(routes, hash) {
       var realpath, search, index = hash.indexOf('?');
       if (index >= 0) {
           realpath = hash.substring(0, index);
@@ -174,11 +174,10 @@
       else {
           realpath = hash;
       }
-      var result = { realpath: realpath };
-      var path = getPathByRealpath(path2Route, realpath);
-      if (path) {
-          result.path = path;
-          var params = parseParams(realpath, path);
+      var result = { realpath: realpath }, route = getRouteByRealpath(routes, realpath);
+      if (route) {
+          result.route = route;
+          var params = parseParams(realpath, route.path);
           if (params) {
               result.params = params;
           }
@@ -248,14 +247,11 @@
   var Router = /** @class */ (function () {
       function Router(routes) {
           var instance = this;
+          instance.routes = routes;
           /**
            * 路由表 name -> path
            */
           instance.name2Path = {};
-          /**
-           * 路由表 path -> route
-           */
-          instance.path2Route = {};
           /**
            * hashchange 事件处理函数
            * 此函数必须写在实例上，不能写在类上
@@ -267,30 +263,38 @@
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parseHash(instance.path2Route, hashStr), path = hash.path || (hashStr ? ROUTE_404 : ROUTE_DEFAULT), options = instance.path2Route[path];
+              var hash = parseHash(routes, hashStr), route = hash.route || (hashStr ? instance.route404 : instance.routeDefault);
               instance.setRoute({
-                  component: options.component,
-                  path: path,
+                  component: route.component,
+                  path: route.path,
                   params: hash.params,
                   query: hash.query
-              }, options);
+              }, route);
           };
+          var route404, routeDefault;
+          Yox.array.each(routes, function (route) {
+              if (route.name) {
+                  instance.name2Path[route.name] = route.path;
+              }
+              if (route.path === ROUTE_404) {
+                  route404 = route;
+              }
+              else if (route.path === ROUTE_DEFAULT) {
+                  routeDefault = route;
+              }
+          });
           {
-              if (!Yox.object.has(routes, ROUTE_DEFAULT)) {
+              if (!routeDefault) {
                   Yox.logger.error("Route for default[\"" + ROUTE_DEFAULT + "\"] is required.");
                   return;
               }
-              if (!Yox.object.has(routes, ROUTE_404)) {
+              if (!route404) {
                   Yox.logger.error("Route for 404[\"" + ROUTE_404 + "\"] is required.");
                   return;
               }
           }
-          Yox.object.each(routes, function (route, path) {
-              if (route.name) {
-                  instance.name2Path[route.name] = path;
-              }
-              instance.path2Route[path] = route;
-          });
+          this.route404 = route404;
+          this.routeDefault = routeDefault;
       }
       /**
        * 真正执行路由切换操作的函数
@@ -354,7 +358,7 @@
           var instance = this, currentRoute = instance.currentRoute, params = route.params, query = route.query, component = route.component, props = route.props, currentComponent = instance.currentComponent || (instance.currentComponent = { name: component }), failure = function (value) {
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
-                  if (currentRoute && currentRoute.path) {
+                  if (currentRoute && Yox.is.string(currentRoute.path)) {
                       location.hash = stringifyHash(currentRoute.path, currentRoute.params, currentRoute.query);
                   }
               }
@@ -387,7 +391,8 @@
                       el: instance.el,
                       props: props,
                       extensions: {
-                          $router: instance
+                          $router: instance,
+                          $route: route
                       }
                   }, options));
                   instance.currentRoute = route;

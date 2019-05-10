@@ -99,7 +99,7 @@ interface Component {
 
 interface Hash {
   realpath: string
-  path?: string
+  route?: RouteOptions
   params?: type.data
   query?: type.data
 }
@@ -306,7 +306,7 @@ function parseHash(routes: RouteOptions[], hash: string) {
   let result: Hash = { realpath }, route = getRouteByRealpath(routes, realpath)
 
   if (route) {
-    result.path = route.path
+    result.route = route
     const params = parseParams(realpath, route.path)
     if (params) {
       result.params = params
@@ -407,9 +407,11 @@ export class Router {
 
   routes: RouteOptions[]
 
-  name2Path: Record<string, string>
+  route404: RouteOptions
 
-  path2Route: Record<string, RouteOptions>
+  routeDefault: RouteOptions
+
+  name2Path: Record<string, string>
 
   onHashChange: Function
 
@@ -439,11 +441,6 @@ export class Router {
     instance.name2Path = {}
 
     /**
-     * 路由表 path -> route
-     */
-    instance.path2Route = {}
-
-    /**
      * hashchange 事件处理函数
      * 此函数必须写在实例上，不能写在类上
      * 否则一旦解绑，所有实例都解绑了
@@ -459,32 +456,21 @@ export class Router {
 
       const hash = parseHash(routes, hashStr),
 
-      path = Yox.is.string(hash.path) ? hash.path as string : (hashStr ? ROUTE_404 : ROUTE_DEFAULT),
-
-      options = instance.path2Route[path]
+      route = hash.route || (hashStr ? instance.route404 : instance.routeDefault)
 
       instance.setRoute(
         {
-          component: options.component,
-          path,
+          component: route.component,
+          path: route.path,
           params: hash.params,
           query: hash.query,
         },
-        options
+        route
       )
 
     }
 
-    if (process.env.NODE_ENV === 'dev') {
-      if (!Yox.object.has(routes, ROUTE_DEFAULT)) {
-        Yox.logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
-        return
-      }
-      if (!Yox.object.has(routes, ROUTE_404)) {
-        Yox.logger.error(`Route for 404["${ROUTE_404}"] is required.`)
-        return
-      }
-    }
+    let route404: RouteOptions | undefined, routeDefault: RouteOptions | undefined
 
     Yox.array.each(
       routes,
@@ -492,9 +478,28 @@ export class Router {
         if (route.name) {
           instance.name2Path[route.name] = route.path
         }
-        instance.path2Route[route.path] = route
+        if (route.path === ROUTE_404) {
+          route404 = route
+        }
+        else if (route.path === ROUTE_DEFAULT) {
+          routeDefault = route
+        }
       }
     )
+
+    if (process.env.NODE_ENV === 'dev') {
+      if (!routeDefault) {
+        Yox.logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
+        return
+      }
+      if (!route404) {
+        Yox.logger.error(`Route for 404["${ROUTE_404}"] is required.`)
+        return
+      }
+    }
+
+    this.route404 = route404 as RouteOptions
+    this.routeDefault = routeDefault as RouteOptions
 
   }
 

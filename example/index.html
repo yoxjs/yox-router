@@ -117,20 +117,24 @@
           }
         })
 
-        var router = new YoxRouter.Router({
-          '': {
+        var router = new YoxRouter.Router([
+          {
+            path: '',
             component: 'index',
           },
-          '*': {
+          {
+            path: '*',
             component: 'index',
           },
-          '/index': {
+          {
+            path: '/index',
             component: 'index',
             refreshing: function (to, from, next) {
               console.log('refreshing index', to)
             }
           },
-          '/register': {
+          {
+            path: '/register',
             name: 'register',
             component: 'register',
             beforeEnter: function (to, from, next) {
@@ -150,15 +154,17 @@
               next()
             }
           },
-          '/login': {
+          {
+            path: '/login',
             name: 'login',
             component: 'login'
           },
-          '/profile/:id': {
+          {
+            path: '/profile/:id',
             name: 'profile',
             component: 'profile'
           }
-        })
+        ])
         router.beforeEnter = function (to, from, next) {
           console.log('router beforeEnter', to, from)
           next()
