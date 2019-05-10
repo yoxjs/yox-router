@@ -73,6 +73,7 @@ type failure = (value: false | Target) => void
 type hook = (to: Route, from: Route | void, next: next) => void
 
 interface RouteOptions {
+  path: string,
   component: string
   name?: string
   [HOOK_REFRESHING]?: hook
@@ -254,20 +255,20 @@ function parseParams(realpath: string, path: string) {
 }
 
 /**
- * 通过 realpath 获取配置的 path
+ * 通过 realpath 获取配置的路由
  */
-function getPathByRealpath(path2Route: Object, realpath: string) {
+function getRouteByRealpath(routes: RouteOptions[], realpath: string) {
 
-  let result: string | undefined,
+  let result: RouteOptions | undefined,
 
   realpathTerms = realpath.split(SEPARATOR_PATH),
 
   length = realpathTerms.length
 
-  Yox.object.each(
-    path2Route,
-    function (_, path) {
-      const pathTerms = path.split(SEPARATOR_PATH)
+  Yox.array.each(
+    routes,
+    function (route) {
+      const pathTerms = route.path.split(SEPARATOR_PATH)
       if (length === pathTerms.length) {
         for (let i = 0; i < length; i++) {
           // 非参数段不相同
@@ -277,7 +278,7 @@ function getPathByRealpath(path2Route: Object, realpath: string) {
             return
           }
         }
-        result = path
+        result = route
         return false
       }
     }
@@ -290,7 +291,7 @@ function getPathByRealpath(path2Route: Object, realpath: string) {
 /**
  * 完整解析 hash 数据
  */
-function parseHash(path2Route: Object, hash: string) {
+function parseHash(routes: RouteOptions[], hash: string) {
 
   let realpath: string, search: string | void, index = hash.indexOf('?')
 
@@ -302,12 +303,11 @@ function parseHash(path2Route: Object, hash: string) {
     realpath = hash
   }
 
-  let result: Hash = { realpath }
+  let result: Hash = { realpath }, route = getRouteByRealpath(routes, realpath)
 
-  let path = getPathByRealpath(path2Route, realpath)
-  if (path) {
-    result.path = path
-    const params = parseParams(realpath, path)
+  if (route) {
+    result.path = route.path
+    const params = parseParams(realpath, route.path)
     if (params) {
       result.params = params
     }
@@ -405,6 +405,8 @@ export class Router {
 
   el?: Element
 
+  routes: RouteOptions[]
+
   name2Path: Record<string, string>
 
   path2Route: Record<string, RouteOptions>
@@ -425,9 +427,11 @@ export class Router {
 
   [HOOK_AFTER_LEAVE]?: hook
 
-  constructor(routes: Record<string, RouteOptions>) {
+  constructor(routes: RouteOptions[]) {
 
     const instance = this
+
+    instance.routes = routes
 
     /**
      * 路由表 name -> path
@@ -453,9 +457,9 @@ export class Router {
         ? hashStr.substr(PREFIX_HASH.length)
         : ''
 
-      const hash = parseHash(instance.path2Route, hashStr),
+      const hash = parseHash(routes, hashStr),
 
-      path = hash.path || (hashStr ? ROUTE_404 : ROUTE_DEFAULT),
+      path = Yox.is.string(hash.path) ? hash.path as string : (hashStr ? ROUTE_404 : ROUTE_DEFAULT),
 
       options = instance.path2Route[path]
 
@@ -482,13 +486,13 @@ export class Router {
       }
     }
 
-    Yox.object.each(
+    Yox.array.each(
       routes,
-      function (route: RouteOptions, path: string) {
+      function (route: RouteOptions) {
         if (route.name) {
-          instance.name2Path[route.name] = path
+          instance.name2Path[route.name] = route.path
         }
-        instance.path2Route[path] = route
+        instance.path2Route[route.path] = route
       }
     )
 
@@ -573,7 +577,7 @@ export class Router {
     failure: failure = function (value: false | Target) {
       if (value === false) {
         // 流程到此为止，恢复到当前路由
-        if (currentRoute && currentRoute.path) {
+        if (currentRoute && Yox.is.string(currentRoute.path)) {
           location.hash = stringifyHash(
             currentRoute.path as string,
             currentRoute.params,
@@ -623,6 +627,7 @@ export class Router {
                 props,
                 extensions: {
                   $router: instance,
+                  $route: route,
                 }
               },
               options
