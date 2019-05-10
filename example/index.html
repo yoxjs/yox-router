@@ -33,7 +33,7 @@
             `,
             methods: {
               register: function () {
-                this.$router.go({
+                this.$router.push({
                   name: 'register',
                   query: { age: 10 }
                 })
@@ -52,7 +52,7 @@
             `,
             methods: {
               login: function () {
-                this.$router.go('/login')
+                this.$router.push('/login')
               }
             },
             refreshing: function (to, from, next) {
@@ -94,7 +94,7 @@
                   },
                   methods: {
                     index: function () {
-                      this.$router.go({
+                      this.$router.push({
                         name: 'login',
                         query: {
                           name: 'musicode'

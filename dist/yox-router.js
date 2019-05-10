@@ -24,10 +24,10 @@
   SEPARATOR_PAIR = '=', 
   // 参数中的数组标识
   FLAG_ARRAY = '[]', 
-  // 默认路由
-  ROUTE_DEFAULT = '', 
   // 404 路由
   ROUTE_404 = '*', 
+  // 默认路由
+  ROUTE_DEFAULT = '', 
   // 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
   HOOK_REFRESHING = 'refreshing', 
   // 导航钩子 - 路由进入之前
@@ -284,12 +284,12 @@
               }
           });
           {
-              if (!routeDefault) {
-                  Yox.logger.error("Route for default[\"" + ROUTE_DEFAULT + "\"] is required.");
-                  return;
-              }
               if (!route404) {
                   Yox.logger.error("Route for 404[\"" + ROUTE_404 + "\"] is required.");
+                  return;
+              }
+              if (!routeDefault) {
+                  Yox.logger.error("Route for default[\"" + ROUTE_DEFAULT + "\"] is required.");
                   return;
               }
           }
@@ -305,11 +305,11 @@
        *
        * 如果只是简单的 path，直接传字符串
        *
-       * go('/index')
+       * push('/index')
        *
        * 如果需要带参数，切记路由表要配置 name
        *
-       * go({
+       * push({
        *   name: 'index',
        *   params: { },
        *   query: { }
@@ -317,17 +317,17 @@
        *
        * 如果没有任何参数，可以只传 path
        *
-       * go('/index')
+       * push('/index')
        *
        * 2. 不会改变 url
        *
-       * go({
+       * push({
        *   component: 'index',
        *   props: { }
        * })
        *
        */
-      Router.prototype.go = function (target) {
+      Router.prototype.push = function (target) {
           if (Yox.is.string(target)) {
               location.hash = stringifyHash(target);
           }
@@ -355,7 +355,7 @@
        * 切换路由
        */
       Router.prototype.setRoute = function (route, options) {
-          var instance = this, currentRoute = instance.currentRoute, params = route.params, query = route.query, component = route.component, props = route.props, currentComponent = instance.currentComponent || (instance.currentComponent = { name: component }), failure = function (value) {
+          var instance = this, currentRoute = instance.currentRoute, params = route.params, query = route.query, component = route.component, props = route.props, currentComponent = instance.currentComponent || (instance.currentComponent = {}), failure = function (value) {
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
                   if (currentRoute && Yox.is.string(currentRoute.path)) {
@@ -364,7 +364,7 @@
               }
               else {
                   // 跳转到别的路由
-                  instance.go(value);
+                  instance.push(value);
               }
           }, callHook = function (name, success, failure) {
               new Chain(name)
@@ -391,8 +391,7 @@
                       el: instance.el,
                       props: props,
                       extensions: {
-                          $router: instance,
-                          $route: route
+                          $router: instance
                       }
                   }, options));
                   instance.currentRoute = route;
@@ -407,17 +406,7 @@
                   callHook(HOOK_AFTER_LEAVE);
                   createComponent(options);
               }, failure);
-          };
-          if (currentComponent.name !== component) {
-              currentComponent.name = component;
-          }
-          store.component(component, function (options) {
-              // 当连续调用此方法，且可能出现异步组件时
-              // 执行到这 name 不一定会等于 currentComponent.name
-              // 因此需要强制保证一下
-              if (component !== currentComponent.name) {
-                  return;
-              }
+          }, loadComponent = function (options) {
               if (currentComponent.root) {
                   // 当前根组件还活着，并且还要切到当前根组件，表示刷新一下
                   if (currentComponent.options === options) {
@@ -435,6 +424,15 @@
               // 第一次创建组件
               else {
                   createComponent(options);
+              }
+          };
+          currentComponent.name = component;
+          store.loadComponent(component, function (options) {
+              // 当连续调用此方法，且可能出现异步组件时
+              // 执行到这 name 不一定会等于 currentComponent.name
+              // 因此需要强制保证一下
+              if (component === currentComponent.name) {
+                  loadComponent(options);
               }
           });
       };

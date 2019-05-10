@@ -1,5 +1,5 @@
 /**
- * yox.js v1.0.0-alpha.24
+ * yox.js v1.0.0-alpha.26
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -821,7 +821,7 @@
       each$1(keypath, function (key, isLast) {
           if (object != NULL) {
               // 先直接取值
-              var value = object[key], 
+              var value = object[key],
               // 紧接着判断值是否存在
               // 下面会处理计算属性的值，不能在它后面设置 hasValue
               hasValue = isDef(value);
@@ -920,11 +920,15 @@
   /**
    * 是否有原生的日志特性，没有必要单独实现
    */
-  var nativeConsole = typeof console !== RAW_UNDEFINED ? console : NULL, 
+  var nativeConsole = typeof console !== RAW_UNDEFINED ? console : NULL,
   /**
    * 当前是否是源码调试，如果开启了代码压缩，empty function 里的注释会被干掉
    */
-  useSource = /yox/.test(toString(EMPTY_FUNCTION));
+  useSource = /yox/.test(toString(EMPTY_FUNCTION)),
+  /**
+   * console 样式前缀
+   */
+  stylePrefix = '%c';
   /**
    * 全局调试开关
    *
@@ -941,16 +945,16 @@
       return useSource;
   }
   function getStyle(backgroundColor) {
-      return "background-color:" + backgroundColor + ";color:#fff;padding:4px 8px;border-radius:20px;";
+      return "background-color:" + backgroundColor + ";border-radius:20px;color:#fff;font-size:10px;padding:3px 6px;";
   }
   /**
    * 打印 debug 日志
    *
    * @param msg
    */
-  function debug(msg) {
+  function debug(msg, tag) {
       if (nativeConsole && isDebug()) {
-          nativeConsole.log('%cYox debug', getStyle('#888'), msg);
+          nativeConsole.log(stylePrefix + (tag || 'Yox debug'), getStyle('#888'), msg);
       }
   }
   /**
@@ -958,9 +962,9 @@
    *
    * @param msg
    */
-  function info(msg) {
+  function info(msg, tag) {
       if (nativeConsole && isDebug()) {
-          nativeConsole.log('%cYox info', getStyle('#2db7f5'), msg);
+          nativeConsole.log(stylePrefix + (tag || 'Yox info'), getStyle('#2db7f5'), msg);
       }
   }
   /**
@@ -968,29 +972,29 @@
    *
    * @param msg
    */
-  function success(msg) {
+  function success(msg, tag) {
       if (nativeConsole && isDebug()) {
-          nativeConsole.log('%cYox success', getStyle('#19be6b'), msg);
+          nativeConsole.log(stylePrefix + (tag || 'Yox success'), getStyle('#19be6b'), msg);
       }
   }
   /**
-   * 打印警告日志
+   * 打印 warn 日志
    *
    * @param msg
    */
-  function warn(msg) {
+  function warn(msg, tag) {
       if (nativeConsole && isDebug()) {
-          nativeConsole.warn('%cYox warn', getStyle('#f90'), msg);
+          nativeConsole.warn(stylePrefix + (tag || 'Yox warn'), getStyle('#f90'), msg);
       }
   }
   /**
-   * 打印错误日志
+   * 打印 error 日志
    *
    * @param msg
    */
-  function error(msg) {
+  function error(msg, tag) {
       if (nativeConsole) {
-          nativeConsole.error('%cYox error', getStyle('#ed4014'), msg);
+          nativeConsole.error(stylePrefix + (tag || 'Yox error'), getStyle('#ed4014'), msg);
       }
   }
   /**
@@ -998,8 +1002,8 @@
    *
    * @param msg
    */
-  function fatal(msg) {
-      throw new Error("[Yox fatal]: " + msg);
+  function fatal(msg, tag) {
+      throw new Error("[" + (tag || 'Yox fatal') + "]: " + msg);
   }
 
   var logger = /*#__PURE__*/Object.freeze({
@@ -1480,7 +1484,7 @@
   function createComponent(vnode, options) {
       // 渲染同步加载的组件时，vnode.node 为空
       // 渲染异步加载的组件时，vnode.node 不为空，因为初始化用了占位节点
-      var child = (vnode.parent || vnode.context).create(options, vnode, vnode.node), 
+      var child = (vnode.parent || vnode.context).create(options, vnode, vnode.node),
       // 组件初始化创建的元素
       node = child.$el;
       if (node) {
@@ -1517,7 +1521,7 @@
       }
       if (isComponent) {
           var isAsync_1 = TRUE;
-          context.component(tag, function (options) {
+          context.loadComponent(tag, function (options) {
               if (has$2(data, LOADING)) {
                   // 异步组件
                   if (data[LOADING]) {
@@ -2712,7 +2716,7 @@
       Parser.prototype.scanBinary = function (startIndex) {
           // 二元运算，如 a + b * c / d，这里涉及运算符的优先级
           // 算法参考 https://en.wikipedia.org/wiki/Shunting-yard_algorithm
-          var instance = this, 
+          var instance = this,
           // 格式为 [ index1, node1, index2, node2, ... ]
           output = [], token, index, operator, operatorInfo, lastOperator, lastOperatorInfo;
           while (TRUE) {
@@ -3085,45 +3089,45 @@
   }
 
   // 当前不位于 block 之间
-  var BLOCK_MODE_NONE = 1, 
+  var BLOCK_MODE_NONE = 1,
   // {{ x }}
-  BLOCK_MODE_SAFE = 2, 
+  BLOCK_MODE_SAFE = 2,
   // {{{ x }}}
-  BLOCK_MODE_UNSAFE = 3, 
+  BLOCK_MODE_UNSAFE = 3,
   // 表达式的静态 keypath
-  STATIC_KEYPATH = 'sk', 
+  STATIC_KEYPATH = 'sk',
   // 缓存编译模板
-  compileCache = {}, 
+  compileCache = {},
   // 缓存编译正则
-  patternCache$1 = {}, 
+  patternCache$1 = {},
   // 指令分隔符，如 on-click 和 lazy-click
-  directiveSeparator = '-', 
+  directiveSeparator = '-',
   // 没有命名空间的事件
-  eventPattern = /^[_$a-z]([\w]+)?$/i, 
+  eventPattern = /^[_$a-z]([\w]+)?$/i,
   // 有命名空间的事件
-  eventNamespacePattern = /^[_$a-z]([\w]+)?\.[_$a-z]([\w]+)?$/i, 
+  eventNamespacePattern = /^[_$a-z]([\w]+)?\.[_$a-z]([\w]+)?$/i,
   // 标签
-  tagPattern = /<(\/)?([$a-z][-a-z0-9]*)/i, 
+  tagPattern = /<(\/)?([$a-z][-a-z0-9]*)/i,
   // 注释
-  commentPattern = /<!--[\s\S]*?-->/g, 
+  commentPattern = /<!--[\s\S]*?-->/g,
   // 属性的 name
   // 支持 on-click.namespace="" 或 on-get-out="" 或 xml:xx=""
-  attributePattern = /^\s*([-.:\w]+)(['"])?(?:=(['"]))?/, 
+  attributePattern = /^\s*([-.:\w]+)(['"])?(?:=(['"]))?/,
   // 首字母大写，或中间包含 -
-  componentNamePattern = /^[$A-Z]|-/, 
+  componentNamePattern = /^[$A-Z]|-/,
   // 自闭合标签
-  selfClosingTagPattern = /^\s*(\/)?>/, 
+  selfClosingTagPattern = /^\s*(\/)?>/,
   // 常见的自闭合标签
-  selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','), 
+  selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','),
   // 常见的 svg 标签
-  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','), 
+  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','),
   // 常见的字符串类型的属性
   // 注意：autocomplete,autocapitalize 不是布尔类型
-  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','), 
+  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','),
   // 常见的数字类型的属性
-  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','), 
+  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','),
   // 常见的布尔类型的属性
-  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','), 
+  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','),
   // 某些属性 attribute name 和 property name 不同
   attr2Prop = {};
   // 列举几个常见的
@@ -3157,23 +3161,23 @@
           return nodeList;
       }
       nodeList = [];
-      var nodeStack = [], 
+      var nodeStack = [],
       // 持有 if/elseif/else 节点
-      ifStack = [], currentElement, currentAttribute, length = content.length, 
+      ifStack = [], currentElement, currentAttribute, length = content.length,
       // 当前处理的位置
-      index = 0, 
+      index = 0,
       // 下一段开始的位置
-      nextIndex = 0, 
+      nextIndex = 0,
       // 开始定界符的位置，表示的是 {{ 的右侧位置
-      openBlockIndex = 0, 
+      openBlockIndex = 0,
       // 结束定界符的位置，表示的是 }} 的左侧位置
-      closeBlockIndex = 0, 
+      closeBlockIndex = 0,
       // 当前正在处理或即将处理的 block 类型
       blockMode = BLOCK_MODE_NONE, code, startQuote, fatal$1 = function (msg) {
           {
               fatal("Error compiling " + RAW_TEMPLATE + ":\n" + content + "\n- " + msg);
           }
-      }, 
+      },
       /**
        * 常见的两种情况：
        *
@@ -3197,7 +3201,7 @@
       }, popStack = function (type, tagName) {
           var node = pop(nodeStack);
           if (node && node.type === type) {
-              var children = node.children, 
+              var children = node.children,
               // 优化单个子节点
               child = children && children.length === 1 && children[0], isElement = type === ELEMENT, isAttribute = type === ATTRIBUTE, isProperty = type === PROPERTY, isDirective = type === DIRECTIVE;
               var currentBranch = last(nodeStack);
@@ -3368,11 +3372,11 @@
       }, processDirectiveSingleText = function (directive, child) {
           var text = child.text;
           // 指令的值是纯文本，可以预编译表达式，提升性能
-          var expr = compile(text), 
+          var expr = compile(text),
           // model="xx" model="this.x" 值只能是标识符或 Member
-          isModel = directive.ns === DIRECTIVE_MODEL, 
+          isModel = directive.ns === DIRECTIVE_MODEL,
           // lazy 的值必须是大于 0 的数字
-          isLazy = directive.ns === DIRECTIVE_LAZY, 
+          isLazy = directive.ns === DIRECTIVE_LAZY,
           // 校验事件名称
           isEvent = directive.ns === DIRECTIVE_EVENT;
           if (expr) {
@@ -3496,7 +3500,7 @@
               ];
           }
       }, bindSpecialAttr = function (element, attr) {
-          var name = attr.name, value = attr.value, 
+          var name = attr.name, value = attr.value,
           // 这三个属性值要求是字符串
           isStringValueRequired = name === RAW_NAME || name === RAW_SLOT;
           {
@@ -4124,7 +4128,7 @@
    *
    */
   // 是否要执行 join 操作
-  var joinStack = [], 
+  var joinStack = [],
   // 是否正在收集子节点
   collectStack = [], nodeStringify = {}, RENDER_SLOT = 'a', RENDER_EACH = 'b', RENDER_EXPRESSION = 'c', RENDER_EXPRESSION_ARG = 'd', RENDER_EXPRESSION_VNODE = 'e', RENDER_TEXT_VNODE = 'f', RENDER_ATTRIBUTE_VNODE = 'g', RENDER_PROPERTY_VNODE = 'h', RENDER_LAZY_VNODE = 'i', RENDER_TRANSITION_VNODE = 'j', RENDER_MODEL_VNODE = 'k', RENDER_EVENT_METHOD_VNODE = 'l', RENDER_EVENT_NAME_VNODE = 'm', RENDER_DIRECTIVE_VNODE = 'n', RENDER_SPREAD_VNODE = 'o', RENDER_ELEMENT_VNODE = 'p', RENDER_PARTIAL = 'q', RENDER_IMPORT = 'r', ARG_CONTEXT = 's', SEP_COMMA = ',', SEP_COLON = ':', SEP_PLUS = '+', STRING_TRUE = '!0', STRING_FALSE = '!1', STRING_EMPTY = toJSON(EMPTY_STRING), CODE_RETURN = 'return ', CODE_PREFIX = "function(" + join([
       RENDER_EXPRESSION,
@@ -4458,7 +4462,7 @@
       return stringifyCall(RENDER_EACH, join(trimArgs([generate, toJSON(node.expr), node.index ? toJSON(node.index) : UNDEFINED]), SEP_COMMA));
   };
   nodeStringify[PARTIAL] = function (node) {
-      var name = toJSON(node.name), 
+      var name = toJSON(node.name),
       // compiler 保证了 children 一定有值
       children = stringifyFunction(stringifyChildren(node.children, node.isComplex));
       return stringifyCall(RENDER_PARTIAL, "" + name + SEP_COMMA + children);
@@ -4804,7 +4808,7 @@
               push(vnodeList, vnode);
           }
           return vnode;
-      }, 
+      },
       // <slot name="xx"/>
       renderSlot = function (name, defaultRender) {
           var vnodeList = last(vnodeStack), vnodes = context.get(name);
@@ -4819,13 +4823,13 @@
                   defaultRender();
               }
           }
-      }, 
+      },
       // {{#partial name}}
       //   xx
       // {{/partial}}
       renderPartial = function (name, render) {
           localPartials[name] = render;
-      }, 
+      },
       // {{> name}}
       renderImport = function (name) {
           if (localPartials[name]) {
@@ -5320,7 +5324,7 @@
        * @param oldValue
        */
       Observer.prototype.diff = function (keypath, newValue, oldValue) {
-          var instance = this, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, asyncChanges = instance.asyncChanges, 
+          var instance = this, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, asyncChanges = instance.asyncChanges,
           /**
            * 我们认为 $ 开头的变量是不可递归的
            * 比如浏览器中常见的 $0 表示当前选中元素
@@ -5413,7 +5417,7 @@
        */
       Observer.prototype.watch = function (keypath, watcher, immediate) {
           var instance = this, context = instance.context, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, bind = function (keypath, options) {
-              var emitter = options.sync ? syncEmitter : asyncEmitter, 
+              var emitter = options.sync ? syncEmitter : asyncEmitter,
               // formatWatcherOptions 保证了 options.watcher 一定存在
               listener = {
                   fn: options.watcher,
@@ -5604,7 +5608,7 @@
       node.addEventListener(type, listener, FALSE);
   }, removeEventListener = function (node, type, listener) {
       node.removeEventListener(type, listener, FALSE);
-  }, 
+  },
   // IE9 不支持 classList
   addClass = function (node, className) {
       node.classList.add(className);
@@ -5631,15 +5635,15 @@
           };
       }
   }
-  var CHAR_WHITESPACE = ' ', 
+  var CHAR_WHITESPACE = ' ',
   /**
    * 绑定在 HTML 元素上的事件发射器
    */
-  EMITTER = '$emitter', 
+  EMITTER = '$emitter',
   /**
    * 跟输入事件配套使用的事件
    */
-  COMPOSITION_START = 'compositionstart', 
+  COMPOSITION_START = 'compositionstart',
   /**
    * 跟输入事件配套使用的事件
    */
@@ -5745,7 +5749,7 @@
           // 一个元素，相同的事件，只注册一个 native listener
           if (!nativeListeners[type]) {
               // 特殊事件
-              var special = specialEvents[type], 
+              var special = specialEvents[type],
               // 唯一的原生监听器
               nativeListener = function (event) {
                   var customEvent = event instanceof CustomEvent
@@ -6066,7 +6070,7 @@
       return isDef(this.get(SLOT_DATA_PREFIX + name));
   }
 
-  var globalDirectives = {}, globalTransitions = {}, globalComponents = {}, globalPartials = {}, globalFilters = {}, TEMPLATE_COMPUTED = '$' + RAW_TEMPLATE, selectorPattern = /^[#.][-\w+]+$/;
+  var globalDirectives = {}, globalTransitions = {}, globalComponents = {}, globalPartials = {}, globalFilters = {}, LOADER_QUEUE = '$queue', TEMPLATE_COMPUTED = '$' + RAW_TEMPLATE, selectorPattern = /^[#.][-\w+]+$/;
   var Yox = /** @class */ (function () {
       function Yox(options) {
           var instance = this, $options = options || EMPTY_OBJECT;
@@ -6187,9 +6191,12 @@
                   var newWatchers = watchers
                       ? copy(watchers)
                       : {};
-                  // 当 virtual dom 变了，则更新视图
-                  newWatchers[TEMPLATE_COMPUTED] = function (vnode) {
-                      instance.update(vnode, instance.$vnode);
+                  newWatchers[TEMPLATE_COMPUTED] = {
+                      // 模板一旦变化，立即刷新
+                      sync: TRUE,
+                      watcher: function (vnode) {
+                          instance.update(vnode, instance.$vnode);
+                      }
                   };
                   // 当模板的依赖变了，则重新创建 virtual dom
                   observer.addComputed(TEMPLATE_COMPUTED, {
@@ -6277,15 +6284,8 @@
       };
       Yox.component = function (name, component) {
           {
-              if (string(name)) {
-                  // 同步取值
-                  if (!component) {
-                      return getResource(globalComponents, name);
-                  }
-                  else if (func(component)) {
-                      getComponentAsync(globalComponents, name, component);
-                      return;
-                  }
+              if (string(name) && !component) {
+                  return getResource(globalComponents, name);
               }
               setResource(globalComponents, name, component);
           }
@@ -6314,11 +6314,11 @@
               var result_1 = copy(props);
               each$2(propTypes, function (rule, key) {
                   // 类型
-                  var type = rule.type, 
+                  var type = rule.type,
                   // 默认值
-                  value = rule.value, 
+                  value = rule.value,
                   // 是否必传
-                  required = rule.required, 
+                  required = rule.required,
                   // 实际的值
                   actual = props[key];
                   // 动态化获取是否必填
@@ -6349,7 +6349,7 @@
                               matched_1 = type(props);
                           }
                           if (!matched_1) {
-                              warn("The type of prop \"" + key + "\" is not matched.");
+                              warn("The type of prop \"" + key + "\" expected to be \"" + type + "\", but is \"" + actual + "\".");
                           }
                       }
                       else {
@@ -6471,6 +6471,11 @@
           this.$observer.unwatch(keypath, watcher);
           return this;
       };
+      Yox.prototype.loadComponent = function (name, callback) {
+          if (!loadComponent(this.$components, name, callback)) {
+              loadComponent(globalComponents, name, callback);
+          }
+      };
       Yox.prototype.directive = function (name, directive) {
           {
               var instance = this, $directives = instance.$directives;
@@ -6492,17 +6497,8 @@
       Yox.prototype.component = function (name, component) {
           {
               var instance = this, $components = instance.$components;
-              if (string(name)) {
-                  // 同步取值
-                  if (!component) {
-                      return getResource($components, name, Yox.component);
-                  }
-                  else if (func(component)) {
-                      if (!getComponentAsync($components, name, component)) {
-                          getComponentAsync(globalComponents, name, component);
-                      }
-                      return;
-                  }
+              if (string(name) && !component) {
+                  return getResource($components, name, Yox.component);
               }
               setResource($components || (instance.$components = {}), name, component);
           }
@@ -6747,7 +6743,7 @@
       /**
        * core 版本
        */
-      Yox.version = "1.0.0-alpha.24";
+      Yox.version = "1.0.0-alpha.26";
       /**
        * 方便外部共用的通用逻辑，特别是写插件，减少重复代码
        */
@@ -6801,29 +6797,29 @@
       }
       return instance;
   }
-  function getComponentAsync(data, name, callback) {
-      if (data && has$2(data, name)) {
-          var component_1 = data[name];
+  function loadComponent(data, name, callback) {
+      if (data && data[name]) {
+          var component = data[name];
           // 注册的是异步加载函数
-          if (func(component_1)) {
-              var $queue_1 = component_1.$queue;
-              if (!$queue_1) {
-                  $queue_1 = component_1.$queue = [callback];
-                  component_1(function (replacement) {
-                      component_1.$queue = UNDEFINED;
-                      data[name] = replacement;
-                      each($queue_1, function (callback) {
-                          callback(replacement);
-                      });
-                  });
+          if (func(component)) {
+              var loader_1 = component, queue_1 = loader_1[LOADER_QUEUE];
+              if (queue_1) {
+                  push(queue_1, callback);
               }
               else {
-                  push($queue_1, callback);
+                  queue_1 = component[LOADER_QUEUE] = [callback];
+                  loader_1(function (options) {
+                      loader_1[LOADER_QUEUE] = UNDEFINED;
+                      data[name] = options;
+                      each(queue_1, function (callback) {
+                          callback(options);
+                      });
+                  });
               }
           }
           // 不是异步加载函数，直接同步返回
           else {
-              callback(component_1);
+              callback(component);
           }
           return TRUE;
       }

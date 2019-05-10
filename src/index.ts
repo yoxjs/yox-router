@@ -1,10 +1,10 @@
-import * as type from 'yox-type/src/type'
+import * as type from '../../yox-type/src/type'
 
-import API from 'yox-type/src/interface/API'
-import Yox from 'yox-type/src/interface/Yox'
-import YoxClass from 'yox-type/src/interface/YoxClass'
-import Task from 'yox-type/src/interface/Task'
-import YoxOptions from 'yox-type/src/options/Yox';
+import API from '../../yox-type/src/interface/API'
+import Yox from '../../yox-type/src/interface/Yox'
+import YoxClass from '../../yox-type/src/interface/YoxClass'
+import Task from '../../yox-type/src/interface/Task'
+import YoxOptions from '../../yox-type/src/options/Yox'
 
 let Yox: YoxClass, store: Yox, domApi: API
 
@@ -28,11 +28,11 @@ SEPARATOR_PAIR = '=',
 // 参数中的数组标识
 FLAG_ARRAY = '[]',
 
-// 默认路由
-ROUTE_DEFAULT = '',
-
 // 404 路由
 ROUTE_404 = '*',
+
+// 默认路由
+ROUTE_DEFAULT = '',
 
 // 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
 HOOK_REFRESHING = 'refreshing',
@@ -98,7 +98,8 @@ interface Route {
 }
 
 interface Component {
-  name: string
+  name?: string
+  load?: Function
   root?: Yox
   options?: YoxOptions
 }
@@ -494,12 +495,12 @@ export class Router {
     )
 
     if (process.env.NODE_ENV === 'dev') {
-      if (!routeDefault) {
-        Yox.logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
-        return
-      }
       if (!route404) {
         Yox.logger.error(`Route for 404["${ROUTE_404}"] is required.`)
+        return
+      }
+      if (!routeDefault) {
+        Yox.logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
         return
       }
     }
@@ -518,11 +519,11 @@ export class Router {
    *
    * 如果只是简单的 path，直接传字符串
    *
-   * go('/index')
+   * push('/index')
    *
    * 如果需要带参数，切记路由表要配置 name
    *
-   * go({
+   * push({
    *   name: 'index',
    *   params: { },
    *   query: { }
@@ -530,17 +531,17 @@ export class Router {
    *
    * 如果没有任何参数，可以只传 path
    *
-   * go('/index')
+   * push('/index')
    *
    * 2. 不会改变 url
    *
-   * go({
+   * push({
    *   component: 'index',
    *   props: { }
    * })
    *
    */
-  go(target: Target) {
+  push(target: Target) {
     if (Yox.is.string(target)) {
       location.hash = stringifyHash(target as PathTarget)
     }
@@ -583,7 +584,7 @@ export class Router {
 
     { params, query, component, props } = route,
 
-    currentComponent = instance.currentComponent || (instance.currentComponent = { name: component }),
+    currentComponent = instance.currentComponent || (instance.currentComponent = {}),
 
     failure: failure = function (value: false | Target) {
       if (value === false) {
@@ -598,7 +599,7 @@ export class Router {
       }
       else {
         // 跳转到别的路由
-        instance.go(value)
+        instance.push(value)
       }
     },
 
@@ -637,8 +638,7 @@ export class Router {
                 el: instance.el,
                 props,
                 extensions: {
-                  $router: instance,
-                  $route: route,
+                  $router: instance
                 }
               },
               options
@@ -667,45 +667,44 @@ export class Router {
         },
         failure
       )
+    },
+
+    loadComponent = function (options: YoxOptions) {
+      if (currentComponent.root) {
+        // 当前根组件还活着，并且还要切到当前根组件，表示刷新一下
+        if (currentComponent.options === options) {
+          callHook(
+            HOOK_REFRESHING,
+            function () {
+              // 如果 refreshing 钩子调用了 next()
+              // 表示要销毁重建当前根组件
+              changeComponent(options)
+            },
+            failure
+          )
+        }
+        // 切换到其他组件
+        else {
+          changeComponent(options)
+        }
+      }
+      // 第一次创建组件
+      else {
+        createComponent(options)
+      }
     }
 
-    if (currentComponent.name !== component) {
-      currentComponent.name = component
-    }
+    currentComponent.name = component
 
-    store.component(
+    store.loadComponent(
       component,
       function (options: YoxOptions) {
         // 当连续调用此方法，且可能出现异步组件时
         // 执行到这 name 不一定会等于 currentComponent.name
         // 因此需要强制保证一下
-        if (component !== currentComponent.name) {
-          return
+        if (component === currentComponent.name) {
+          loadComponent(options)
         }
-
-        if (currentComponent.root) {
-          // 当前根组件还活着，并且还要切到当前根组件，表示刷新一下
-          if (currentComponent.options === options) {
-            callHook(
-              HOOK_REFRESHING,
-              function () {
-                // 如果 refreshing 钩子调用了 next()
-                // 表示要销毁重建当前根组件
-                changeComponent(options)
-              },
-              failure
-            )
-          }
-          // 切换到其他组件
-          else {
-            changeComponent(options)
-          }
-        }
-        // 第一次创建组件
-        else {
-          createComponent(options)
-        }
-
       }
     )
 
