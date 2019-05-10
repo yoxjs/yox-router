@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {},
+  "references": [
+    {
+      "path": "../yox-type"
+    }
+  ],
+  "include": [
+    "src/**/*.ts"
+  ]
+}

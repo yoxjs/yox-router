@@ -1,486 +1,488 @@
+/**
+ * yox-router.js v0.30.0
+ * (c) 2017-2019 musicode
+ * Released under the MIT License.
+ */
+
 (function (global, factory) {
-	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-	typeof define === 'function' && define.amd ? define(factory) :
-	(global.YoxRouter = factory());
-}(this, (function () { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
+  typeof define === 'function' && define.amd ? define(['exports'], factory) :
+  (global = global || self, factory(global.YoxRouter = {}));
+}(this, function (exports) { 'use strict';
 
-var classCallCheck = function (instance, Constructor) {
-  if (!(instance instanceof Constructor)) {
-    throw new TypeError("Cannot call a class as a function");
-  }
-};
-
-var createClass = function () {
-  function defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-      var descriptor = props[i];
-      descriptor.enumerable = descriptor.enumerable || false;
-      descriptor.configurable = true;
-      if ("value" in descriptor) descriptor.writable = true;
-      Object.defineProperty(target, descriptor.key, descriptor);
-    }
-  }
-
-  return function (Constructor, protoProps, staticProps) {
-    if (protoProps) defineProperties(Constructor.prototype, protoProps);
-    if (staticProps) defineProperties(Constructor, staticProps);
-    return Constructor;
-  };
-}();
-
-var shared = void 0;
-var is = void 0;
-var dom = void 0;
-var array = void 0;
-var object = void 0;
-var string = void 0;
-var logger = void 0;
-var Component = void 0;
-
-var PREFIX_HASH = '#!';
-
-var PREFIX_PARAM = ':';
-
-var SEPARATOR_PATH = '/';
-
-var SEPARATOR_QUERY = '&';
-
-var SEPARATOR_PAIR = '=';
-
-var FLAG_ARRAY = '[]';
-
-function parseValue(value) {
-  if (is.numeric(value)) {
-    value = +value;
-  } else if (is.string(value)) {
-    if (value === 'true') {
-      value = true;
-    } else if (value === 'false') {
-      value = false;
-    } else if (value === 'null') {
-      value = null;
-    } else if (value === 'undefined') {
-      value = undefined;
-    } else {
-      value = decodeURIComponent(value);
-    }
-  }
-  return value;
-}
-
-function stringifyPair(key, value) {
-  var result = [key];
-  if (is.string(value)) {
-    array.push(result, encodeURIComponent(value));
-  } else if (is.number(value) || is.boolean(value)) {
-    array.push(result, value.toString());
-  } else if (value === null) {
-    array.push(result, 'null');
-  } else if (value === undefined) {
-    array.push(result, 'undefined');
-  }
-  return result.join(SEPARATOR_PAIR);
-}
-
-function parseQuery(query) {
-  var result = void 0,
-      terms = void 0,
-      key = void 0,
-      value = void 0;
-  if (query) {
-    array.each(query.split(SEPARATOR_QUERY), function (term) {
-      terms = term.split(SEPARATOR_PAIR);
-      key = string.trim(terms[0]);
-      value = terms[1];
-      if (key) {
-        if (!result) {
-          result = {};
-        }
-        value = parseValue(value);
-        if (string.endsWith(key, FLAG_ARRAY)) {
-          key = string.slice(key, 0, -FLAG_ARRAY.length);
-          var list = result[key] || (result[key] = []);
-          array.push(list, value);
-        } else {
-          result[key] = value;
-        }
+  var Yox, store, domApi;
+  var UNDEFINED = void 0, 
+  // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
+  PREFIX_HASH = '#!', 
+  // path 中的参数前缀，如 #!/user/:userId
+  PREFIX_PARAM = ':', 
+  // path 分隔符
+  SEPARATOR_PATH = '/', 
+  // query 分隔符
+  SEPARATOR_QUERY = '&', 
+  // 键值对分隔符
+  SEPARATOR_PAIR = '=', 
+  // 参数中的数组标识
+  FLAG_ARRAY = '[]', 
+  // 默认路由
+  ROUTE_DEFAULT = '', 
+  // 404 路由
+  ROUTE_404 = '*', 
+  // 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
+  HOOK_REFRESHING = 'refreshing', 
+  // 导航钩子 - 路由进入之前
+  HOOK_BEFORE_ENTER = 'beforeEnter', 
+  // 导航钩子 - 路由进入之后
+  HOOK_AFTER_ENTER = 'afterEnter', 
+  // 导航钩子 - 路由离开之前
+  HOOK_BEFORE_LEAVE = 'beforeLeave', 
+  // 导航钩子 - 路由离开之后
+  HOOK_AFTER_LEAVE = 'afterLeave';
+  /**
+   * 把字符串 value 解析成最合适的类型
+   */
+  function parseValue(value) {
+      var result;
+      if (Yox.is.numeric(value)) {
+          result = +value;
       }
-    });
+      else if (Yox.is.string(value)) {
+          if (value === 'true') {
+              result = true;
+          }
+          else if (value === 'false') {
+              result = false;
+          }
+          else if (value === 'null') {
+              result = null;
+          }
+          else if (value === 'undefined') {
+              result = UNDEFINED;
+          }
+          else {
+              result = decodeURIComponent(value);
+          }
+      }
+      return result;
   }
-  return result;
-}
-
-function stringifyQuery(query) {
-  var result = [];
-  object.each(query, function (value, key) {
-    if (is.array(value)) {
-      array.each(value, function (value) {
-        value = stringifyPair(key + FLAG_ARRAY, value);
-        if (value) {
-          array.push(result, value);
-        }
+  /**
+   * 把 key value 序列化成合适的 key=value 格式
+   */
+  function stringifyPair(key, value) {
+      var result = [key];
+      if (Yox.is.string(value)) {
+          result.push(encodeURIComponent(value));
+      }
+      else if (Yox.is.number(value) || Yox.is.boolean(value)) {
+          result.push(value.toString());
+      }
+      else if (value === null) {
+          result.push('null');
+      }
+      else if (value === UNDEFINED) {
+          result.push('undefined');
+      }
+      return result.join(SEPARATOR_PAIR);
+  }
+  /**
+   * 把 GET 参数解析成对象
+   */
+  function parseQuery(query) {
+      var result;
+      Yox.array.each(query.split(SEPARATOR_QUERY), function (term) {
+          var terms = term.split(SEPARATOR_PAIR), key = Yox.string.trim(terms[0]), value = terms[1];
+          if (key) {
+              if (!result) {
+                  result = {};
+              }
+              value = parseValue(value);
+              if (Yox.string.endsWith(key, FLAG_ARRAY)) {
+                  key = Yox.string.slice(key, 0, -FLAG_ARRAY.length);
+                  Yox.array.push(result[key] || (result[key] = []), value);
+              }
+              else {
+                  result[key] = value;
+              }
+          }
       });
-    } else {
-      value = stringifyPair(key, value);
-      if (value) {
-        array.push(result, value);
-      }
-    }
-  });
-  return result.join(SEPARATOR_QUERY);
-}
-
-function parseParams(realpath, path) {
-
-  var result = void 0;
-
-  var realpathTerms = realpath.split(SEPARATOR_PATH);
-  var pathTerms = path.split(SEPARATOR_PATH);
-
-  if (realpathTerms.length === pathTerms.length) {
-    array.each(pathTerms, function (item, index) {
-      if (string.startsWith(item, PREFIX_PARAM)) {
-        if (!result) {
-          result = {};
-        }
-        result[item.slice(PREFIX_PARAM.length)] = parseValue(realpathTerms[index]);
-      }
-    });
+      return result;
   }
-
-  return result;
-}
-
-function getPathByRealpath(path2Route, realpath) {
-
-  var result = void 0;
-
-  var realpathTerms = realpath.split(SEPARATOR_PATH);
-  object.each(path2Route, function (route, path) {
-    var pathTerms = path.split(SEPARATOR_PATH);
-    if (realpathTerms.length === pathTerms.length) {
-      array.each(pathTerms, function (item, index) {
-        if (!string.startsWith(item, PREFIX_PARAM) && item !== realpathTerms[index]) {
-          path = null;
-          return false;
-        }
-      });
-      if (path) {
-        result = path;
-        return false;
-      }
-    }
-  });
-
-  return result;
-}
-
-function parseHash(path2Route, hash) {
-  var realpath = void 0,
-      search = void 0;
-  var index = hash.indexOf('?');
-  if (index >= 0) {
-    realpath = hash.substring(0, index);
-    search = hash.slice(index + 1);
-  } else {
-    realpath = hash;
-  }
-
-  var result = { realpath: realpath };
-
-  var path = getPathByRealpath(path2Route, realpath);
-  if (path) {
-    result.path = path;
-    result.params = parseParams(realpath, path);
-    result.query = parseQuery(search);
-  }
-  return result;
-}
-
-function stringifyHash(path, params, query) {
-
-  var realpath = [],
-      search = '';
-
-  array.each(path.split(SEPARATOR_PATH), function (item) {
-    array.push(realpath, string.startsWith(item, PREFIX_PARAM) ? params[item.slice(PREFIX_PARAM.length)] : item);
-  });
-
-  realpath = realpath.join(SEPARATOR_PATH);
-
-  if (query) {
-    query = stringifyQuery(query);
-    if (query) {
-      search = '?' + query;
-    }
-  }
-
-  return PREFIX_HASH + realpath + search;
-}
-
-var Chain = function () {
-  function Chain() {
-    classCallCheck(this, Chain);
-
-    this.list = [];
-  }
-
-  createClass(Chain, [{
-    key: 'use',
-    value: function use(fn, context) {
-      if (is.func(fn)) {
-        array.push(this.list, { fn: fn, context: context });
-      }
-    }
-  }, {
-    key: 'run',
-    value: function run(to, from, success, failure) {
-      var list = this.list;
-
-      var i = -1;
-      var next = function next(value) {
-        if (value == null) {
-          i++;
-          if (list[i]) {
-            list[i].fn.call(list[i].context, to, from, next);
-          } else if (success) {
-            success();
-          }
-        } else if (failure) {
-          failure(value);
-        }
-      };
-      next();
-    }
-  }]);
-  return Chain;
-}();
-
-var Router = function () {
-  function Router(routes) {
-    classCallCheck(this, Router);
-
-
-    var router = this;
-
-    router.name2Path = {};
-
-    router.path2Route = {};
-
-    router.handleHashChange = router.onHashChange.bind(router);
-
-    var _object = object,
-        each = _object.each,
-        has = _object.has;
-    var ROUTE_DEFAULT = Router.ROUTE_DEFAULT,
-        ROUTE_404 = Router.ROUTE_404;
-
-    if (!has(routes, ROUTE_DEFAULT)) {
-      logger.error('Route for default["' + ROUTE_DEFAULT + '"] is required.');
-      return;
-    }
-    if (!has(routes, ROUTE_404)) {
-      logger.error('Route for 404["' + ROUTE_404 + '"] is required.');
-      return;
-    }
-
-    each(routes, function (data, path) {
-      if (has(data, 'name')) {
-        router.name2Path[data.name] = path;
-      }
-      router.path2Route[path] = data;
-    });
-  }
-
-  createClass(Router, [{
-    key: 'go',
-    value: function go(data) {
-      if (is.string(data)) {
-        location.hash = stringifyHash(data);
-      } else if (is.object(data)) {
-        if (object.has(data, 'component')) {
-          this.setComponent(data);
-        } else if (object.has(data, 'name')) {
-          var path = this.name2Path[data.name];
-          if (!is.string(path)) {
-            logger.error('Name[' + data.name + '] of the route is not found.');
-            return;
-          }
-          location.hash = stringifyHash(path, data.params, data.query);
-        }
-      }
-    }
-  }, {
-    key: 'onHashChange',
-    value: function onHashChange() {
-
-      var router = this;
-      var path2Route = router.path2Route;
-      var _location = location,
-          hash = _location.hash;
-
-      hash = string.startsWith(hash, PREFIX_HASH) ? hash.slice(PREFIX_HASH.length) : '';
-
-      var data = parseHash(path2Route, hash);
-      if (!object.has(data, 'path')) {
-        data.path = hash ? Router.ROUTE_404 : Router.ROUTE_DEFAULT;
-      }
-      this.setComponent(data);
-    }
-  }, {
-    key: 'setComponent',
-    value: function setComponent(data) {
-
-      var router = this;
-
-      var path2Route = router.path2Route,
-          currentRoute = router.currentRoute,
-          currentComponent = router.currentComponent;
-
-
-      if (!currentComponent) {
-        currentComponent = {};
-      }
-
-      var _currentComponent = currentComponent,
-          options = _currentComponent.options,
-          instance = _currentComponent.instance;
-      var path = data.path,
-          realpath = data.realpath,
-          params = data.params,
-          query = data.query,
-          component = data.component,
-          props = data.props;
-
-
-      var route = void 0;
-      if (!component) {
-        route = path2Route[path];
-        component = route.component;
-      }
-
-      var failure = function failure(value) {
-        if (value === false) {
-          if (currentRoute && currentRoute.path) {
-            location.hash = stringifyHash(currentRoute.path, currentRoute.params, currentRoute.query);
-          }
-        } else {
-          router.go(value);
-        }
-      };
-
-      var callHook = function callHook(name, success, failure) {
-        var chain = new Chain();
-        chain.use(options && options[name], instance);
-        chain.use(route && route[name], route);
-        chain.use(router && router[name], router);
-        chain.run(data, currentRoute, success, failure);
-      };
-
-      var createComponent = function createComponent(component) {
-        options = component;
-        callHook(Router.HOOK_BEFORE_ENTER, function () {
-
-          if (params || query) {
-            props = object.extend({}, params, query);
-          }
-
-          instance = new Component(object.extend({
-            el: router.el,
-            props: props,
-            extensions: {
-              $router: router
-            }
-          }, component));
-
-          callHook(Router.HOOK_AFTER_ENTER);
-
-          router.currentRoute = data;
-          router.currentComponent = { options: options, instance: instance };
-        }, failure);
-      };
-
-      var changeComponent = function changeComponent(component) {
-        callHook(Router.HOOK_BEFORE_LEAVE, function () {
-          instance.destroy();
-          instance = null;
-          callHook(Router.HOOK_AFTER_LEAVE);
-          createComponent(component);
-        }, failure);
-      };
-
-      currentComponent.name = component;
-
-      shared.component(component, function (componentOptions) {
-        if (component === currentComponent.name) {
-          if (instance) {
-            if (options === componentOptions) {
-              callHook(Router.HOOK_REFRESHING, function () {
-                changeComponent(componentOptions);
-              }, function () {
-                router.currentRoute = data;
+  /**
+   * 把对象解析成 key1=value1&key2=value2
+   */
+  function stringifyQuery(query) {
+      var result = [];
+      Yox.object.each(query, function (value, key) {
+          if (Yox.is.array(value)) {
+              Yox.array.each(value, function (value) {
+                  result.push(stringifyPair(key + FLAG_ARRAY, value));
               });
-            } else {
-              changeComponent(componentOptions);
-            }
-          } else {
-            createComponent(componentOptions);
           }
-        }
+          else {
+              result.push(stringifyPair(key, value));
+          }
       });
-    }
-  }, {
-    key: 'start',
-    value: function start(el) {
-      this.el = is.string(el) ? dom.find(el) : el;
-      dom.on(window, 'hashchange', this.handleHashChange);
-      this.handleHashChange();
-    }
-  }, {
-    key: 'stop',
-    value: function stop() {
-      this.el = null;
-      dom.off(window, 'hashchange', this.handleHashChange);
-    }
-  }]);
-  return Router;
-}();
+      return result.join(SEPARATOR_QUERY);
+  }
+  /**
+   * 解析 path 中的参数
+   */
+  function parseParams(realpath, path) {
+      var result, realpathTerms = realpath.split(SEPARATOR_PATH), pathTerms = path.split(SEPARATOR_PATH);
+      if (realpathTerms.length === pathTerms.length) {
+          Yox.array.each(pathTerms, function (item, index) {
+              if (Yox.string.startsWith(item, PREFIX_PARAM)) {
+                  if (!result) {
+                      result = {};
+                  }
+                  result[item.substr(PREFIX_PARAM.length)] = parseValue(realpathTerms[index]);
+              }
+          });
+      }
+      return result;
+  }
+  /**
+   * 通过 realpath 获取配置的 path
+   */
+  function getPathByRealpath(path2Route, realpath) {
+      var result, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length;
+      Yox.object.each(path2Route, function (_, path) {
+          var pathTerms = path.split(SEPARATOR_PATH);
+          if (length === pathTerms.length) {
+              for (var i = 0; i < length; i++) {
+                  // 非参数段不相同
+                  if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
+                      && pathTerms[i] !== realpathTerms[i]) {
+                      return;
+                  }
+              }
+              result = path;
+              return false;
+          }
+      });
+      return result;
+  }
+  /**
+   * 完整解析 hash 数据
+   */
+  function parseHash(path2Route, hash) {
+      var realpath, search, index = hash.indexOf('?');
+      if (index >= 0) {
+          realpath = hash.substring(0, index);
+          search = hash.substring(index + 1);
+      }
+      else {
+          realpath = hash;
+      }
+      var result = { realpath: realpath };
+      var path = getPathByRealpath(path2Route, realpath);
+      if (path) {
+          result.path = path;
+          var params = parseParams(realpath, path);
+          if (params) {
+              result.params = params;
+          }
+          if (search) {
+              var query = parseQuery(search);
+              if (query) {
+                  result.query = query;
+              }
+          }
+      }
+      return result;
+  }
+  /**
+   * 把结构化数据序列化成 hash
+   */
+  function stringifyHash(path, params, query) {
+      var terms = [], realpath, search = '';
+      Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
+          terms.push(Yox.string.startsWith(item, PREFIX_PARAM)
+              ? params[item.substr(PREFIX_PARAM.length)]
+              : item);
+      });
+      realpath = terms.join(SEPARATOR_PATH);
+      if (query) {
+          var queryStr = stringifyQuery(query);
+          if (queryStr) {
+              search = '?' + queryStr;
+          }
+      }
+      return PREFIX_HASH + realpath + search;
+  }
+  // 钩子函数的调用链
+  var Chain = /** @class */ (function () {
+      function Chain(name) {
+          this.name = name;
+          this.list = [];
+      }
+      Chain.prototype.append = function (target, ctx) {
+          var _a = this, name = _a.name, list = _a.list;
+          if (target && Yox.is.func(target[name])) {
+              list.push({
+                  fn: target[name],
+                  ctx: ctx
+              });
+          }
+          return this;
+      };
+      Chain.prototype.run = function (to, from, success, failure) {
+          var list = this.list, next = function (value) {
+              if (value == null) {
+                  var task = list.shift();
+                  if (task) {
+                      task.fn.call(task.ctx, to, from, next);
+                  }
+                  else if (success) {
+                      success();
+                  }
+              }
+              else if (failure) {
+                  failure(value);
+              }
+          };
+          next();
+      };
+      return Chain;
+  }());
+  var Router = /** @class */ (function () {
+      function Router(routes) {
+          var instance = this;
+          /**
+           * 路由表 name -> path
+           */
+          instance.name2Path = {};
+          /**
+           * 路由表 path -> route
+           */
+          instance.path2Route = {};
+          /**
+           * hashchange 事件处理函数
+           * 此函数必须写在实例上，不能写在类上
+           * 否则一旦解绑，所有实例都解绑了
+           */
+          instance.onHashChange = function () {
+              var hashStr = location.hash;
+              // 如果不以 PREFIX_HASH 开头，表示不合法
+              hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
+                  ? hashStr.substr(PREFIX_HASH.length)
+                  : '';
+              var hash = parseHash(instance.path2Route, hashStr), path = hash.path || (hashStr ? ROUTE_404 : ROUTE_DEFAULT), options = instance.path2Route[path];
+              instance.setRoute({
+                  component: options.component,
+                  path: path,
+                  params: hash.params,
+                  query: hash.query
+              }, options);
+          };
+          {
+              if (!Yox.object.has(routes, ROUTE_DEFAULT)) {
+                  Yox.logger.error("Route for default[\"" + ROUTE_DEFAULT + "\"] is required.");
+                  return;
+              }
+              if (!Yox.object.has(routes, ROUTE_404)) {
+                  Yox.logger.error("Route for 404[\"" + ROUTE_404 + "\"] is required.");
+                  return;
+              }
+          }
+          Yox.object.each(routes, function (route, path) {
+              if (route.name) {
+                  instance.name2Path[route.name] = path;
+              }
+              instance.path2Route[path] = route;
+          });
+      }
+      /**
+       * 真正执行路由切换操作的函数
+       *
+       * data 有 2 种格式：
+       *
+       * 1. 会修改 url
+       *
+       * 如果只是简单的 path，直接传字符串
+       *
+       * go('/index')
+       *
+       * 如果需要带参数，切记路由表要配置 name
+       *
+       * go({
+       *   name: 'index',
+       *   params: { },
+       *   query: { }
+       * })
+       *
+       * 如果没有任何参数，可以只传 path
+       *
+       * go('/index')
+       *
+       * 2. 不会改变 url
+       *
+       * go({
+       *   component: 'index',
+       *   props: { }
+       * })
+       *
+       */
+      Router.prototype.go = function (target) {
+          if (Yox.is.string(target)) {
+              location.hash = stringifyHash(target);
+          }
+          else if (Yox.is.object(target)) {
+              if (Yox.object.has(target, 'component')) {
+                  var _a = target, component = _a.component, props = _a.props;
+                  this.setRoute({
+                      component: component,
+                      props: props
+                  });
+              }
+              else if (Yox.object.has(target, 'name')) {
+                  var _b = target, name = _b.name, params = _b.params, query = _b.query, path = this.name2Path[name];
+                  {
+                      if (!Yox.is.string(path)) {
+                          Yox.logger.error("Name[" + name + "] of the route is not found.");
+                          return;
+                      }
+                  }
+                  location.hash = stringifyHash(path, params, query);
+              }
+          }
+      };
+      /**
+       * 切换路由
+       */
+      Router.prototype.setRoute = function (route, options) {
+          var instance = this, currentRoute = instance.currentRoute, params = route.params, query = route.query, component = route.component, props = route.props, currentComponent = instance.currentComponent || (instance.currentComponent = { name: component }), failure = function (value) {
+              if (value === false) {
+                  // 流程到此为止，恢复到当前路由
+                  if (currentRoute && currentRoute.path) {
+                      location.hash = stringifyHash(currentRoute.path, currentRoute.params, currentRoute.query);
+                  }
+              }
+              else {
+                  // 跳转到别的路由
+                  instance.go(value);
+              }
+          }, callHook = function (name, success, failure) {
+              new Chain(name)
+                  // 先调用组件的钩子
+                  .append(currentComponent.options, currentComponent.root)
+                  // 再调用路由配置的钩子
+                  .append(options, options)
+                  // 最后调用路由实例的钩子
+                  .append(instance, instance)
+                  .run(route, currentRoute, success, failure);
+          }, createComponent = function (options) {
+              currentComponent.options = options;
+              callHook(HOOK_BEFORE_ENTER, function () {
+                  if (params || query) {
+                      props = {};
+                      if (params) {
+                          Yox.object.extend(props, params);
+                      }
+                      if (query) {
+                          Yox.object.extend(props, query);
+                      }
+                  }
+                  currentComponent.root = new Yox(Yox.object.extend({
+                      el: instance.el,
+                      props: props,
+                      extensions: {
+                          $router: instance
+                      }
+                  }, options));
+                  instance.currentRoute = route;
+                  callHook(HOOK_AFTER_ENTER);
+              }, failure);
+          }, changeComponent = function (options) {
+              callHook(HOOK_BEFORE_LEAVE, function () {
+                  if (currentComponent.root) {
+                      currentComponent.root.destroy();
+                      currentComponent.root = UNDEFINED;
+                  }
+                  callHook(HOOK_AFTER_LEAVE);
+                  createComponent(options);
+              }, failure);
+          };
+          if (currentComponent.name !== component) {
+              currentComponent.name = component;
+          }
+          store.component(component, function (options) {
+              // 当连续调用此方法，且可能出现异步组件时
+              // 执行到这 name 不一定会等于 currentComponent.name
+              // 因此需要强制保证一下
+              if (component !== currentComponent.name) {
+                  return;
+              }
+              if (currentComponent.root) {
+                  // 当前根组件还活着，并且还要切到当前根组件，表示刷新一下
+                  if (currentComponent.options === options) {
+                      callHook(HOOK_REFRESHING, function () {
+                          // 如果 refreshing 钩子调用了 next()
+                          // 表示要销毁重建当前根组件
+                          changeComponent(options);
+                      }, failure);
+                  }
+                  // 切换到其他组件
+                  else {
+                      changeComponent(options);
+                  }
+              }
+              // 第一次创建组件
+              else {
+                  createComponent(options);
+              }
+          });
+      };
+      /**
+       * 启动路由
+       */
+      Router.prototype.start = function (el) {
+          if (Yox.is.string(el)) {
+              var element = domApi.find(el);
+              if (element) {
+                  this.el = element;
+              }
+          }
+          else {
+              this.el = el;
+          }
+          domApi.on(window, 'hashchange', this.onHashChange);
+          this.onHashChange();
+      };
+      /**
+       * 停止路由
+       */
+      Router.prototype.stop = function () {
+          this.el = UNDEFINED;
+          domApi.off(window, 'hashchange', this.onHashChange);
+      };
+      return Router;
+  }());
+  /**
+   * 版本
+   */
+  var version = "0.30.0";
+  /**
+   * 注册全局组件，路由实例可共享
+   */
+  function register(name, component) {
+      store.component(name, component);
+  }
+  /**
+   * 安装插件
+   */
+  function install(Class) {
+      Yox = Class;
+      store = new Class();
+      domApi = Class.dom;
+  }
 
-Router.version = '0.20.0';
+  exports.Router = Router;
+  exports.install = install;
+  exports.register = register;
+  exports.version = version;
 
-Router.ROUTE_DEFAULT = '';
+  Object.defineProperty(exports, '__esModule', { value: true });
 
-Router.ROUTE_404 = '*';
-
-Router.HOOK_REFRESHING = 'refreshing';
-
-Router.HOOK_BEFORE_ENTER = 'beforeEnter';
-
-Router.HOOK_AFTER_ENTER = 'afterEnter';
-
-Router.HOOK_BEFORE_LEAVE = 'beforeLeave';
-
-Router.HOOK_AFTER_LEAVE = 'afterLeave';
-
-Router.register = function (name, component) {
-  shared.component(name, component);
-};
-
-Router.install = function (Yox) {
-  shared = new Yox({});
-  Component = Yox;
-  is = Yox.is;
-  dom = Yox.dom;
-  array = Yox.array;
-  object = Yox.object;
-  string = Yox.string;
-  logger = Yox.logger;
-};
-
-if (typeof Yox !== 'undefined' && Yox.use) {
-  Yox.use(Router);
-}
-
-return Router;
-
-})));
+}));
+//# sourceMappingURL=yox-router.js.map

@@ -1,6 +1,6 @@
 {
   "name": "yox-router",
-  "version": "0.20.0",
+  "version": "0.30.0",
   "description": "Official Router for Yox.js",
   "main": "dist/yox-router.js",
   "keywords": [
@@ -33,6 +33,6 @@
     "typescript": "^3.4.4"
   },
   "dependencies": {
-    "yox-type": "^0.0.66"
+    "yox-type": "^0.0.67"
   }
 }
