@@ -25,36 +25,23 @@
             template: `
               <div>
                 <h1>index</h1>
-                <button on-click="register()">
+                <button o-href="{ name: 'register', query: { age: 10 }}">
                   register
                 </button>
                 {{stringify(this)}}
               </div>
             `,
-            methods: {
-              register: function () {
-                this.$router.push({
-                  name: 'register',
-                  query: { age: 10 }
-                })
-              }
-            }
           },
           register: {
             template: `
               <div>
                 <h1>register</h1>
-                <button on-click="login()">
+                <button o-href="/login">
                   login
                 </button>
                 {{stringify(this)}}
               </div>
             `,
-            methods: {
-              login: function () {
-                this.$router.push('/login')
-              }
-            },
             refreshing: function (to, from, next) {
               this.set(to.query)
               console.log('component beforeEnter', to, from)
@@ -83,7 +70,7 @@
                   template: `
                     <div>
                       <h1>login</h1>
-                      <button on-click="index()">
+                      <button o-href="{ name: 'login', query: { name: 'musicode'} }">
                         index
                       </button>
                       {{stringify(this)}}
@@ -91,16 +78,6 @@
                   `,
                   refreshing: function (to, from, next) {
                     console.log('component refreshing', to)
-                  },
-                  methods: {
-                    index: function () {
-                      this.$router.push({
-                        name: 'login',
-                        query: {
-                          name: 'musicode'
-                        }
-                      })
-                    }
                   }
                 })
               },
@@ -124,7 +101,7 @@
               component: 'index',
             },
             {
-              path: '*',
+              path: '**',
               component: 'index',
             },
             {

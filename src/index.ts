@@ -5,10 +5,16 @@ import Yox from '../../yox-type/src/interface/Yox'
 import YoxClass from '../../yox-type/src/interface/YoxClass'
 import Task from '../../yox-type/src/interface/Task'
 import YoxOptions from '../../yox-type/src/options/Yox'
+import VNode from '../../yox-type/src/vnode/VNode'
+import Directive from '../../yox-type/src/vnode/Directive'
+import CustomEvent from '../../dist/yox-type/src/event/CustomEvent';
 
 let Yox: YoxClass, store: Yox, domApi: API
 
 const UNDEFINED = void 0,
+
+// 点击事件
+EVENT_CLICK = 'click',
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 PREFIX_HASH = '#!',
@@ -29,10 +35,7 @@ SEPARATOR_PAIR = '=',
 FLAG_ARRAY = '[]',
 
 // 404 路由
-ROUTE_404 = '*',
-
-// 默认路由
-ROUTE_DEFAULT = '',
+ROUTE_404 = '**',
 
 // 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
 HOOK_REFRESHING = 'refreshing',
@@ -75,7 +78,7 @@ type BeforeHook = (to: Route, from: Route | void, next: next) => void
 type AfterHook = (to: Route, from: Route | void) => void
 
 interface RouterOptions {
-  routes: RouteOptions[]
+  routes: RouteOptions[],
 }
 
 interface RouteOptions {
@@ -416,8 +419,6 @@ export class Router {
 
   route404: RouteOptions
 
-  routeDefault: RouteOptions
-
   name2Path: Record<string, string>
 
   onHashChange: Function
@@ -463,7 +464,7 @@ export class Router {
 
       const hash = parseHash(options.routes, hashStr),
 
-      route = hash.route || (hashStr ? instance.route404 : instance.routeDefault)
+      route = hash.route || instance.route404
 
       instance.setRoute(
         {
@@ -477,7 +478,7 @@ export class Router {
 
     }
 
-    let route404: RouteOptions | undefined, routeDefault: RouteOptions | undefined
+    let route404: RouteOptions | undefined
 
     Yox.array.each(
       options.routes,
@@ -488,9 +489,6 @@ export class Router {
         if (route.path === ROUTE_404) {
           route404 = route
         }
-        else if (route.path === ROUTE_DEFAULT) {
-          routeDefault = route
-        }
       }
     )
 
@@ -499,14 +497,9 @@ export class Router {
         Yox.logger.error(`Route for 404["${ROUTE_404}"] is required.`)
         return
       }
-      if (!routeDefault) {
-        Yox.logger.error(`Route for default["${ROUTE_DEFAULT}"] is required.`)
-        return
-      }
     }
 
     instance.route404 = route404 as RouteOptions
-    instance.routeDefault = routeDefault as RouteOptions
 
   }
 
@@ -752,11 +745,45 @@ export function register(
   store.component(name, component)
 }
 
+const directive = {
+  bind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
+
+    const root = vnode.context.$root || vnode.context,
+
+    router: Router = root['$router'],
+
+    listener = function (_: CustomEvent) {
+      const value = directive.getter && directive.getter()
+      router.push(value != null ? value : directive.value)
+    }
+
+    if (vnode.isComponent) {
+      (node as Yox).on(EVENT_CLICK, listener)
+      vnode.data[directive.key] = function () {
+        (node as Yox).off(EVENT_CLICK, listener)
+      }
+    }
+    else {
+      domApi.on(node as HTMLElement, EVENT_CLICK, listener)
+      vnode.data[directive.key] = function () {
+        domApi.off(node as HTMLElement, EVENT_CLICK, listener)
+      }
+    }
+  },
+  unbind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
+    vnode.data[directive.key]()
+  },
+}
+
 /**
  * 安装插件
  */
 export function install(Class: YoxClass): void {
+
   Yox = Class
   store = new Class()
   domApi = Class.dom as API
+
+  Yox.directive('href', directive)
+
 }

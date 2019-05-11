@@ -25,9 +25,7 @@
   // 参数中的数组标识
   FLAG_ARRAY = '[]', 
   // 404 路由
-  ROUTE_404 = '*', 
-  // 默认路由
-  ROUTE_DEFAULT = '', 
+  ROUTE_404 = '**', 
   // 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
   HOOK_REFRESHING = 'refreshing', 
   // 导航钩子 - 路由进入之前
@@ -263,7 +261,7 @@
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parseHash(options.routes, hashStr), route = hash.route || (hashStr ? instance.route404 : instance.routeDefault);
+              var hash = parseHash(options.routes, hashStr), route = hash.route || instance.route404;
               instance.setRoute({
                   component: route.component,
                   path: route.path,
@@ -271,7 +269,7 @@
                   query: hash.query
               }, route);
           };
-          var route404, routeDefault;
+          var route404;
           Yox.array.each(options.routes, function (route) {
               if (route.name) {
                   instance.name2Path[route.name] = route.path;
@@ -279,22 +277,14 @@
               if (route.path === ROUTE_404) {
                   route404 = route;
               }
-              else if (route.path === ROUTE_DEFAULT) {
-                  routeDefault = route;
-              }
           });
           {
               if (!route404) {
                   Yox.logger.error("Route for 404[\"" + ROUTE_404 + "\"] is required.");
                   return;
               }
-              if (!routeDefault) {
-                  Yox.logger.error("Route for default[\"" + ROUTE_DEFAULT + "\"] is required.");
-                  return;
-              }
           }
           instance.route404 = route404;
-          instance.routeDefault = routeDefault;
       }
       /**
        * 真正执行路由切换操作的函数
@@ -478,6 +468,29 @@
       Yox = Class;
       store = new Class();
       domApi = Class.dom;
+      Yox.directive('href', {
+          bind: function (node, directive, vnode) {
+              var root = vnode.context.$root || vnode.context, router = root['$router'], listener = function (_) {
+                  var value = directive.getter && directive.getter();
+                  router.push(value != null ? value : directive.value);
+              };
+              if (vnode.isComponent) {
+                  node.on('click', listener);
+                  vnode.data[directive.key] = function () {
+                      node.off('click', listener);
+                  };
+              }
+              else {
+                  domApi.on(node, 'click', listener);
+                  vnode.data[directive.key] = function () {
+                      domApi.off(node, 'click', listener);
+                  };
+              }
+          },
+          unbind: function (node, directive, vnode) {
+              vnode.data[directive.key]();
+          }
+      });
   }
 
   exports.Router = Router;
