@@ -1,9 +1,10 @@
+// 根据 tsconfig.json 把 ts 转成 js
 import typescript from 'rollup-plugin-typescript'
-// 替换代码中的 process.env.NODE_ENV
+// 替换代码中的变量
 import replace from 'rollup-plugin-replace'
 // 输出打包后的文件大小
 import filesize from 'rollup-plugin-filesize'
-// 压缩
+// ES6 转 ES5
 import buble from 'rollup-plugin-buble'
 // 压缩
 import { terser } from 'rollup-plugin-terser'

@@ -730,21 +730,6 @@ export class Router {
 
 }
 
-/**
- * 版本
- */
-export const version = process.env.NODE_VERSION
-
-/**
- * 注册全局组件，路由实例可共享
- */
-export function register(
-  name: string | Record<string, type.component>,
-  component?: type.component
-): void {
-  store.component(name, component)
-}
-
 const directive = {
   bind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
 
@@ -773,6 +758,21 @@ const directive = {
   unbind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
     vnode.data[directive.key]()
   },
+}
+
+/**
+ * 版本
+ */
+export const version = process.env.NODE_VERSION
+
+/**
+ * 注册全局组件，路由实例可共享
+ */
+export function register(
+  name: string | Record<string, type.component>,
+  component?: type.component
+): void {
+  store.component(name, component)
 }
 
 /**
