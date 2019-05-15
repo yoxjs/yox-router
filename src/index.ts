@@ -64,7 +64,8 @@ HOOK_AFTER_LEAVE = 'afterLeave'
 type PathTarget = string
 
 interface RouteTarget {
-  name: string
+  name?: string
+  path?: string
   params?: type.data
   query?: type.data
 }
@@ -636,23 +637,33 @@ export class Router {
    *
    */
   push(target: Target) {
+
+    let path: string, params: type.data | void, query: type.data | void
+
     if (Yox.is.string(target)) {
-      location.hash = stringifyHash(target as PathTarget)
+      path = target as PathTarget
     }
     else {
-      const { name, params, query } = target as RouteTarget,
+      params = (target as RouteTarget).params
+      query = (target as RouteTarget).query
 
-      path = this.name2Path[name]
-
-      if (process.env.NODE_ENV === 'dev') {
-        if (!Yox.is.string(path)) {
-          Yox.logger.error(`Name[${name}] of the route is not found.`)
-          return
+      const name = (target as RouteTarget).name
+      if (name) {
+        path = this.name2Path[name]
+        if (process.env.NODE_ENV === 'dev') {
+          if (!Yox.is.string(path)) {
+            Yox.logger.error(`Name[${name}] of the route is not found.`)
+            return
+          }
         }
       }
-
-      location.hash = stringifyHash(path, params, query)
+      else {
+        path = (target as RouteTarget).path as string
+      }
     }
+
+    location.hash = stringifyHash(path, params, query)
+
   }
 
   /**
