@@ -11,7 +11,9 @@
 }(this, function (exports) { 'use strict';
 
   var Yox, store, domApi;
-  var UNDEFINED = void 0, 
+  var UNDEFINED = void 0, OUTLET = '$outlet', ROUTE = '$route', 
+  // 点击事件
+  EVENT_CLICK = 'click', 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
   PREFIX_HASH = '#!', 
   // path 中的参数前缀，如 #!/user/:userId
@@ -25,17 +27,7 @@
   // 参数中的数组标识
   FLAG_ARRAY = '[]', 
   // 404 路由
-  ROUTE_404 = '**', 
-  // 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
-  HOOK_REFRESHING = 'refreshing', 
-  // 导航钩子 - 路由进入之前
-  HOOK_BEFORE_ENTER = 'beforeEnter', 
-  // 导航钩子 - 路由进入之后
-  HOOK_AFTER_ENTER = 'afterEnter', 
-  // 导航钩子 - 路由离开之前
-  HOOK_BEFORE_LEAVE = 'beforeLeave', 
-  // 导航钩子 - 路由离开之后
-  HOOK_AFTER_LEAVE = 'afterLeave';
+  ROUTE_404 = '**'; 
   /**
    * 把字符串 value 解析成最合适的类型
    */
@@ -207,45 +199,10 @@
       }
       return PREFIX_HASH + realpath + search;
   }
-  // 钩子函数的调用链
-  var Chain = /** @class */ (function () {
-      function Chain(name) {
-          this.name = name;
-          this.list = [];
-      }
-      Chain.prototype.append = function (target, ctx) {
-          var _a = this, name = _a.name, list = _a.list;
-          if (target && Yox.is.func(target[name])) {
-              list.push({
-                  fn: target[name],
-                  ctx: ctx
-              });
-          }
-          return this;
-      };
-      Chain.prototype.run = function (to, from, success, failure) {
-          var list = this.list, next = function (value) {
-              if (value == null) {
-                  var task = list.shift();
-                  if (task) {
-                      task.fn.call(task.ctx, to, from, next);
-                  }
-                  else if (success) {
-                      success();
-                  }
-              }
-              else if (failure) {
-                  failure(value);
-              }
-          };
-          next();
-      };
-      return Chain;
-  }());
   var Router = /** @class */ (function () {
       function Router(options) {
-          var instance = this;
-          instance.routes = options.routes;
+          var instance = this, routes = [];
+          instance.el = options.el;
           /**
            * 路由表 name -> path
            */
@@ -261,29 +218,68 @@
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parseHash(options.routes, hashStr), route = hash.route || instance.route404;
+              var hash = parseHash(routes, hashStr), route = hash.route || instance.route404;
               instance.setRoute({
-                  component: route.component,
                   path: route.path,
                   params: hash.params,
                   query: hash.query
               }, route);
           };
-          var route404;
-          Yox.array.each(options.routes, function (route) {
-              if (route.name) {
-                  instance.name2Path[route.name] = route.path;
+          var route404, pathStack = [], routeStack = [], callback = function (route) {
+              var name = route.name, path = route.path, children = route.children;
+              // 如果 path 以 / 结尾，删掉它
+              if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
+                  path = Yox.string.slice(path, 0, -1);
               }
-              if (route.path === ROUTE_404) {
-                  route404 = route;
+              // 如果 path 不是以 / 开头，有两种情况：
+              // 1. 没有上级或上级是 ''，需要自动加 / 前缀
+              // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
+              if (path !== ROUTE_404
+                  && !Yox.string.startsWith(path, SEPARATOR_PATH)) {
+                  var parent = Yox.array.last(pathStack);
+                  if (path) {
+                      if (Yox.string.falsy(parent)) {
+                          path = SEPARATOR_PATH + path;
+                      }
+                      else {
+                          path = parent + SEPARATOR_PATH + path;
+                      }
+                  }
+                  else if (parent) {
+                      path = parent;
+                  }
               }
-          });
+              var linkedRoute = {
+                  path: path,
+                  route: route,
+                  component: route.component,
+                  parent: Yox.array.last(routeStack)
+              };
+              if (children) {
+                  pathStack.push(path);
+                  routeStack.push(linkedRoute);
+                  Yox.array.each(children, callback);
+                  pathStack.pop();
+                  routeStack.pop();
+              }
+              else {
+                  routes.push(linkedRoute);
+              }
+              if (name) {
+                  instance.name2Path[name] = path;
+              }
+              if (path === ROUTE_404) {
+                  route404 = linkedRoute;
+              }
+          };
+          Yox.array.each(options.routes, callback);
           {
               if (!route404) {
                   Yox.logger.error("Route for 404[\"" + ROUTE_404 + "\"] is required.");
                   return;
               }
           }
+          instance.routes = routes;
           instance.route404 = route404;
       }
       /**
@@ -321,124 +317,21 @@
           if (Yox.is.string(target)) {
               location.hash = stringifyHash(target);
           }
-          else if (Yox.is.object(target)) {
-              if (Yox.object.has(target, 'component')) {
-                  var _a = target, component = _a.component, props = _a.props;
-                  this.setRoute({
-                      component: component,
-                      props: props
-                  });
-              }
-              else if (Yox.object.has(target, 'name')) {
-                  var _b = target, name = _b.name, params = _b.params, query = _b.query, path = this.name2Path[name];
-                  {
-                      if (!Yox.is.string(path)) {
-                          Yox.logger.error("Name[" + name + "] of the route is not found.");
-                          return;
-                      }
+          else {
+              var _a = target, name = _a.name, params = _a.params, query = _a.query, path = this.name2Path[name];
+              {
+                  if (!Yox.is.string(path)) {
+                      Yox.logger.error("Name[" + name + "] of the route is not found.");
+                      return;
                   }
-                  location.hash = stringifyHash(path, params, query);
               }
+              location.hash = stringifyHash(path, params, query);
           }
-      };
-      /**
-       * 切换路由
-       */
-      Router.prototype.setRoute = function (route, options) {
-          var instance = this, currentRoute = instance.currentRoute, params = route.params, query = route.query, component = route.component, props = route.props, currentComponent = instance.currentComponent || (instance.currentComponent = {}), failure = function (value) {
-              if (value === false) {
-                  // 流程到此为止，恢复到当前路由
-                  if (currentRoute && Yox.is.string(currentRoute.path)) {
-                      location.hash = stringifyHash(currentRoute.path, currentRoute.params, currentRoute.query);
-                  }
-              }
-              else {
-                  // 跳转到别的路由
-                  instance.push(value);
-              }
-          }, callHook = function (name, success, failure) {
-              new Chain(name)
-                  // 先调用组件的钩子
-                  .append(currentComponent.options, currentComponent.root)
-                  // 再调用路由配置的钩子
-                  .append(options, options)
-                  // 最后调用路由实例的钩子
-                  .append(instance, instance)
-                  .run(route, currentRoute, success, failure);
-          }, createComponent = function (options) {
-              currentComponent.options = options;
-              callHook(HOOK_BEFORE_ENTER, function () {
-                  if (params || query) {
-                      props = {};
-                      if (params) {
-                          Yox.object.extend(props, params);
-                      }
-                      if (query) {
-                          Yox.object.extend(props, query);
-                      }
-                  }
-                  currentComponent.root = new Yox(Yox.object.extend({
-                      el: instance.el,
-                      props: props,
-                      extensions: {
-                          $router: instance
-                      }
-                  }, options));
-                  instance.currentRoute = route;
-                  callHook(HOOK_AFTER_ENTER);
-              }, failure);
-          }, changeComponent = function (options) {
-              callHook(HOOK_BEFORE_LEAVE, function () {
-                  if (currentComponent.root) {
-                      currentComponent.root.destroy();
-                      currentComponent.root = UNDEFINED;
-                  }
-                  callHook(HOOK_AFTER_LEAVE);
-                  createComponent(options);
-              }, failure);
-          }, loadComponent = function (options) {
-              if (currentComponent.root) {
-                  // 当前根组件还活着，并且还要切到当前根组件，表示刷新一下
-                  if (currentComponent.options === options) {
-                      callHook(HOOK_REFRESHING, function () {
-                          // 如果 refreshing 钩子调用了 next()
-                          // 表示要销毁重建当前根组件
-                          changeComponent(options);
-                      }, failure);
-                  }
-                  // 切换到其他组件
-                  else {
-                      changeComponent(options);
-                  }
-              }
-              // 第一次创建组件
-              else {
-                  createComponent(options);
-              }
-          };
-          currentComponent.name = component;
-          store.loadComponent(component, function (options) {
-              // 当连续调用此方法，且可能出现异步组件时
-              // 执行到这 name 不一定会等于 currentComponent.name
-              // 因此需要强制保证一下
-              if (component === currentComponent.name) {
-                  loadComponent(options);
-              }
-          });
       };
       /**
        * 启动路由
        */
-      Router.prototype.start = function (el) {
-          if (Yox.is.string(el)) {
-              var element = domApi.find(el);
-              if (element) {
-                  this.el = element;
-              }
-          }
-          else {
-              this.el = el;
-          }
+      Router.prototype.start = function () {
           domApi.on(window, 'hashchange', this.onHashChange);
           this.onHashChange();
       };
@@ -446,11 +339,147 @@
        * 停止路由
        */
       Router.prototype.stop = function () {
-          this.el = UNDEFINED;
           domApi.off(window, 'hashchange', this.onHashChange);
+      };
+      /**
+       * 切换路由
+       */
+      Router.prototype.setRoute = function (route, linkedRoute) {
+          /**
+           * 切换路由时，可能是两棵组件树的切换
+           *
+           * 比如从 /user/list 切到 /user/detail，可能 /user 这个层级还活着，只是第二级组件变化了
+           *
+           * 也可能从 /user/list 切到 /setting/profile，整个组件树都切掉了
+           *
+           * 当发生切换时:
+           * beforeEnter/afterEnter 从上往下 触发
+           * beforeLeave/afterLeave 从下往上 触发
+           */
+          var instance = this, currentRoute = instance.currentRoute, currentLinkedRoute = instance.currentLinkedRoute, props = {}, childRoute, startRoute, createComponent = function (options, el, route, props) {
+              return new Yox(Yox.object.extend({
+                  el: el,
+                  props: props,
+                  extensions: {
+                      $router: instance,
+                      $route: route
+                  }
+              }, options));
+          }, 
+          // changeComponent = function (options: YoxOptions, component: Yox, props: type.data | void) {
+          //   const { $options } = component
+          //   component.destroy()
+          //   const { vnode } = $options
+          //   if (vnode) {
+          //     domApi.html(vnode.node as Element, '')
+          //     return vnode.context.createComponent(options, vnode)
+          //   }
+          //   return createComponent(options, instance.el, props)
+          // },
+          // 对比新旧两个路由链表
+          diffComponent = function (linkedRoute, oldLinkedRoute, isLeafRoute) {
+              var newLinkedRoute = Yox.object.copy(linkedRoute);
+              if (isLeafRoute) {
+                  instance.currentLinkedRoute = newLinkedRoute;
+              }
+              // 不论是同步还是异步组件，都可以通过 store.loadComponent 取到 options
+              store.loadComponent(newLinkedRoute.component, function (options) {
+                  newLinkedRoute.options = options;
+                  if (childRoute) {
+                      newLinkedRoute.child = childRoute;
+                      childRoute.parent = newLinkedRoute;
+                  }
+                  childRoute = newLinkedRoute;
+                  if (oldLinkedRoute) {
+                      // 同级的两个组件不同，疑似起始更新的路由
+                      if (oldLinkedRoute.options !== options) {
+                          startRoute = newLinkedRoute;
+                      }
+                      else {
+                          // 把上次的组件实例搞过来
+                          newLinkedRoute.context = oldLinkedRoute.context;
+                      }
+                  }
+                  else {
+                      startRoute = newLinkedRoute;
+                  }
+                  if (newLinkedRoute.parent) {
+                      diffComponent(newLinkedRoute.parent, oldLinkedRoute ? oldLinkedRoute.parent : UNDEFINED);
+                      return;
+                  }
+                  // 到达根组件，结束
+                  console.log(newLinkedRoute);
+                  console.log(oldLinkedRoute);
+                  console.log(startRoute);
+                  if (startRoute) {
+                      var parent = startRoute.parent;
+                      if (parent) {
+                          var context = parent.context[OUTLET];
+                          context.component(startRoute.component, startRoute.options);
+                          context.set('component', startRoute.component);
+                      }
+                      else {
+                          startRoute.context = createComponent(options, instance.el, startRoute, props);
+                      }
+                  }
+              });
+          };
+          if (route.params) {
+              Yox.object.extend(props, route.params);
+          }
+          if (route.query) {
+              Yox.object.extend(props, route.query);
+          }
+          diffComponent(linkedRoute, currentLinkedRoute, true);
       };
       return Router;
   }());
+  var directive = {
+      bind: function (node, directive, vnode) {
+          var root = vnode.context.$root || vnode.context, router = root['$router'], listener = function (_) {
+              var value = directive.getter && directive.getter();
+              router.push(value != null ? value : directive.value);
+          };
+          if (vnode.isComponent) {
+              node.on(EVENT_CLICK, listener);
+              vnode.data[directive.key] = function () {
+                  node.off(EVENT_CLICK, listener);
+              };
+          }
+          else {
+              domApi.on(node, EVENT_CLICK, listener);
+              vnode.data[directive.key] = function () {
+                  domApi.off(node, EVENT_CLICK, listener);
+              };
+          }
+      },
+      unbind: function (node, directive, vnode) {
+          vnode.data[directive.key]();
+      }
+  };
+  var RouterView = {
+      template: '<$component ref="outlet"/>',
+      beforeCreate: function (options) {
+          var parentContext = options.parent, route = parentContext[ROUTE].child;
+          parentContext[OUTLET] = this;
+          options.props = {
+              component: route.component
+          };
+          var components = {};
+          components[route.component] = route.options;
+          options.components = components;
+      },
+      beforeChildCreate: function (options) {
+          var $parent = this.$parent;
+          options.extensions = {
+              $route: $parent.$route.child,
+              $router: $parent.$router
+          };
+      },
+      afterChildCreate: function (child) {
+          child[ROUTE].context = child;
+      }
+  };
   /**
    * 版本
    */
@@ -468,28 +497,11 @@
       Yox = Class;
       store = new Class();
       domApi = Class.dom;
-      Yox.directive('href', {
-          bind: function (node, directive, vnode) {
-              var root = vnode.context.$root || vnode.context, router = root['$router'], listener = function (_) {
-                  var value = directive.getter && directive.getter();
-                  router.push(value != null ? value : directive.value);
-              };
-              if (vnode.isComponent) {
-                  node.on('click', listener);
-                  vnode.data[directive.key] = function () {
-                      node.off('click', listener);
-                  };
-              }
-              else {
-                  domApi.on(node, 'click', listener);
-                  vnode.data[directive.key] = function () {
-                      domApi.off(node, 'click', listener);
-                  };
-              }
-          },
-          unbind: function (node, directive, vnode) {
-              vnode.data[directive.key]();
-          }
+      Yox.directive('href', directive);
+      // 提供两种风格
+      Yox.component({
+          RouterView: RouterView,
+          'router-view': RouterView
       });
   }
 

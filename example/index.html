@@ -26,10 +26,37 @@
             template: `
               <div>
                 <h1>index</h1>
-                <button o-href="{ name: 'register', query: { age: 10 }}">
-                  register
-                </button>
-                {{stringify(this)}}
+                <router-view />
+              </div>
+            `,
+          },
+          user: {
+            template: `
+              <div>
+                <h2>user</h2>
+                <router-view />
+              </div>
+            `,
+          },
+          userIndex: {
+            template: `
+              <div>
+                <h3>user index</h3>
+                <router-view />
+              </div>
+            `,
+          },
+          userDetail: {
+            template: `
+              <div>
+                <h4>user detail</h4>
+              </div>
+            `,
+          },
+          userProfile: {
+            template: `
+              <div>
+                <h4>user profile</h4>
               </div>
             `,
           },
@@ -96,53 +123,111 @@
         })
 
         var router = new YoxRouter.Router({
+          el: Yox.dom.find('#app'),
           routes: [
             {
               path: '',
               component: 'index',
+              children: [
+                {
+                  path: '',
+                  component: 'index'
+                },
+                {
+                  path: 'user',
+                  component: 'user',
+                  children: [
+                    {
+                      path: '',
+                      component: 'userIndex'
+                    },
+                    {
+                      path: 'detail/:userId',
+                      component: 'userDetail'
+                    },
+                    {
+                      path: 'profile/:userId',
+                      component: 'userProfile'
+                    },
+                  ]
+                },
+                {
+                  path: 'setting',
+                  component: 'index',
+                },
+                {
+                  path: 'project',
+                  component: 'index',
+                },
+              ]
             },
             {
               path: '**',
               component: 'index',
             },
             {
+              path: 'home',
+              component: 'index',
+              children: [
+                {
+                  path: '',
+                  component: 'index'
+                },
+                {
+                  path: 'user',
+                  component: 'index',
+                },
+                {
+                  path: 'setting',
+                  component: 'index',
+                },
+                {
+                  path: 'project',
+                  component: 'index',
+                },
+              ]
+            },
+            {
               path: '/index',
               component: 'index',
               refreshing: function (to, from, next) {
                 console.log('refreshing index', to)
-              }
-            },
-            {
-              path: '/register',
-              name: 'register',
-              component: 'register',
-              beforeEnter: function (to, from, next) {
-                console.log('route beforeEnter', to, from)
-                next()
               },
-              afterEnter: function (to, from, next) {
-                console.log('route afterEnter', to, from)
-                next()
-              },
-              beforeLeave: function (to, from, next) {
-                console.log('route beforeLeave', to, from)
-                next()
-              },
-              afterLeave: function (to, from, next) {
-                console.log('route afterLeave', to, from)
-                next()
-              }
+              children: [
+                {
+                  path: 'register',
+                  name: 'register',
+                  component: 'register',
+                  beforeEnter: function (to, from, next) {
+                    console.log('route beforeEnter', to, from)
+                    next()
+                  },
+                  afterEnter: function (to, from, next) {
+                    console.log('route afterEnter', to, from)
+                    next()
+                  },
+                  beforeLeave: function (to, from, next) {
+                    console.log('route beforeLeave', to, from)
+                    next()
+                  },
+                  afterLeave: function (to, from, next) {
+                    console.log('route afterLeave', to, from)
+                    next()
+                  }
+                },
+                {
+                  path: 'login',
+                  name: 'login',
+                  component: 'login'
+                },
+                {
+                  path: 'profile/:id',
+                  name: 'profile',
+                  component: 'profile'
+                }
+              ]
             },
-            {
-              path: '/login',
-              name: 'login',
-              component: 'login'
-            },
-            {
-              path: '/profile/:id',
-              name: 'profile',
-              component: 'profile'
-            }
+
           ]
         })
         router.beforeEnter = function (to, from, next) {
@@ -162,7 +247,7 @@
           next()
         }
 
-        router.start('#app')
+        router.start()
 
     </script>
 </body>

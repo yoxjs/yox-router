@@ -13,6 +13,12 @@ let Yox: YoxClass, store: Yox, domApi: API
 
 const UNDEFINED = void 0,
 
+OUTLET = '$outlet',
+
+ROUTE = '$route',
+
+COMPONENT = 'component',
+
 // 点击事件
 EVENT_CLICK = 'click',
 
@@ -90,10 +96,13 @@ interface RouteOptions {
 }
 
 interface LinkedRoute {
-  path: string,
-  options: RouteOptions,
-  parent: LinkedRoute | void,
-  component?: Yox
+  path: string
+  component: string
+  route: RouteOptions
+  parent: LinkedRoute | void
+  child?: LinkedRoute
+  options?: YoxOptions
+  context?: Yox
 }
 
 interface Hash {
@@ -107,12 +116,6 @@ interface Route {
   path: string
   params?: type.data
   query?: type.data
-}
-
-interface Component {
-  name?: string
-  root?: Yox
-  options?: YoxOptions
 }
 
 /**
@@ -426,7 +429,7 @@ export class Router {
 
   currentRoute?: Route
 
-  currentComponent?: Component
+  currentLinkedRoute?: LinkedRoute
 
   [HOOK_REFRESHING]?: BeforeHook
 
@@ -518,7 +521,8 @@ export class Router {
 
       const linkedRoute: LinkedRoute = {
         path,
-        options: route,
+        route: route,
+        component: route.component,
         parent: Yox.array.last(routeStack),
       }
       if (children) {
@@ -644,11 +648,13 @@ export class Router {
 
     let instance = this,
 
-    { currentRoute } = instance,
+    { currentRoute, currentLinkedRoute } = instance,
 
-    { params, query } = route,
+    props: type.data = {},
 
-    currentComponent = instance.currentComponent || (instance.currentComponent = {}),
+    childRoute: LinkedRoute | void,
+
+    startRoute: LinkedRoute | void,
 
     failure: failure = function (value: false | Target) {
       if (value === false) {
@@ -673,46 +679,36 @@ export class Router {
     callHook = function (name: string, success: success | void, failure: failure | void) {
       new Hooks(name)
       // 先调用组件的钩子
-      .add(currentComponent.options, currentComponent.root)
+      // .add(currentComponent.options, currentComponent.root)
       // 再调用路由配置的钩子
-      .add(linkedRoute.options, linkedRoute.options)
+      .add(currentRoute, linkedRoute.route)
       // 最后调用路由实例的钩子
       .add(instance, instance)
       .run(route, currentRoute, success, failure)
     },
 
-    createComponent = function (options: YoxOptions) {
+    createComponent1 = function (options: YoxOptions) {
 
-      currentComponent.options = options
+      // currentComponent.options = options
 
       callHook(
         HOOK_BEFORE_ENTER,
         function () {
 
-          let props: Object | void
 
-          if (params || query) {
-            props = {}
-            if (params) {
-              Yox.object.extend(props, params)
-            }
-            if (query) {
-              Yox.object.extend(props, query)
-            }
-          }
 
-          currentComponent.root = new Yox(
-            Yox.object.extend(
-              {
-                el: instance.el,
-                props,
-                extensions: {
-                  $router: instance
-                }
-              },
-              options
-            )
-          )
+          // currentComponent.root = new Yox(
+          //   Yox.object.extend(
+          //     {
+          //       el: instance.el,
+          //       props,
+          //       extensions: {
+          //         $router: instance
+          //       }
+          //     },
+          //     options
+          //   )
+          // )
 
           instance.currentRoute = route
 
@@ -723,72 +719,152 @@ export class Router {
       )
     },
 
-    changeComponent = function (options: YoxOptions) {
-      callHook(
-        HOOK_BEFORE_LEAVE,
-        function () {
-          if (currentComponent.root) {
-            currentComponent.root.destroy()
-            currentComponent.root = UNDEFINED
-          }
-          callHook(HOOK_AFTER_LEAVE)
-          createComponent(options)
-        },
-        failure
+    changeComponent1 = function (options: YoxOptions) {
+      // callHook(
+      //   HOOK_BEFORE_LEAVE,
+      //   function () {
+      //     if (currentComponent.root) {
+      //       currentComponent.root.destroy()
+      //       currentComponent.root = UNDEFINED
+      //     }
+      //     callHook(HOOK_AFTER_LEAVE)
+      //     createComponent(options)
+      //   },
+      //   failure
+      // )
+    },
+
+    loadComponent1 = function (options: YoxOptions) {
+      // if (currentComponent.root) {
+      //   // 当前根组件还活着，并且还要切到当前根组件，表示刷新一下
+      //   if (currentComponent.options === options) {
+      //     callHook(
+      //       HOOK_REFRESHING,
+      //       function () {
+      //         // 如果 refreshing 钩子调用了 next()
+      //         // 表示要销毁重建当前根组件
+      //         changeComponent(options)
+      //       },
+      //       failure
+      //     )
+      //   }
+      //   // 切换到其他组件
+      //   else {
+      //     changeComponent(options)
+      //   }
+      // }
+      // // 第一次创建组件
+      // else {
+      //   createComponent(options)
+      // }
+    },
+
+    createComponent = function (options: YoxOptions, el: Element, route: LinkedRoute, props: type.data | void) {
+      return new Yox(
+        Yox.object.extend(
+          {
+            el,
+            props,
+            extensions: {
+              $router: instance,
+              $route: route,
+            }
+          },
+          options
+        )
       )
     },
 
-    loadComponent = function (options: YoxOptions) {
-      if (currentComponent.root) {
-        // 当前根组件还活着，并且还要切到当前根组件，表示刷新一下
-        if (currentComponent.options === options) {
-          callHook(
-            HOOK_REFRESHING,
-            function () {
-              // 如果 refreshing 钩子调用了 next()
-              // 表示要销毁重建当前根组件
-              changeComponent(options)
-            },
-            failure
-          )
-        }
-        // 切换到其他组件
-        else {
-          changeComponent(options)
-        }
-      }
-      // 第一次创建组件
-      else {
-        createComponent(options)
-      }
-    },
+    // changeComponent = function (options: YoxOptions, component: Yox, props: type.data | void) {
+    //   const { $options } = component
+    //   component.destroy()
 
-    reversed: LinkedRoute[] = []
+    //   const { vnode } = $options
+    //   if (vnode) {
+    //     domApi.html(vnode.node as Element, '')
+    //     return vnode.context.createComponent(options, vnode)
+    //   }
+    //   return createComponent(options, instance.el, props)
+    // },
 
-    while (true) {
-      reversed.unshift(linkedRoute)
-      if (!linkedRoute.component) {
-        if (linkedRoute.parent) {
-          linkedRoute = linkedRoute.parent
-        }
+    // 对比新旧两个路由链表
+    diffComponent = function (linkedRoute: LinkedRoute, oldLinkedRoute: LinkedRoute | void, isLeafRoute: boolean | void) {
+
+      const newLinkedRoute: LinkedRoute = Yox.object.copy(linkedRoute)
+
+      if (isLeafRoute) {
+        instance.currentLinkedRoute = newLinkedRoute
       }
+
+      // 不论是同步还是异步组件，都可以通过 store.loadComponent 取到 options
+      store.loadComponent(
+        newLinkedRoute.component,
+        function (options) {
+
+          newLinkedRoute.options = options
+
+          if (childRoute) {
+            newLinkedRoute.child = childRoute
+            childRoute.parent = newLinkedRoute
+          }
+
+          childRoute = newLinkedRoute
+
+          if (oldLinkedRoute) {
+            // 同级的两个组件不同，疑似起始更新的路由
+            if (oldLinkedRoute.options !== options) {
+              startRoute = newLinkedRoute
+            }
+            else {
+              // 把上次的组件实例搞过来
+              newLinkedRoute.context = oldLinkedRoute.context
+            }
+          }
+          else {
+            startRoute = newLinkedRoute
+          }
+
+          if (newLinkedRoute.parent) {
+            diffComponent(
+              newLinkedRoute.parent,
+              oldLinkedRoute ? oldLinkedRoute.parent : UNDEFINED
+            )
+            return
+          }
+
+          // 到达根组件，结束
+          console.log(newLinkedRoute)
+          console.log(oldLinkedRoute)
+          console.log(startRoute)
+
+          if (startRoute) {
+            const { parent } = startRoute
+            if (parent) {
+              const context: Yox = (parent.context as Yox)[OUTLET]
+              context.component(startRoute.component, startRoute.options)
+              context.set(COMPONENT, startRoute.component)
+            }
+            else {
+              startRoute.context = createComponent(options, instance.el, startRoute, props)
+            }
+          }
+          // 每个层级的 route 完全一致
+          else {
+
+          }
+
+        }
+      )
     }
 
+    if (route.params) {
+      Yox.object.extend(props, route.params)
+    }
+    if (route.query) {
+      Yox.object.extend(props, route.query)
+    }
 
-
-    currentComponent.name = component
-
-    store.loadComponent(
-      component,
-      function (options: YoxOptions) {
-        // 当连续调用此方法，且可能出现异步组件时
-        // 执行到这 name 不一定会等于 currentComponent.name
-        // 因此需要强制保证一下
-        if (component === currentComponent.name) {
-          loadComponent(options)
-        }
-      }
-    )
+    diffComponent(linkedRoute, currentLinkedRoute, true)
 
   }
 
@@ -818,6 +894,7 @@ const directive = {
         domApi.off(node as HTMLElement, EVENT_CLICK, listener)
       }
     }
+
   },
   unbind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
     vnode.data[directive.key]()
@@ -825,12 +902,36 @@ const directive = {
 }
 
 const RouterView: YoxOptions = {
-  template: `<div></div>`,
-  afterMount() {
-    this.$parant.$outlet = this.$el
+  template: '<$' + COMPONENT + '/>',
+  beforeCreate(options) {
+
+    const parentContext = options.parent as Yox, route = parentContext[ROUTE].child as LinkedRoute
+
+    parentContext[OUTLET] = this
+
+    const props: type.data = {}
+    props[COMPONENT] = route.component
+
+    options.props = props
+
+    const components: type.data = {}
+    components[route.component] = route.options
+
+    options.components = components
+
   },
-  beforeDestroy() {
-    this.$parent.$outlet = UNDEFINED
+  beforeChildCreate(options) {
+
+    const { $parent } = this
+
+    options.extensions = {
+      $route: $parent.$route.child,
+      $router: $parent.$router
+    }
+
+  },
+  afterChildCreate(child: Yox) {
+    child[ROUTE].context = child
   }
 }
 
