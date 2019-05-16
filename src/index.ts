@@ -581,6 +581,12 @@ export class Router {
       }
 
       if (name) {
+        if (process.env.NODE_ENV === 'dev') {
+          if (!Yox.object.has(instance.name2Path, name)) {
+            Yox.logger.error(`Name[${name}] of the route is existed.`)
+            return
+          }
+        }
         instance.name2Path[name] = path
       }
       if (path === ROUTE_404) {
@@ -744,6 +750,7 @@ export class Router {
       // route 是注册时的路由，不能修改，因此这里拷贝一个
       const newRoute: LinkedRoute = Yox.object.copy(route)
 
+      // 存储叶子路由，因为 diff 的过程是从下往上
       if (isLeafRoute) {
         instance.route = newRoute
       }
@@ -755,6 +762,7 @@ export class Router {
 
           newRoute.options = options
 
+          // 更新链路
           if (childRoute) {
             newRoute.child = childRoute
             childRoute.parent = newRoute
@@ -813,14 +821,15 @@ export class Router {
           // 每个层级的 route 完全一致
           // 从上往下依次更新每层组件
           else {
-            let linkedRoute: LinkedRoute | void = newRoute
+            // 借用 oldRoute，因为它可以为空
+            oldRoute = newRoute
             do {
-              (linkedRoute.context as Yox).set(
-                filterProps(location.props, linkedRoute.options as YoxOptions)
+              (oldRoute.context as Yox).set(
+                filterProps(location.props, oldRoute.options as YoxOptions)
               )
-              linkedRoute = linkedRoute.child
+              oldRoute = oldRoute.child
             }
-            while (linkedRoute)
+            while (oldRoute)
           }
 
         }
