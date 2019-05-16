@@ -430,18 +430,19 @@
                           context.set(COMPONENT, startRoute.component);
                       }
                       else {
+                          // 只有根组件才有 router 实例
+                          var extensions = {};
+                          extensions[ROUTER] = instance;
+                          extensions[ROUTE] = newRoute;
                           startRoute.context = new Yox(Yox.object.extend({
                               el: instance.el,
                               props: filterProps(location.props, options),
-                              extensions: {
-                                  $router: instance,
-                                  $route: newRoute
-                              }
+                              extensions: extensions
                           }, options));
                       }
                   }
                   // 每个层级的 route 完全一致
-                  // 直接更新数据就行
+                  // 从上往下依次更新每层组件
                   else {
                       var linkedRoute = newRoute;
                       do {

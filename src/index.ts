@@ -794,15 +794,16 @@ export class Router {
               context.set(COMPONENT, startRoute.component)
             }
             else {
+              // 只有根组件才有 router 实例
+              const extensions: type.data = {}
+              extensions[ROUTER] = instance
+              extensions[ROUTE] = newRoute
               startRoute.context = new Yox(
                 Yox.object.extend(
                   {
                     el: instance.el,
                     props: filterProps(location.props, options),
-                    extensions: {
-                      $router: instance,
-                      $route: newRoute,
-                    }
+                    extensions,
                   },
                   options
                 )
@@ -810,7 +811,7 @@ export class Router {
             }
           }
           // 每个层级的 route 完全一致
-          // 直接更新数据就行
+          // 从上往下依次更新每层组件
           else {
             let linkedRoute: LinkedRoute | void = newRoute
             do {
