@@ -26,37 +26,62 @@
             template: `
               <div>
                 <h1>index</h1>
+                {{name}}
                 <router-view />
               </div>
             `,
           },
           user: {
+            propTypes: {
+              userId: {
+                type: ['string', 'number']
+              }
+            },
             template: `
               <div>
                 <h2>user</h2>
+                <span>{{userId}}</span>
                 <router-view />
               </div>
             `,
           },
           userIndex: {
+            propTypes: {
+              userId: {
+                type: ['string', 'number']
+              }
+            },
             template: `
               <div>
                 <h3>user index</h3>
+                <span>{{userId}}</span>
                 <router-view />
               </div>
             `,
           },
           userDetail: {
+            propTypes: {
+              userId: {
+                type: ['string', 'number']
+              }
+            },
             template: `
               <div>
                 <h4>user detail</h4>
+                <span>{{userId}}</span>
               </div>
             `,
           },
           userProfile: {
+            propTypes: {
+              userId: {
+                type: ['string', 'number']
+              }
+            },
             template: `
               <div>
                 <h4>user profile</h4>
+                <span>{{userId}}</span>
               </div>
             `,
           },

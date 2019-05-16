@@ -8,7 +8,6 @@ import YoxOptions from '../../yox-type/src/options/Yox'
 import VNode from '../../yox-type/src/vnode/VNode'
 import Directive from '../../yox-type/src/vnode/Directive'
 import CustomEvent from '../../yox-type/src/event/CustomEvent'
-import PropRule from '../../yox-type/src/interface/PropRule'
 
 let Yox: YoxClass, registry: Yox, domApi: API
 
@@ -380,11 +379,11 @@ function stringifyHash(path: string, params: Object | void, query: Object | void
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(props: type.data, propTypes: Record<string, PropRule> | void) {
+function filterProps(props: type.data, options: YoxOptions) {
   const result: type.data = {}
-  if (propTypes) {
+  if (options.propTypes) {
     Yox.object.each(
-      propTypes,
+      options.propTypes,
       function (_: any, key: string) {
         if (Yox.object.has(props, key)) {
           result[key] = props[key]
@@ -455,9 +454,11 @@ export class Router {
 
   onHashChange: Function
 
+  // 当前地址栏的路径和参数
   location?: Location
 
-  currentLinkedRoute?: LinkedRoute
+  // 当前渲染的路由
+  route?: LinkedRoute
 
   [HOOK_REFRESHING]?: BeforeHook
 
@@ -684,7 +685,7 @@ export class Router {
   /**
    * 切换路由
    */
-  private setRoute(location: Location, linkedRoute: LinkedRoute) {
+  private setRoute(location: Location, route: LinkedRoute) {
 
     /**
      * 切换路由时，可能是两棵组件树的切换
@@ -731,61 +732,59 @@ export class Router {
       // 先调用组件的钩子
       // .add(currentComponent.options, currentComponent.root)
       // 再调用路由配置的钩子
-      .add(location, linkedRoute.route)
+      .add(location, route.route)
       // 最后调用路由实例的钩子
       .add(instance, instance)
       .run(location, location, success, failure)
     },
 
     // 对比新旧两个路由链表
-    diffComponent = function (linkedRoute: LinkedRoute, oldLinkedRoute: LinkedRoute | void, isLeafRoute: boolean | void) {
+    diffComponent = function (route: LinkedRoute, oldRoute: LinkedRoute | void, isLeafRoute: boolean | void) {
 
-      const newLinkedRoute: LinkedRoute = Yox.object.copy(linkedRoute)
+      // route 是注册时的路由，不能修改，因此这里拷贝一个
+      const newRoute: LinkedRoute = Yox.object.copy(route)
 
       if (isLeafRoute) {
-        instance.currentLinkedRoute = newLinkedRoute
+        instance.route = newRoute
       }
 
       // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
       registry.loadComponent(
-        newLinkedRoute.component,
+        newRoute.component,
         function (options) {
 
-          newLinkedRoute.options = options
+          newRoute.options = options
 
           if (childRoute) {
-            newLinkedRoute.child = childRoute
-            childRoute.parent = newLinkedRoute
+            newRoute.child = childRoute
+            childRoute.parent = newRoute
           }
 
-          childRoute = newLinkedRoute
+          childRoute = newRoute
 
-          if (oldLinkedRoute) {
+          if (oldRoute) {
             // 同级的两个组件不同，疑似起始更新的路由
-            if (oldLinkedRoute.options !== options) {
-              startRoute = newLinkedRoute
+            if (oldRoute.options !== options) {
+              startRoute = newRoute
             }
             else {
               // 把上次的组件实例搞过来
-              newLinkedRoute.context = oldLinkedRoute.context
+              newRoute.context = oldRoute.context
             }
           }
           else {
-            startRoute = newLinkedRoute
+            startRoute = newRoute
           }
 
-          if (newLinkedRoute.parent) {
+          if (newRoute.parent) {
             diffComponent(
-              newLinkedRoute.parent,
-              oldLinkedRoute ? oldLinkedRoute.parent : UNDEFINED
+              newRoute.parent,
+              oldRoute ? oldRoute.parent : UNDEFINED
             )
             return
           }
 
           // 到达根组件，结束
-          console.log(newLinkedRoute)
-          console.log(oldLinkedRoute)
-          console.log(startRoute)
 
           if (startRoute) {
             const { parent } = startRoute
@@ -799,10 +798,10 @@ export class Router {
                 Yox.object.extend(
                   {
                     el: instance.el,
-                    props: filterProps(location.props, options.propTypes),
+                    props: filterProps(location.props, options),
                     extensions: {
                       $router: instance,
-                      $route: newLinkedRoute,
+                      $route: newRoute,
                     }
                   },
                   options
@@ -811,8 +810,16 @@ export class Router {
             }
           }
           // 每个层级的 route 完全一致
+          // 直接更新数据就行
           else {
-
+            let linkedRoute: LinkedRoute | void = newRoute
+            do {
+              (linkedRoute.context as Yox).set(
+                filterProps(location.props, linkedRoute.options as YoxOptions)
+              )
+              linkedRoute = linkedRoute.child
+            }
+            while (linkedRoute)
           }
 
         }
@@ -821,7 +828,7 @@ export class Router {
 
     instance.location = location
 
-    diffComponent(linkedRoute, instance.currentLinkedRoute, true)
+    diffComponent(route, instance.route, true)
 
   }
 
@@ -830,9 +837,10 @@ export class Router {
 const directive = {
   bind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
 
-    const root = vnode.context.$root || vnode.context,
+    // 当前组件如果是根组件，则没有 $root 属性
+    const $root = vnode.context.$root || vnode.context,
 
-    router: Router = root['$router'],
+    router: Router = $root[ROUTER],
 
     listener = function (_: CustomEvent) {
       const value = directive.getter && directive.getter()
@@ -879,13 +887,16 @@ const RouterView: YoxOptions = {
   },
   beforeChildCreate(childOptions) {
 
-    const { $parent } = this
+    const { $parent, $root } = this, router: Router = $root[ROUTER]
 
-    childOptions.props = filterProps($parent.$router.location.props, childOptions.propTypes)
-    childOptions.extensions = {
-      $route: $parent.$route.child,
-      $router: $parent.$router
+    if (router.location) {
+      childOptions.props = filterProps(router.location.props, childOptions)
     }
+
+    const extensions: type.data = {}
+    extensions[ROUTE] = $parent[ROUTE].child
+
+    childOptions.extensions = extensions
 
   },
   afterChildCreate(child: Yox) {
