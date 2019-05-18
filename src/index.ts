@@ -810,19 +810,19 @@ export class Router {
           // 从上往下依次更新每层组件
           else {
 
-            let currentRoute: LinkedRoute | void = newRoute,
+            oldRoute = newRoute
 
-            currentComponent: Yox | void = newRoute.context
-
-            while (currentRoute && currentComponent) {
-              currentComponent.set(
-                filterProps(to.props, currentRoute.options as YoxOptions)
-              )
-              currentRoute = currentRoute.child
-              currentComponent = currentComponent[OUTLET]
-              if (currentComponent) {
-                currentComponent = (currentComponent.$children as Yox[])[0]
+            while (oldRoute) {
+              const context = oldRoute.context
+              if (context && context.$vnode) {
+                context.set(
+                  filterProps(to.props, oldRoute.options as YoxOptions)
+                )
               }
+              else {
+                break
+              }
+              oldRoute = oldRoute.child
             }
 
           }

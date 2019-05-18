@@ -441,14 +441,16 @@
                   // 每个层级的 route 完全一致
                   // 从上往下依次更新每层组件
                   else {
-                      var currentRoute = newRoute, currentComponent = newRoute.context;
-                      while (currentRoute && currentComponent) {
-                          currentComponent.set(filterProps(to.props, currentRoute.options));
-                          currentRoute = currentRoute.child;
-                          currentComponent = currentComponent[OUTLET];
-                          if (currentComponent) {
-                              currentComponent = currentComponent.$children[0];
+                      oldRoute = newRoute;
+                      while (oldRoute) {
+                          var context = oldRoute.context;
+                          if (context && context.$vnode) {
+                              context.set(filterProps(to.props, oldRoute.options));
                           }
+                          else {
+                              break;
+                          }
+                          oldRoute = oldRoute.child;
                       }
                   }
               });
