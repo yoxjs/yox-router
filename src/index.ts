@@ -691,23 +691,11 @@ export class Router {
   /**
    * 切换路由
    */
-  private setRoute(location: Location, route: LinkedRoute) {
-
-    /**
-     * 切换路由时，可能是两棵组件树的切换
-     *
-     * 比如从 /user/list 切到 /user/detail，可能 /user 这个层级还活着，只是第二级组件变化了
-     *
-     * 也可能从 /user/list 切到 /setting/profile，整个组件树都切掉了
-     *
-     * 当发生切换时:
-     * beforeEnter/afterEnter 从上往下 触发
-     * beforeLeave/afterLeave 从下往上 触发
-     */
+  private setRoute(to: Location, route: LinkedRoute) {
 
     let instance = this,
 
-    oldLocation = instance.location,
+    from = instance.location,
 
     childRoute: LinkedRoute | void,
 
@@ -716,14 +704,14 @@ export class Router {
     failure: failure = function (value: false | Target) {
       if (value === false) {
         // 流程到此为止，恢复到当前路由
-        if (location
-          && Yox.is.string(location.path)
-          && location.path !== ROUTE_404
+        if (from
+          && Yox.is.string(from.path)
+          && from.path !== ROUTE_404
         ) {
           window.location.hash = stringifyHash(
-            location.path as string,
-            location.params,
-            location.query
+            from.path as string,
+            from.params,
+            from.query
           )
         }
       }
@@ -741,7 +729,7 @@ export class Router {
       .add(location, route.route)
       // 最后调用路由实例的钩子
       .add(instance, instance)
-      .run(location, location, success, failure)
+      .run(to, from, success, failure)
     },
 
     // 对比新旧两个路由链表
@@ -810,7 +798,7 @@ export class Router {
                 Yox.object.extend(
                   {
                     el: instance.el,
-                    props: filterProps(location.props, options),
+                    props: filterProps(to.props, options),
                     extensions,
                   },
                   options
@@ -821,22 +809,29 @@ export class Router {
           // 每个层级的 route 完全一致
           // 从上往下依次更新每层组件
           else {
-            // 借用 oldRoute，因为它可以为空
-            oldRoute = newRoute
-            do {
-              (oldRoute.context as Yox).set(
-                filterProps(location.props, oldRoute.options as YoxOptions)
+
+            let currentRoute: LinkedRoute | void = newRoute,
+
+            currentComponent: Yox | void = newRoute.context
+
+            while (currentRoute && currentComponent) {
+              currentComponent.set(
+                filterProps(to.props, currentRoute.options as YoxOptions)
               )
-              oldRoute = oldRoute.child
+              currentRoute = currentRoute.child
+              currentComponent = currentComponent[OUTLET]
+              if (currentComponent) {
+                currentComponent = (currentComponent.$children as Yox[])[0]
+              }
             }
-            while (oldRoute)
+
           }
 
         }
       )
     }
 
-    instance.location = location
+    instance.location = to
 
     diffComponent(route, instance.route, true)
 
@@ -895,6 +890,13 @@ const RouterView: YoxOptions = {
     options.components = components
 
   },
+  beforeDestroy() {
+
+    const { $parent } = this
+
+    $parent[OUTLET] = UNDEFINED
+
+  },
   beforeChildCreate(childOptions) {
 
     const { $parent, $root } = this, router: Router = $root[ROUTER]
@@ -911,6 +913,9 @@ const RouterView: YoxOptions = {
   },
   afterChildCreate(child: Yox) {
     child[ROUTE].context = child
+  },
+  beforeChildDestroy(child: Yox) {
+    child[ROUTE].context = UNDEFINED
   }
 }
 

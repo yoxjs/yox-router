@@ -290,6 +290,12 @@
                   routes.push(linkedRoute);
               }
               if (name) {
+                  {
+                      if (!Yox.object.has(instance.name2Path, name)) {
+                          Yox.logger.error("Name[" + name + "] of the route is existed.");
+                          return;
+                      }
+                  }
                   instance.name2Path[name] = path;
               }
               if (path === ROUTE_404) {
@@ -377,28 +383,19 @@
       /**
        * 切换路由
        */
-      Router.prototype.setRoute = function (location, route) {
-          /**
-           * 切换路由时，可能是两棵组件树的切换
-           *
-           * 比如从 /user/list 切到 /user/detail，可能 /user 这个层级还活着，只是第二级组件变化了
-           *
-           * 也可能从 /user/list 切到 /setting/profile，整个组件树都切掉了
-           *
-           * 当发生切换时:
-           * beforeEnter/afterEnter 从上往下 触发
-           * beforeLeave/afterLeave 从下往上 触发
-           */
-          var instance = this, oldLocation = instance.location, childRoute, startRoute, // 对比新旧两个路由链表
+      Router.prototype.setRoute = function (to, route) {
+          var instance = this, from = instance.location, childRoute, startRoute, // 对比新旧两个路由链表
           diffComponent = function (route, oldRoute, isLeafRoute) {
               // route 是注册时的路由，不能修改，因此这里拷贝一个
               var newRoute = Yox.object.copy(route);
+              // 存储叶子路由，因为 diff 的过程是从下往上
               if (isLeafRoute) {
                   instance.route = newRoute;
               }
               // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
               registry.loadComponent(newRoute.component, function (options) {
                   newRoute.options = options;
+                  // 更新链路
                   if (childRoute) {
                       newRoute.child = childRoute;
                       childRoute.parent = newRoute;
@@ -436,7 +433,7 @@
                           extensions[ROUTE] = newRoute;
                           startRoute.context = new Yox(Yox.object.extend({
                               el: instance.el,
-                              props: filterProps(location.props, options),
+                              props: filterProps(to.props, options),
                               extensions: extensions
                           }, options));
                       }
@@ -444,15 +441,19 @@
                   // 每个层级的 route 完全一致
                   // 从上往下依次更新每层组件
                   else {
-                      var linkedRoute = newRoute;
-                      do {
-                          linkedRoute.context.set(filterProps(location.props, linkedRoute.options));
-                          linkedRoute = linkedRoute.child;
-                      } while (linkedRoute);
+                      var currentRoute = newRoute, currentComponent = newRoute.context;
+                      while (currentRoute && currentComponent) {
+                          currentComponent.set(filterProps(to.props, currentRoute.options));
+                          currentRoute = currentRoute.child;
+                          currentComponent = currentComponent[OUTLET];
+                          if (currentComponent) {
+                              currentComponent = currentComponent.$children[0];
+                          }
+                      }
                   }
               });
           };
-          instance.location = location;
+          instance.location = to;
           diffComponent(route, instance.route, true);
       };
       return Router;
@@ -493,6 +494,10 @@
           components[route.component] = route.options;
           options.components = components;
       },
+      beforeDestroy: function () {
+          var $parent = this.$parent;
+          $parent[OUTLET] = UNDEFINED;
+      },
       beforeChildCreate: function (childOptions) {
           var _a = this, $parent = _a.$parent, $root = _a.$root, router = $root[ROUTER];
           if (router.location) {
@@ -504,6 +509,9 @@
       },
       afterChildCreate: function (child) {
           child[ROUTE].context = child;
+      },
+      beforeChildDestroy: function (child) {
+          child[ROUTE].context = UNDEFINED;
       }
   };
   /**

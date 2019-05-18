@@ -11,39 +11,70 @@
     <script>
         Yox.use(YoxRouter)
 
-        Yox.filter('stringify', function (data) {
-          return JSON.stringify(data)
-        })
-
         YoxRouter.register({
           index: {
-            propTypes: {
-              name: {
-                type: 'string',
-                required: true
-              }
-            },
             template: `
               <div>
-                <h1>index</h1>
-                {{name}}
+                <h2>index</h2>
+                <span>{{userId}}</span>
                 <router-view />
               </div>
             `,
+            beforeMount() {
+              console.log('index', 'beforeMount')
+            },
+            afterMount() {
+              console.log('index', 'afterMount')
+            },
+            beforeUpdate() {
+              console.log('index', 'beforeUpdate')
+            },
+            afterUpdate() {
+              console.log('index', 'afterUpdate')
+            },
+            beforeDestroy() {
+              console.log('index', 'beforeDestroy')
+            },
+            afterDestroy() {
+              console.log('index', 'afterDestroy')
+            }
           },
           user: {
             propTypes: {
               userId: {
                 type: ['string', 'number']
+              },
+              visible: {
+                type: 'boolean'
               }
             },
             template: `
               <div>
                 <h2>user</h2>
                 <span>{{userId}}</span>
-                <router-view />
+                {{#if visible}}
+                  <router-view />
+                {{/if}}
               </div>
             `,
+            beforeMount() {
+              console.log('user', 'beforeMount')
+            },
+            afterMount() {
+              console.log('user', 'afterMount')
+            },
+            beforeUpdate() {
+              console.log('user', 'beforeUpdate')
+            },
+            afterUpdate() {
+              console.log('user', 'afterUpdate')
+            },
+            beforeDestroy() {
+              console.log('user', 'beforeDestroy')
+            },
+            afterDestroy() {
+              console.log('user', 'afterDestroy')
+            }
           },
           userIndex: {
             propTypes: {
@@ -58,6 +89,24 @@
                 <router-view />
               </div>
             `,
+            beforeMount() {
+              console.log('userIndex', 'beforeMount')
+            },
+            afterMount() {
+              console.log('userIndex', 'afterMount')
+            },
+            beforeUpdate() {
+              console.log('userIndex', 'beforeUpdate')
+            },
+            afterUpdate() {
+              console.log('userIndex', 'afterUpdate')
+            },
+            beforeDestroy() {
+              console.log('userIndex', 'beforeDestroy')
+            },
+            afterDestroy() {
+              console.log('userIndex', 'afterDestroy')
+            }
           },
           userDetail: {
             propTypes: {
@@ -71,6 +120,24 @@
                 <span>{{userId}}</span>
               </div>
             `,
+            beforeMount() {
+              console.log('userDetail', 'beforeMount')
+            },
+            afterMount() {
+              console.log('userDetail', 'afterMount')
+            },
+            beforeUpdate() {
+              console.log('userDetail', 'beforeUpdate')
+            },
+            afterUpdate() {
+              console.log('userDetail', 'afterUpdate')
+            },
+            beforeDestroy() {
+              console.log('userDetail', 'beforeDestroy')
+            },
+            afterDestroy() {
+              console.log('userDetail', 'afterDestroy')
+            }
           },
           userProfile: {
             propTypes: {
@@ -84,66 +151,50 @@
                 <span>{{userId}}</span>
               </div>
             `,
-          },
-          register: {
-            template: `
-              <div>
-                <h1>register</h1>
-                <button o-href="/login">
-                  login
-                </button>
-                {{stringify(this)}}
-              </div>
-            `,
-            refreshing: function (to, from, next) {
-              this.set(to.query)
-              console.log('component beforeEnter', to, from)
+            beforeMount() {
+              console.log('userProfile', 'beforeMount')
             },
-            beforeEnter: function (to, from, next) {
-              console.log('component beforeEnter', to, from)
-              next()
+            afterMount() {
+              console.log('userProfile', 'afterMount')
             },
-            afterEnter: function (to, from, next) {
-              console.log('component afterEnter', to, from)
-              next()
+            beforeUpdate() {
+              console.log('userProfile', 'beforeUpdate')
             },
-            beforeLeave: function (to, from, next) {
-              console.log('component beforeLeave', to, from)
-              next()
+            afterUpdate() {
+              console.log('userProfile', 'afterUpdate')
             },
-            afterLeave: function (to, from, next) {
-              console.log('component afterLeave', to, from)
-              next()
+            beforeDestroy() {
+              console.log('userProfile', 'beforeDestroy')
+            },
+            afterDestroy() {
+              console.log('userProfile', 'afterDestroy')
             }
           },
-          login: function (resolve) {
-            setTimeout(
-              function () {
-                resolve({
-                  template: `
-                    <div>
-                      <h1>login</h1>
-                      <button o-href="{ name: 'login', query: { name: 'musicode'} }">
-                        index
-                      </button>
-                      {{stringify(this)}}
-                    </div>
-                  `,
-                  refreshing: function (to, from, next) {
-                    console.log('component refreshing', to)
-                  }
-                })
-              },
-              1000
-            )
-          },
-          profile: {
+          setting: {
             template: `
               <div>
-                <h1>profile</h1>
+                <h1>setting</h1>
                 {{stringify(this)}}
               </div>
             `,
+            beforeMount() {
+              console.log('setting', 'beforeMount')
+            },
+            afterMount() {
+              console.log('setting', 'afterMount')
+            },
+            beforeUpdate() {
+              console.log('setting', 'beforeUpdate')
+            },
+            afterUpdate() {
+              console.log('setting', 'afterUpdate')
+            },
+            beforeDestroy() {
+              console.log('setting', 'beforeDestroy')
+            },
+            afterDestroy() {
+              console.log('setting', 'afterDestroy')
+            }
           }
         })
 
@@ -189,69 +240,7 @@
             {
               path: '**',
               component: 'index',
-            },
-            {
-              path: 'home',
-              component: 'index',
-              children: [
-                {
-                  path: '',
-                  component: 'index'
-                },
-                {
-                  path: 'user',
-                  component: 'index',
-                },
-                {
-                  path: 'setting',
-                  component: 'index',
-                },
-                {
-                  path: 'project',
-                  component: 'index',
-                },
-              ]
-            },
-            {
-              path: '/index',
-              component: 'index',
-              refreshing: function (to, from, next) {
-                console.log('refreshing index', to)
-              },
-              children: [
-                {
-                  path: 'register',
-                  name: 'register',
-                  component: 'register',
-                  beforeEnter: function (to, from, next) {
-                    console.log('route beforeEnter', to, from)
-                    next()
-                  },
-                  afterEnter: function (to, from, next) {
-                    console.log('route afterEnter', to, from)
-                    next()
-                  },
-                  beforeLeave: function (to, from, next) {
-                    console.log('route beforeLeave', to, from)
-                    next()
-                  },
-                  afterLeave: function (to, from, next) {
-                    console.log('route afterLeave', to, from)
-                    next()
-                  }
-                },
-                {
-                  path: 'login',
-                  name: 'login',
-                  component: 'login'
-                },
-                {
-                  path: 'profile/:id',
-                  name: 'profile',
-                  component: 'profile'
-                }
-              ]
-            },
+            }
 
           ]
         })

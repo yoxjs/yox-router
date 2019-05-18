@@ -1341,6 +1341,8 @@
   var HOOK_AFTER_DESTROY = 'afterDestroy';
   var HOOK_BEFORE_CHILD_CREATE = 'beforeChildCreate';
   var HOOK_AFTER_CHILD_CREATE = 'afterChildCreate';
+  var HOOK_BEFORE_CHILD_DESTROY = 'beforeChildDestroy';
+  var HOOK_AFTER_CHILD_DESTROY = 'afterChildDestroy';
 
   var guid = 0;
   function guid$1 () {
@@ -6576,7 +6578,12 @@
        */
       Yox.prototype.loadComponent = function (name, callback) {
           if (!loadComponent(this.$components, name, callback)) {
-              loadComponent(globalComponents, name, callback);
+              var hasComponent = loadComponent(globalComponents, name, callback);
+              {
+                  if (!hasComponent) {
+                      error("Component [" + name + "] is not found.");
+                  }
+              }
           }
       };
       /**
@@ -6712,13 +6719,7 @@
               instance_1.$vnode = vnode;
               // 跟 nextTask 保持一个节奏
               // 这样可以预留一些优化的余地
-              if (hook_1) {
-                  instance_1.nextTick(function () {
-                      if (instance_1.$vnode) {
-                          execute(hook_1, instance_1);
-                      }
-                  });
-              }
+              execute(hook_1, instance_1);
           }
       };
       /**
@@ -6806,10 +6807,13 @@
        * 销毁组件
        */
       Yox.prototype.destroy = function () {
-          var instance = this, $options = instance.$options, $emitter = instance.$emitter, $observer = instance.$observer;
+          var instance = this, $parent = instance.$parent, $options = instance.$options, $emitter = instance.$emitter, $observer = instance.$observer;
+          if ($parent) {
+              execute($parent.$options[HOOK_BEFORE_CHILD_DESTROY], $parent, instance);
+          }
           execute($options[HOOK_BEFORE_DESTROY], instance);
           {
-              var $vnode = instance.$vnode, $parent = instance.$parent;
+              var $vnode = instance.$vnode;
               if ($parent && $parent.$children) {
                   remove($parent.$children, instance);
               }
@@ -6823,6 +6827,9 @@
           $observer.destroy();
           clear(instance);
           execute($options[HOOK_AFTER_DESTROY], instance);
+          if ($parent) {
+              execute($parent.$options[HOOK_AFTER_CHILD_DESTROY], $parent, instance);
+          }
       };
       /**
        * 因为组件采用的是异步更新机制，为了在更新之后进行一些操作，可使用 nextTick
