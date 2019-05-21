@@ -785,11 +785,21 @@ export class Router {
           if (startRoute) {
             const { parent } = startRoute
             if (parent) {
+
               const context: Yox = (parent.context as Yox)[OUTLET]
               context.component(startRoute.component, startRoute.options)
-              context.set(COMPONENT, startRoute.component)
+
+              const props: type.data = {}
+              props[COMPONENT] = startRoute.component
+              context.forceUpdate(props)
+
             }
             else {
+              const { context } = startRoute
+              if (context) {
+                context.destroy()
+              }
+
               // 只有根组件才有 router 实例
               const extensions: type.data = {}
               extensions[ROUTER] = instance
@@ -815,14 +825,16 @@ export class Router {
             while (oldRoute) {
               const context = oldRoute.context
               if (context && context.$vnode) {
-                context.set(
+                context.forceUpdate(
                   filterProps(to.props, oldRoute.options as YoxOptions)
                 )
+                // <router-view> 可能包含在 if 里，因此它不一定会存在
+                if (context[OUTLET]) {
+                  oldRoute = oldRoute.child
+                  continue
+                }
               }
-              else {
-                break
-              }
-              oldRoute = oldRoute.child
+              break
             }
 
           }

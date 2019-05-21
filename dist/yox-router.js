@@ -424,9 +424,15 @@
                       if (parent) {
                           var context = parent.context[OUTLET];
                           context.component(startRoute.component, startRoute.options);
-                          context.set(COMPONENT, startRoute.component);
+                          var props = {};
+                          props[COMPONENT] = startRoute.component;
+                          context.forceUpdate(props);
                       }
                       else {
+                          var context = startRoute.context;
+                          if (context) {
+                              context.destroy();
+                          }
                           // 只有根组件才有 router 实例
                           var extensions = {};
                           extensions[ROUTER] = instance;
@@ -445,12 +451,14 @@
                       while (oldRoute) {
                           var context = oldRoute.context;
                           if (context && context.$vnode) {
-                              context.set(filterProps(to.props, oldRoute.options));
+                              context.forceUpdate(filterProps(to.props, oldRoute.options));
+                              // <router-view> 可能包含在 if 里，因此它不一定会存在
+                              if (context[OUTLET]) {
+                                  oldRoute = oldRoute.child;
+                                  continue;
+                              }
                           }
-                          else {
-                              break;
-                          }
-                          oldRoute = oldRoute.child;
+                          break;
                       }
                   }
               });

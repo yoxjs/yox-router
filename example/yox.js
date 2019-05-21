@@ -1,5 +1,5 @@
 /**
- * yox.js v1.0.0-alpha.38
+ * yox.js v1.0.0-alpha.41
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -747,19 +747,21 @@
    *
    * @return
    */
-  function extend(original) {
-      var arguments$1 = arguments;
-
-      var objects = [];
-      for (var _i = 1; _i < arguments.length; _i++) {
-          objects[_i - 1] = arguments$1[_i];
-      }
-      each(objects, function (object) {
-          each$2(object, function (value, key) {
-              original[key] = value;
-          });
+  function extend(original, object) {
+      each$2(object, function (value, key) {
+          original[key] = value;
       });
       return original;
+  }
+  /**
+   * 合并对象
+   *
+   * @return
+   */
+  function merge(object1, object2) {
+      return object1 && object2
+          ? extend(extend({}, object1), object2)
+          : object1 || object2;
   }
   /**
    * 拷贝对象
@@ -903,6 +905,7 @@
     each: each$2,
     clear: clear,
     extend: extend,
+    merge: merge,
     copy: copy,
     get: get,
     set: set,
@@ -1397,11 +1400,12 @@
       if (directives || oldDirectives) {
           var node_1 = data[COMPONENT] || vnode.node, isKeypathChange_1 = oldVnode && vnode.keypath !== oldVnode.keypath, newValue_1 = directives || EMPTY_OBJECT, oldValue_1 = oldDirectives || EMPTY_OBJECT;
           each$2(newValue_1, function (directive, name) {
-              var _a = directive.hooks, bind = _a.bind, unbind = _a.unbind;
+              var _a = directive.hooks, once = _a.once, bind = _a.bind, unbind = _a.unbind;
               if (!oldValue_1[name]) {
                   bind(node_1, directive, vnode);
               }
-              else if (directive.value !== oldValue_1[name].value
+              else if (once
+                  || directive.value !== oldValue_1[name].value
                   || isKeypathChange_1) {
                   if (unbind) {
                       unbind(node_1, oldValue_1[name], oldVnode);
@@ -1433,17 +1437,24 @@
   }
 
   function update$3(vnode, oldVnode) {
-      var data = vnode.data, ref = vnode.ref, props = vnode.props, slots = vnode.slots, context = vnode.context, node;
+      var data = vnode.data, ref = vnode.ref, props = vnode.props, slots = vnode.slots, model = vnode.model, context = vnode.context, node;
       if (vnode.isComponent) {
           node = data[COMPONENT];
           // 更新时才要 set
           // 因为初始化时，所有这些都经过构造函数完成了
           if (oldVnode) {
-              if (props) {
-                  node.set(node.checkPropTypes(props));
+              // 更新组件时，如果写了 <Component model="xx"/>
+              // 必须把双向绑定的值写到 props 里，否则一旦 propTypes 加了默认值
+              // 传下去的数据就错了
+              if (isDef(model)) {
+                  if (!props) {
+                      props = {};
+                  }
+                  props[node.$model] = model;
               }
-              if (slots) {
-                  node.set(slots);
+              var result = merge(props ? node.checkPropTypes(props) : UNDEFINED, slots);
+              if (result) {
+                  node.forceUpdate(result);
               }
           }
       }
@@ -5695,7 +5706,15 @@
        * @param index
        */
       Observer.prototype.removeAt = function (keypath, index) {
-          return this.splice(keypath, index, 1);
+          var list = this.get(keypath);
+          if (array(list)
+              && index >= 0
+              && index < list.length) {
+              list = copy(list);
+              list.splice(index, 1);
+              this.set(keypath, list);
+              return TRUE;
+          }
       };
       /**
        * 直接移除数组中的元素
@@ -5711,31 +5730,6 @@
                   this.set(keypath, list);
                   return TRUE;
               }
-          }
-      };
-      /**
-       * 删除旧元素并插入新元素
-       *
-       * @param keypath
-       * @param index
-       * @param count
-       * @param items
-       */
-      Observer.prototype.splice = function (keypath, index, count) {
-          var arguments$1 = arguments;
-
-          var items = [];
-          for (var _i = 3; _i < arguments.length; _i++) {
-              items[_i - 3] = arguments$1[_i];
-          }
-          var list = this.get(keypath);
-          if (array(list)) {
-              list = copy(list);
-              unshift(items, count);
-              unshift(items, index);
-              execute(list.splice, list, items);
-              this.set(keypath, list);
-              return TRUE;
           }
       };
       /**
@@ -6054,6 +6048,12 @@
           ? option.value
           : option.text;
   }
+  function debounceIfNeeded(fn, lazy) {
+      // 应用 lazy
+      return lazy && lazy !== TRUE
+          ? debounce(fn, lazy)
+          : fn;
+  }
   var inputControl = {
       set: function (node, value) {
           node.value = toString(value);
@@ -6126,26 +6126,30 @@
       radio: radioControl,
       checkbox: checkboxControl
   }, directive$1 = {
+      once: TRUE,
       bind: function (node, directive, vnode) {
-          var context = vnode.context, model = vnode.model, lazy = vnode.lazy, isComponent = vnode.isComponent, dataBinding = directive.binding, viewBinding, eventName, set, sync, lazyValue;
-          if (lazy) {
-              lazyValue = lazy[DIRECTIVE_MODEL] || lazy[EMPTY_STRING];
-          }
+          var context = vnode.context, lazy = vnode.lazy, isComponent = vnode.isComponent, dataBinding = directive.binding, lazyValue = lazy && (lazy[DIRECTIVE_MODEL] || lazy[EMPTY_STRING]), set, sync, unbind;
           if (isComponent) {
-              viewBinding = node.$options.model || RAW_VALUE;
+              var component_1 = node, viewBinding_1 = component_1.$model;
               set = function (newValue) {
-                  node.set(viewBinding, newValue);
+                  if (set) {
+                      component_1.set(viewBinding_1, newValue);
+                  }
               };
-              sync = function (newValue) {
+              sync = debounceIfNeeded(function (newValue) {
                   context.set(dataBinding, newValue);
+              }, lazyValue);
+              unbind = function () {
+                  component_1.unwatch(viewBinding_1, sync);
               };
+              component_1.watch(viewBinding_1, sync);
           }
           else {
-              var control_1 = domApi.tag(node) === 'select'
+              var element_1 = node, control_1 = vnode.tag === 'select'
                   ? selectControl
-                  : inputControl;
+                  : inputControl,
               // checkbox,radio,select 监听的是 change 事件
-              eventName = EVENT_CHANGE;
+              eventName_1 = EVENT_CHANGE;
               if (control_1 === inputControl) {
                   var type_1 = node.type;
                   if (inputTypes[type_1]) {
@@ -6155,39 +6159,29 @@
                   // model 事件是个 yox-dom 实现的特殊事件
                   // 不会在输入法组合文字过程中得到触发事件
                   else if (lazyValue !== TRUE) {
-                      eventName = EVENT_MODEL;
+                      eventName_1 = EVENT_MODEL;
                   }
               }
               set = function (newValue) {
-                  control_1.set(node, newValue);
+                  if (set) {
+                      control_1.set(element_1, newValue);
+                  }
               };
-              sync = function () {
-                  control_1.sync(node, dataBinding, context);
+              sync = debounceIfNeeded(function () {
+                  control_1.sync(element_1, dataBinding, context);
+              }, lazyValue);
+              unbind = function () {
+                  domApi.off(element_1, eventName_1, sync);
               };
-          }
-          // 不管模板是否设值，统一用数据中的值
-          set(model, UNDEFINED, EMPTY_STRING);
-          // 应用 lazy
-          if (lazyValue && lazyValue !== TRUE) {
-              sync = debounce(sync, lazyValue);
-          }
-          // 监听交互，修改数据
-          if (isComponent) {
-              node.watch(viewBinding, sync);
-          }
-          else {
-              domApi.on(node, eventName, sync);
+              domApi.on(element_1, eventName_1, sync);
+              control_1.set(element_1, vnode.model);
           }
           // 监听数据，修改界面
           context.watch(dataBinding, set);
           vnode.data[directive.key] = function () {
-              if (isComponent) {
-                  node.unwatch(viewBinding, sync);
-              }
-              else {
-                  domApi.off(node, eventName, sync);
-              }
               context.unwatch(dataBinding, set);
+              set = UNDEFINED;
+              unbind();
           };
       },
       unbind: function (node, directive, vnode) {
@@ -6196,26 +6190,30 @@
   };
 
   var directive$2 = {
+      once: TRUE,
       bind: function (node, directive, vnode) {
           // binding 可能是模糊匹配
           // 比如延展属性 {{...obj}}，这里 binding 会是 `obj.*`
           var binding = directive.binding, isFuzzy$1 = isFuzzy(binding), watcher = function (newValue, _, keypath) {
-              var name = isFuzzy$1
-                  ? matchFuzzy(keypath, binding)
-                  : directive.name;
-              if (vnode.isComponent) {
-                  node.set(name, newValue);
-              }
-              else if (isDef(directive.hint)) {
-                  domApi.prop(node, name, newValue);
-              }
-              else {
-                  domApi.attr(node, name, newValue);
+              if (watcher) {
+                  var name = isFuzzy$1
+                      ? matchFuzzy(keypath, binding)
+                      : directive.name;
+                  if (vnode.isComponent) {
+                      node.set(name, newValue);
+                  }
+                  else if (isDef(directive.hint)) {
+                      domApi.prop(node, name, newValue);
+                  }
+                  else {
+                      domApi.attr(node, name, newValue);
+                  }
               }
           };
           vnode.context.watch(binding, watcher);
           vnode.data[directive.key] = function () {
               vnode.context.unwatch(binding, watcher);
+              watcher = UNDEFINED;
           };
       },
       unbind: function (node, directive, vnode) {
@@ -6289,7 +6287,10 @@
               instance.on(events);
           }
           {
-              var placeholder = UNDEFINED, el = $options.el, vnode = $options.vnode, root = $options.root, parent = $options.parent, replace = $options.replace, template = $options.template, transitions = $options.transitions, components = $options.components, directives = $options.directives, partials = $options.partials, filters = $options.filters, slots = $options.slots;
+              var placeholder = UNDEFINED, el = $options.el, vnode = $options.vnode, root = $options.root, model_1 = $options.model, parent = $options.parent, replace = $options.replace, template = $options.template, transitions = $options.transitions, components = $options.components, directives = $options.directives, partials = $options.partials, filters = $options.filters, slots = $options.slots;
+              if (model_1) {
+                  instance.$model = model_1;
+              }
               // 把 slots 放进数据里，方便 get
               if (slots) {
                   extend(source, slots);
@@ -6600,11 +6601,19 @@
               options.parent = instance;
               options.vnode = vnode;
               options.replace = TRUE;
-              if (vnode.props) {
-                  options.props = vnode.props;
+              var props = vnode.props, slots = vnode.slots, modelKey = options.model || RAW_VALUE, modelValue = vnode.model;
+              options.model = modelKey;
+              if (isDef(modelValue)) {
+                  if (!props) {
+                      props = {};
+                  }
+                  props[modelKey] = modelValue;
               }
-              if (vnode.slots) {
-                  options.slots = vnode.slots;
+              if (props) {
+                  options.props = props;
+              }
+              if (slots) {
+                  options.slots = slots;
               }
               execute($options[HOOK_BEFORE_CHILD_CREATE], instance, options);
               var child = new Yox(options);
@@ -6669,15 +6678,18 @@
        * 对于某些特殊场景，修改了数据，但是模板的依赖中并没有这一项
        * 而你非常确定需要更新模板，强制刷新正是你需要的
        */
-      Yox.prototype.forceUpdate = function () {
+      Yox.prototype.forceUpdate = function (data) {
           {
               var instance = this, $vnode = instance.$vnode, $observer = instance.$observer, computed = $observer.computed;
               if ($vnode && computed) {
                   var template = computed[TEMPLATE_COMPUTED], oldValue = template.get();
+                  if (data) {
+                      instance.set(data);
+                  }
                   // 当前可能正在进行下一轮更新
                   $observer.nextTask.run();
                   // 没有更新模板，强制刷新
-                  if (oldValue === template.get()) {
+                  if (!data && oldValue === template.get()) {
                       instance.update(template.get(TRUE), $vnode);
                   }
               }
@@ -6689,7 +6701,7 @@
       Yox.prototype.render = function () {
           {
               var instance = this;
-              return render(instance, instance.$template, mergeResource(instance.$filters, globalFilters), mergeResource(instance.$partials, globalPartials), mergeResource(instance.$directives, globalDirectives), mergeResource(instance.$transitions, globalTransitions));
+              return render(instance, instance.$template, merge(instance.$filters, globalFilters), merge(instance.$partials, globalPartials), merge(instance.$directives, globalDirectives), merge(instance.$transitions, globalTransitions));
           }
       };
       /**
@@ -6719,7 +6731,13 @@
               instance_1.$vnode = vnode;
               // 跟 nextTask 保持一个节奏
               // 这样可以预留一些优化的余地
-              execute(hook_1, instance_1);
+              if (hook_1) {
+                  instance_1.nextTick(function () {
+                      if (instance_1.$vnode) {
+                          execute(hook_1, instance_1);
+                      }
+                  });
+              }
           }
       };
       /**
@@ -6904,7 +6922,7 @@
        * @param index
        */
       Yox.prototype.removeAt = function (keypath, index) {
-          return this.splice(keypath, index, 1);
+          return this.$observer.removeAt(keypath, index);
       };
       /**
        * 直接移除数组中的元素
@@ -6914,24 +6932,6 @@
        */
       Yox.prototype.remove = function (keypath, item) {
           return this.$observer.remove(keypath, item);
-      };
-      /**
-       * 删除旧元素并插入新元素
-       *
-       * @param keypath
-       * @param index
-       * @param count
-       * @param items
-       */
-      Yox.prototype.splice = function (keypath, index, count) {
-          var arguments$1 = arguments;
-
-          var _a;
-          var items = [];
-          for (var _i = 3; _i < arguments.length; _i++) {
-              items[_i - 3] = arguments$1[_i];
-          }
-          return (_a = this.$observer).splice.apply(_a, [keypath, index, count].concat(items));
       };
       /**
        * 拷贝任意数据，支持深拷贝
@@ -6945,7 +6945,7 @@
       /**
        * core 版本
        */
-      Yox.version = "1.0.0-alpha.38";
+      Yox.version = "1.0.0-alpha.41";
       /**
        * 方便外部共用的通用逻辑，特别是写插件，减少重复代码
        */
@@ -7043,11 +7043,6 @@
               data[key] = formatValue ? formatValue(value) : value;
           });
       }
-  }
-  function mergeResource(locals, globals) {
-      return locals && globals
-          ? extend({}, globals, locals)
-          : locals || globals;
   }
   {
       Yox['dom'] = domApi;
