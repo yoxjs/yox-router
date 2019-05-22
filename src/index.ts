@@ -2,6 +2,7 @@ import * as type from '../../yox-type/src/type'
 
 import API from '../../yox-type/src/interface/API'
 import Yox from '../../yox-type/src/interface/Yox'
+import PropRule from '../../yox-type/src/interface/PropRule'
 import YoxClass from '../../yox-type/src/interface/YoxClass'
 import Task from '../../yox-type/src/interface/Task'
 import YoxOptions from '../../yox-type/src/options/Yox'
@@ -384,9 +385,12 @@ function filterProps(props: type.data, options: YoxOptions) {
   if (options.propTypes) {
     Yox.object.each(
       options.propTypes,
-      function (_: any, key: string) {
+      function (rule: PropRule, key: string) {
         if (Yox.object.has(props, key)) {
-          result[key] = props[key]
+          const defaultValue = Yox.checkProp(props, key, rule)
+          result[key] = defaultValue !== UNDEFINED
+            ? defaultValue
+            : props[key]
         }
       }
     )
@@ -787,11 +791,13 @@ export class Router {
             if (parent) {
 
               const context: Yox = (parent.context as Yox)[OUTLET]
-              context.component(startRoute.component, startRoute.options)
+              if (context) {
+                context.component(startRoute.component, startRoute.options)
 
-              const props: type.data = {}
-              props[COMPONENT] = startRoute.component
-              context.forceUpdate(props)
+                const props: type.data = {}
+                props[COMPONENT] = startRoute.component
+                context.forceUpdate(props)
+              }
 
             }
             else {
@@ -815,20 +821,24 @@ export class Router {
                 )
               )
             }
+            console.log(startRoute)
           }
           // 每个层级的 route 完全一致
           // 从上往下依次更新每层组件
           else {
 
+            // oldRoute 可以为空，利用它就可以不再声明新变量
             oldRoute = newRoute
 
             while (oldRoute) {
               const context = oldRoute.context
-              if (context && context.$vnode) {
+              if (context) {
                 context.forceUpdate(
                   filterProps(to.props, oldRoute.options as YoxOptions)
                 )
-                // <router-view> 可能包含在 if 里，因此它不一定会存在
+                // [TODO] 如果 <router-view> 定义在 if 里
+                // 当 router-view 从无到有时，这里要读取最新的 child
+                // 当 router-view 从有到无时，这里要判断它是否存在
                 if (context[OUTLET]) {
                   oldRoute = oldRoute.child
                   continue
@@ -836,6 +846,8 @@ export class Router {
               }
               break
             }
+
+            console.log(oldRoute)
 
           }
 
@@ -887,7 +899,9 @@ const RouterView: YoxOptions = {
   template: '<$' + COMPONENT + '/>',
   beforeCreate(options) {
 
-    const parentContext = options.parent as Yox, route = parentContext[ROUTE].child as LinkedRoute
+    const parentContext = options.parent as Yox,
+
+    route = parentContext[ROUTE].child as LinkedRoute
 
     parentContext[OUTLET] = this
 
@@ -909,7 +923,7 @@ const RouterView: YoxOptions = {
     $parent[OUTLET] = UNDEFINED
 
   },
-  beforeChildCreate(childOptions) {
+  beforeChildCreate(childOptions: YoxOptions) {
 
     const { $parent, $root } = this, router: Router = $root[ROUTER]
 

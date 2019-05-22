@@ -6432,6 +6432,72 @@
               return new Function("return " + template)();
           }
       };
+      Yox.checkProp = function (props, key, rule) {
+          // 类型
+          var type = rule.type,
+          // 默认值
+          defaultValue = rule.value,
+          // 实际传的值
+          value = props[key];
+          // 传了数据
+          if (isDef(value)) {
+              {
+                  // 如果不写 type 或 type 不是 字符串 或 数组
+                  // 就当做此规则无效，和没写一样
+                  if (type) {
+                      // 自定义函数判断是否匹配类型
+                      // 自己打印警告信息吧
+                      if (func(type)) {
+                          type(props, key);
+                      }
+                      else {
+                          var matched_1 = FALSE;
+                          // type: 'string'
+                          if (!falsy$1(type)) {
+                              matched_1 = matchType(value, type);
+                          }
+                          // type: ['string', 'number']
+                          else if (!falsy(type)) {
+                              each(type, function (item) {
+                                  if (matchType(value, item)) {
+                                      matched_1 = TRUE;
+                                      return FALSE;
+                                  }
+                              });
+                          }
+                          if (!matched_1) {
+                              warn("The type of prop \"" + key + "\" expected to be \"" + type + "\", but is \"" + value + "\".");
+                          }
+                      }
+                  }
+                  else {
+                      warn("The prop \"" + key + "\" in propTypes has no type.");
+                  }
+              }
+          }
+          else {
+              {
+                  // 是否必传
+                  var required = rule.required;
+                  // 动态化获取是否必填
+                  if (func(required)) {
+                      required = required(props, key);
+                  }
+                  // 没传值但此项是必传项
+                  if (required) {
+                      warn("The prop \"" + key + "\" is marked as required, but its value is not found.");
+                  }
+              }
+              // 没传值但是配置了默认值
+              if (isDef(defaultValue)) {
+                  return type === RAW_FUNCTION
+                      ? defaultValue
+                      : func(defaultValue)
+                          ? defaultValue(props, key)
+                          : defaultValue;
+              }
+          }
+      };
       Yox.directive = function (name, directive) {
           {
               if (string(name) && !directive) {
@@ -6751,69 +6817,9 @@
               if (propTypes) {
                   var result_1 = copy(props);
                   each$2(propTypes, function (rule, key) {
-                      // 类型
-                      var type = rule.type,
-                      // 默认值
-                      value = rule.value,
-                      // 实际的值
-                      actual = props[key];
-                      // 传了数据
-                      if (isDef(actual)) {
-                          {
-                              // 如果不写 type 或 type 不是 字符串 或 数组
-                              // 就当做此规则无效，和没写一样
-                              if (type) {
-                                  // 自定义函数判断是否匹配类型
-                                  // 自己打印警告信息吧
-                                  if (func(type)) {
-                                      type(props, key);
-                                  }
-                                  else {
-                                      var matched_1;
-                                      // type: 'string'
-                                      if (!falsy$1(type)) {
-                                          matched_1 = matchType(actual, type);
-                                      }
-                                      // type: ['string', 'number']
-                                      else if (!falsy(type)) {
-                                          each(type, function (item) {
-                                              if (matchType(actual, item)) {
-                                                  matched_1 = TRUE;
-                                                  return FALSE;
-                                              }
-                                          });
-                                      }
-                                      if (!matched_1) {
-                                          warn("The type of prop \"" + key + "\" expected to be \"" + type + "\", but is \"" + actual + "\".");
-                                      }
-                                  }
-                              }
-                              else {
-                                  warn("The prop \"" + key + "\" in propTypes has no type.");
-                              }
-                          }
-                      }
-                      else {
-                          {
-                              // 是否必传
-                              var required = rule.required;
-                              // 动态化获取是否必填
-                              if (func(required)) {
-                                  required = required(props, key);
-                              }
-                              // 没传值但此项是必传项
-                              if (required) {
-                                  warn("The prop \"" + key + "\" is marked as required, but its value is not found.");
-                              }
-                          }
-                          // 没传值但是配置了默认值
-                          if (isDef(value)) {
-                              result_1[key] = type === RAW_FUNCTION
-                                  ? value
-                                  : func(value)
-                                      ? value(props, key)
-                                      : value;
-                          }
+                      var defaultValue = Yox.checkProp(props, key, rule);
+                      if (isDef(defaultValue)) {
+                          result_1[key] = defaultValue;
                       }
                   });
                   return result_1;

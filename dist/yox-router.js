@@ -423,10 +423,12 @@
                       var parent = startRoute.parent;
                       if (parent) {
                           var context = parent.context[OUTLET];
-                          context.component(startRoute.component, startRoute.options);
-                          var props = {};
-                          props[COMPONENT] = startRoute.component;
-                          context.forceUpdate(props);
+                          if (context) {
+                              context.component(startRoute.component, startRoute.options);
+                              var props = {};
+                              props[COMPONENT] = startRoute.component;
+                              context.forceUpdate(props);
+                          }
                       }
                       else {
                           var context = startRoute.context;
@@ -443,16 +445,20 @@
                               extensions: extensions
                           }, options));
                       }
+                      console.log(startRoute);
                   }
                   // 每个层级的 route 完全一致
                   // 从上往下依次更新每层组件
                   else {
+                      // oldRoute 可以为空，利用它就可以不再声明新变量
                       oldRoute = newRoute;
                       while (oldRoute) {
                           var context = oldRoute.context;
-                          if (context && context.$vnode) {
+                          if (context) {
                               context.forceUpdate(filterProps(to.props, oldRoute.options));
-                              // <router-view> 可能包含在 if 里，因此它不一定会存在
+                              // 如果 <router-view> 定义在 if 里
+                              // 当 router-view 从无到有时，这里要读取最新的 child
+                              // 当 router-view 从有到无时，这里要判断它是否存在
                               if (context[OUTLET]) {
                                   oldRoute = oldRoute.child;
                                   continue;
@@ -460,6 +466,7 @@
                           }
                           break;
                       }
+                      console.log(oldRoute);
                   }
               });
           };
@@ -506,7 +513,8 @@
       },
       beforeDestroy: function () {
           var $parent = this.$parent;
-          $parent[OUTLET] = UNDEFINED;
+          $parent[ROUTE].child.context =
+              $parent[OUTLET] = UNDEFINED;
       },
       beforeChildCreate: function (childOptions) {
           var _a = this, $parent = _a.$parent, $root = _a.$root, router = $root[ROUTER];
