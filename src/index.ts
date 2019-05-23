@@ -386,12 +386,10 @@ function filterProps(props: type.data, options: YoxOptions) {
     Yox.object.each(
       options.propTypes,
       function (rule: PropRule, key: string) {
-        if (Yox.object.has(props, key)) {
-          const defaultValue = Yox.checkProp(props, key, rule)
-          result[key] = defaultValue !== UNDEFINED
-            ? defaultValue
-            : props[key]
-        }
+        const defaultValue = Yox.checkProp(props, key, rule)
+        result[key] = defaultValue !== UNDEFINED
+          ? defaultValue
+          : props[key]
       }
     )
   }
@@ -769,7 +767,11 @@ export class Router {
             }
             else {
               // 把上次的组件实例搞过来
-              newRoute.context = oldRoute.context
+              const { context } = oldRoute
+              if (context) {
+                context[ROUTE] = newRoute
+                newRoute.context = context
+              }
             }
           }
           else {
@@ -787,10 +789,15 @@ export class Router {
           // 到达根组件，结束
 
           if (startRoute) {
-            const { parent } = startRoute
-            if (parent) {
+            const parentRoute = startRoute.parent
+            if (parentRoute) {
 
-              const context: Yox = (parent.context as Yox)[OUTLET]
+              const parentContext = parentRoute.context as Yox
+              parentContext.forceUpdate(
+                filterProps(to.props, parentRoute.options as YoxOptions)
+              )
+
+              const context: Yox = parentContext[OUTLET]
               if (context) {
                 context.component(startRoute.component, startRoute.options)
 
@@ -810,6 +817,7 @@ export class Router {
               const extensions: type.data = {}
               extensions[ROUTER] = instance
               extensions[ROUTE] = newRoute
+
               startRoute.context = new Yox(
                 Yox.object.extend(
                   {
@@ -821,7 +829,6 @@ export class Router {
                 )
               )
             }
-            console.log(startRoute)
           }
           // 每个层级的 route 完全一致
           // 从上往下依次更新每层组件
@@ -846,8 +853,6 @@ export class Router {
               }
               break
             }
-
-            console.log(oldRoute)
 
           }
 
@@ -917,11 +922,7 @@ const RouterView: YoxOptions = {
 
   },
   beforeDestroy() {
-
-    const { $parent } = this
-
-    $parent[OUTLET] = UNDEFINED
-
+    this.$parent[OUTLET] = UNDEFINED
   },
   beforeChildCreate(childOptions: YoxOptions) {
 

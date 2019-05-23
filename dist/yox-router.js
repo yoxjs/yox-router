@@ -208,10 +208,11 @@
   function filterProps(props, options) {
       var result = {};
       if (options.propTypes) {
-          Yox.object.each(options.propTypes, function (_, key) {
-              if (Yox.object.has(props, key)) {
-                  result[key] = props[key];
-              }
+          Yox.object.each(options.propTypes, function (rule, key) {
+              var defaultValue = Yox.checkProp(props, key, rule);
+              result[key] = defaultValue !== UNDEFINED
+                  ? defaultValue
+                  : props[key];
           });
       }
       return result;
@@ -408,7 +409,11 @@
                       }
                       else {
                           // 把上次的组件实例搞过来
-                          newRoute.context = oldRoute.context;
+                          var context = oldRoute.context;
+                          if (context) {
+                              context[ROUTE] = newRoute;
+                              newRoute.context = context;
+                          }
                       }
                   }
                   else {
@@ -420,9 +425,11 @@
                   }
                   // 到达根组件，结束
                   if (startRoute) {
-                      var parent = startRoute.parent;
-                      if (parent) {
-                          var context = parent.context[OUTLET];
+                      var parentRoute = startRoute.parent;
+                      if (parentRoute) {
+                          var parentContext = parentRoute.context;
+                          parentContext.forceUpdate(filterProps(to.props, parentRoute.options));
+                          var context = parentContext[OUTLET];
                           if (context) {
                               context.component(startRoute.component, startRoute.options);
                               var props = {};
@@ -445,7 +452,6 @@
                               extensions: extensions
                           }, options));
                       }
-                      console.log(startRoute);
                   }
                   // 每个层级的 route 完全一致
                   // 从上往下依次更新每层组件
@@ -456,7 +462,7 @@
                           var context = oldRoute.context;
                           if (context) {
                               context.forceUpdate(filterProps(to.props, oldRoute.options));
-                              // 如果 <router-view> 定义在 if 里
+                              // [TODO] 如果 <router-view> 定义在 if 里
                               // 当 router-view 从无到有时，这里要读取最新的 child
                               // 当 router-view 从有到无时，这里要判断它是否存在
                               if (context[OUTLET]) {
@@ -466,7 +472,6 @@
                           }
                           break;
                       }
-                      console.log(oldRoute);
                   }
               });
           };
@@ -512,9 +517,7 @@
           options.components = components;
       },
       beforeDestroy: function () {
-          var $parent = this.$parent;
-          $parent[ROUTE].child.context =
-              $parent[OUTLET] = UNDEFINED;
+          this.$parent[OUTLET] = UNDEFINED;
       },
       beforeChildCreate: function (childOptions) {
           var _a = this, $parent = _a.$parent, $root = _a.$root, router = $root[ROUTER];
