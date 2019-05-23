@@ -27,7 +27,7 @@
   // 参数中的数组标识
   FLAG_ARRAY = '[]', 
   // 404 路由
-  ROUTE_404 = '**'; 
+  ROUTE_404 = '/**'; 
   /**
    * 把字符串 value 解析成最合适的类型
    */
@@ -247,7 +247,7 @@
               }, route);
           };
           var route404, pathStack = [], routeStack = [], callback = function (route) {
-              var name = route.name, path = route.path, children = route.children;
+              var name = route.name, path = route.path, component = route.component, children = route.children;
               // 如果 path 以 / 结尾，删掉它
               // 比如 { path: 'index/' }
               if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
@@ -256,8 +256,7 @@
               // 如果 path 不是以 / 开头，有两种情况：
               // 1. 没有上级或上级是 ''，需要自动加 / 前缀
               // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
-              if (!Yox.string.startsWith(path, SEPARATOR_PATH)
-                  && path !== ROUTE_404) {
+              if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
                   var parent_1 = Yox.array.last(pathStack);
                   if (path) {
                       if (Yox.string.falsy(parent_1)) {
@@ -271,11 +270,7 @@
                       path = parent_1;
                   }
               }
-              var linkedRoute = {
-                  path: path,
-                  route: route,
-                  component: route.component
-              }, parent = Yox.array.last(routeStack);
+              var linkedRoute = { path: path, route: route, component: component }, parent = Yox.array.last(routeStack);
               if (parent) {
                   linkedRoute.parent = parent;
               }
@@ -309,7 +304,6 @@
                   return;
               }
           }
-          console.log(routes);
           instance.routes = routes;
           instance.route404 = route404;
           /**
@@ -320,31 +314,24 @@
       /**
        * 真正执行路由切换操作的函数
        *
-       * data 有 2 种格式：
-       *
-       * 1. 会修改 url
+       * target 有 2 种格式：
        *
        * 如果只是简单的 path，直接传字符串
        *
        * push('/index')
        *
-       * 如果需要带参数，切记路由表要配置 name
+       * 如果需要带参数，可传对象
        *
        * push({
-       *   name: 'index',
+       *   path: '/index',
        *   params: { },
        *   query: { }
        * })
        *
-       * 如果没有任何参数，可以只传 path
-       *
-       * push('/index')
-       *
-       * 2. 不会改变 url
+       * 如果路由配置了 name，可用 name 代替 path，如下：
        *
        * push({
-       *   component: 'index',
-       *   props: { }
+       *   name: 'index'
        * })
        *
        */
