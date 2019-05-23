@@ -602,13 +602,12 @@ export class Router {
       }
     }
 
+    instance.name2Path = name2Path
+
     instance.routes = routes
+
     instance.route404 = route404 as LinkedRoute
 
-    /**
-     * 路由表 name -> path
-     */
-    instance.name2Path = name2Path
 
   }
 
