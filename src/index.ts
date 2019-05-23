@@ -883,15 +883,15 @@ const RouterView: YoxOptions = {
   template: '<$' + COMPONENT + '/>',
   beforeCreate(options) {
 
-    const parentContext = options.parent as Yox,
+    const $parent = options.parent as Yox,
 
-    route = parentContext[ROUTE].child as LinkedRoute,
+    route = $parent[ROUTE].child as LinkedRoute,
 
     props = {},
 
     components = {}
 
-    parentContext[OUTLET] = this
+    $parent[OUTLET] = this
 
     props[COMPONENT] = route.component
     components[route.component] = route.options
