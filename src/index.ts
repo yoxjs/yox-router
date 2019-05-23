@@ -778,72 +778,69 @@ export class Router {
 
           // 到达根组件，结束
 
-          if (startRoute) {
-            const parentRoute = startRoute.parent
-            if (parentRoute) {
+          // oldRoute 可以为空，利用它就可以不再声明新变量
+          oldRoute = newRoute
 
-              const parentContext = parentRoute.context as Yox
-              parentContext.forceUpdate(
-                filterProps(to.props, parentRoute.options as YoxOptions)
-              )
+          // 从上往下更新 props
+          while (oldRoute) {
 
-              const context: Yox = parentContext[OUTLET]
-              if (context) {
-                context.component(startRoute.component, startRoute.options)
+            let { parent, context, component, options } = oldRoute
 
-                const props: type.data = {}
-                props[COMPONENT] = startRoute.component
-                context.forceUpdate(props)
-              }
+            if (oldRoute === startRoute) {
 
-            }
-            else {
-              const { context } = startRoute
-              if (context) {
-                context.destroy()
-              }
+              if (parent) {
 
-              // 只有根组件才有 router 实例
-              const extensions: type.data = {}
-              extensions[ROUTER] = instance
-              extensions[ROUTE] = newRoute
-
-              startRoute.context = new Yox(
-                Yox.object.extend(
-                  {
-                    el: instance.el,
-                    props: filterProps(to.props, options),
-                    extensions,
-                  },
-                  options
-                )
-              )
-            }
-          }
-          // 每个层级的 route 完全一致
-          // 从上往下依次更新每层组件
-          else {
-
-            // oldRoute 可以为空，利用它就可以不再声明新变量
-            oldRoute = newRoute
-
-            while (oldRoute) {
-              const context = oldRoute.context
-              if (context) {
+                context = parent.context as Yox
                 context.forceUpdate(
-                  filterProps(to.props, oldRoute.options as YoxOptions)
+                  filterProps(to.props, parent.options as YoxOptions)
                 )
-                // [TODO] 如果 <router-view> 定义在 if 里
-                // 当 router-view 从无到有时，这里要读取最新的 child
-                // 当 router-view 从有到无时，这里要判断它是否存在
-                if (context[OUTLET]) {
-                  oldRoute = oldRoute.child
-                  continue
+
+                context = context[OUTLET]
+                if (context) {
+                  const props = {}
+                  props[COMPONENT] = component
+                  context.component(component, options)
+                  context.forceUpdate(props)
                 }
+
               }
-              break
+              else {
+                if (context) {
+                  context.destroy()
+                }
+
+                // 只有根组件才有 router 实例
+                const extensions = {}
+                extensions[ROUTER] = instance
+                extensions[ROUTE] = newRoute
+
+                startRoute.context = new Yox(
+                  Yox.object.extend(
+                    {
+                      el: instance.el,
+                      props: filterProps(to.props, options as YoxOptions),
+                      extensions,
+                    },
+                    options as YoxOptions
+                  )
+                )
+              }
+
             }
 
+            else if (context) {
+              context.forceUpdate(
+                filterProps(to.props, options as YoxOptions)
+              )
+              // 如果 <router-view> 定义在 if 里
+              // 当 router-view 从无到有时，这里要读取最新的 child
+              // 当 router-view 从有到无时，这里要判断它是否存在
+              if (context[OUTLET]) {
+                oldRoute = oldRoute.child
+                continue
+              }
+            }
+            break
           }
 
         }
@@ -896,18 +893,18 @@ const RouterView: YoxOptions = {
 
     const parentContext = options.parent as Yox,
 
-    route = parentContext[ROUTE].child as LinkedRoute
+    route = parentContext[ROUTE].child as LinkedRoute,
+
+    props = {},
+
+    components = {}
 
     parentContext[OUTLET] = this
 
-    const props: type.data = {}
     props[COMPONENT] = route.component
-
-    options.props = props
-
-    const components: type.data = {}
     components[route.component] = route.options
 
+    options.props = props
     options.components = components
 
   },
@@ -916,13 +913,16 @@ const RouterView: YoxOptions = {
   },
   beforeChildCreate(childOptions: YoxOptions) {
 
-    const { $parent, $root } = this, router: Router = $root[ROUTER]
+    const { $parent, $root } = this,
+
+    router: Router = $root[ROUTER],
+
+    extensions = {}
 
     if (router.location) {
       childOptions.props = filterProps(router.location.props, childOptions)
     }
 
-    const extensions: type.data = {}
     extensions[ROUTE] = $parent[ROUTE].child
 
     childOptions.extensions = extensions

@@ -304,12 +304,9 @@
                   return;
               }
           }
+          instance.name2Path = name2Path;
           instance.routes = routes;
           instance.route404 = route404;
-          /**
-           * 路由表 name -> path
-           */
-          instance.name2Path = name2Path;
       }
       /**
        * 真正执行路由切换操作的函数
@@ -415,54 +412,49 @@
                       return;
                   }
                   // 到达根组件，结束
-                  if (startRoute) {
-                      var parentRoute = startRoute.parent;
-                      if (parentRoute) {
-                          var parentContext = parentRoute.context;
-                          parentContext.forceUpdate(filterProps(to.props, parentRoute.options));
-                          var context = parentContext[OUTLET];
-                          if (context) {
-                              context.component(startRoute.component, startRoute.options);
-                              var props = {};
-                              props[COMPONENT] = startRoute.component;
-                              context.forceUpdate(props);
-                          }
-                      }
-                      else {
-                          var context = startRoute.context;
-                          if (context) {
-                              context.destroy();
-                          }
-                          // 只有根组件才有 router 实例
-                          var extensions = {};
-                          extensions[ROUTER] = instance;
-                          extensions[ROUTE] = newRoute;
-                          startRoute.context = new Yox(Yox.object.extend({
-                              el: instance.el,
-                              props: filterProps(to.props, options),
-                              extensions: extensions
-                          }, options));
-                      }
-                  }
-                  // 每个层级的 route 完全一致
-                  // 从上往下依次更新每层组件
-                  else {
-                      // oldRoute 可以为空，利用它就可以不再声明新变量
-                      oldRoute = newRoute;
-                      while (oldRoute) {
-                          var context = oldRoute.context;
-                          if (context) {
-                              context.forceUpdate(filterProps(to.props, oldRoute.options));
-                              // [TODO] 如果 <router-view> 定义在 if 里
-                              // 当 router-view 从无到有时，这里要读取最新的 child
-                              // 当 router-view 从有到无时，这里要判断它是否存在
-                              if (context[OUTLET]) {
-                                  oldRoute = oldRoute.child;
-                                  continue;
+                  // oldRoute 可以为空，利用它就可以不再声明新变量
+                  oldRoute = newRoute;
+                  // 从上往下更新 props
+                  while (oldRoute) {
+                      var parent = oldRoute.parent, context = oldRoute.context, component = oldRoute.component, options_1 = oldRoute.options;
+                      if (oldRoute === startRoute) {
+                          if (parent) {
+                              context = parent.context;
+                              context.forceUpdate(filterProps(to.props, parent.options));
+                              context = context[OUTLET];
+                              if (context) {
+                                  var props = {};
+                                  props[COMPONENT] = component;
+                                  context.component(component, options_1);
+                                  context.forceUpdate(props);
                               }
                           }
-                          break;
+                          else {
+                              if (context) {
+                                  context.destroy();
+                              }
+                              // 只有根组件才有 router 实例
+                              var extensions = {};
+                              extensions[ROUTER] = instance;
+                              extensions[ROUTE] = newRoute;
+                              startRoute.context = new Yox(Yox.object.extend({
+                                  el: instance.el,
+                                  props: filterProps(to.props, options_1),
+                                  extensions: extensions
+                              }, options_1));
+                          }
                       }
+                      else if (context) {
+                          context.forceUpdate(filterProps(to.props, options_1));
+                          // 如果 <router-view> 定义在 if 里
+                          // 当 router-view 从无到有时，这里要读取最新的 child
+                          // 当 router-view 从有到无时，这里要判断它是否存在
+                          if (context[OUTLET]) {
+                              oldRoute = oldRoute.child;
+                              continue;
+                          }
+                      }
+                      break;
                   }
               });
           };
@@ -498,24 +490,21 @@
   var RouterView = {
       template: '<$' + COMPONENT + '/>',
       beforeCreate: function (options) {
-          var parentContext = options.parent, route = parentContext[ROUTE].child;
+          var parentContext = options.parent, route = parentContext[ROUTE].child, props = {}, components = {};
           parentContext[OUTLET] = this;
-          var props = {};
           props[COMPONENT] = route.component;
-          options.props = props;
-          var components = {};
           components[route.component] = route.options;
+          options.props = props;
           options.components = components;
       },
       beforeDestroy: function () {
           this.$parent[OUTLET] = UNDEFINED;
       },
       beforeChildCreate: function (childOptions) {
-          var _a = this, $parent = _a.$parent, $root = _a.$root, router = $root[ROUTER];
+          var _a = this, $parent = _a.$parent, $root = _a.$root, router = $root[ROUTER], extensions = {};
           if (router.location) {
               childOptions.props = filterProps(router.location.props, childOptions);
           }
-          var extensions = {};
           extensions[ROUTE] = $parent[ROUTE].child;
           childOptions.extensions = extensions;
       },
