@@ -809,7 +809,7 @@ export class Router {
                   context.destroy()
                 }
 
-                // 只有根组件才有 router 实例
+                // 每层路由组件都有 $route 和 $router 属性
                 const extensions = {}
                 extensions[ROUTER] = instance
                 extensions[ROUTE] = newRoute
@@ -913,9 +913,9 @@ const RouterView: YoxOptions = {
   },
   beforeChildCreate(childOptions: YoxOptions) {
 
-    const { $parent, $root } = this,
+    const { $parent } = this,
 
-    router: Router = $root[ROUTER],
+    router: Router = $parent[ROUTER],
 
     extensions = {}
 
@@ -924,6 +924,7 @@ const RouterView: YoxOptions = {
     }
 
     extensions[ROUTE] = $parent[ROUTE].child
+    extensions[ROUTER] = router
 
     childOptions.extensions = extensions
 

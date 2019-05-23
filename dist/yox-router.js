@@ -433,7 +433,7 @@
                               if (context) {
                                   context.destroy();
                               }
-                              // 只有根组件才有 router 实例
+                              // 每层路由组件都有 $route 和 $router 属性
                               var extensions = {};
                               extensions[ROUTER] = instance;
                               extensions[ROUTE] = newRoute;
@@ -501,11 +501,12 @@
           this.$parent[OUTLET] = UNDEFINED;
       },
       beforeChildCreate: function (childOptions) {
-          var _a = this, $parent = _a.$parent, $root = _a.$root, router = $root[ROUTER], extensions = {};
+          var $parent = this.$parent, router = $parent[ROUTER], extensions = {};
           if (router.location) {
               childOptions.props = filterProps(router.location.props, childOptions);
           }
           extensions[ROUTE] = $parent[ROUTE].child;
+          extensions[ROUTER] = router;
           childOptions.extensions = extensions;
       },
       afterChildCreate: function (child) {
