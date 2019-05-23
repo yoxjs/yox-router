@@ -46,9 +46,6 @@ FLAG_ARRAY = '[]',
 // 404 路由
 ROUTE_404 = '/**',
 
-// 导航钩子 - 如果相继路由到的是同一个组件，那么会触发 refreshing 事件
-HOOK_REFRESHING = 'refreshing',
-
 // 导航钩子 - 路由进入之前
 HOOK_BEFORE_ENTER = 'beforeEnter',
 
@@ -70,13 +67,13 @@ interface RouteTarget {
 
 type Target = string | RouteTarget
 
-type next = (value?: false | Target) => void
+type Next = (value?: false | Target) => void
 
-type success = () => void
+type Success = () => void
 
-type failure = (value: false | Target) => void
+type Failure = (value: false | Target) => void
 
-type BeforeHook = (to: Location, from: Location | void, next: next) => void
+type BeforeHook = (to: Location, from: Location | void, next: Next) => void
 
 type AfterHook = (to: Location, from: Location | void) => void
 
@@ -100,10 +97,10 @@ interface LinkedRoute {
   path: string
   component: string
   route: RouteOptions
-  parent?: LinkedRoute
-  child?: LinkedRoute
   options?: YoxOptions
   context?: Yox
+  parent?: LinkedRoute
+  child?: LinkedRoute
 }
 
 interface Hash {
@@ -416,11 +413,11 @@ class Hooks {
     return this
   }
 
-  run(to: Location, from: Location | void, success: success | void, failure: failure | void) {
+  run(to: Location, from: Location | void, success: Success | void, failure: Failure | void) {
 
     const { list } = this,
 
-    next: next = function (value?: false | Target) {
+    next: Next = function (value?: false | Target) {
       if (value == null) {
         const task = list.shift()
         if (task) {
@@ -458,8 +455,6 @@ export class Router {
 
   // 当前渲染的路由
   route?: LinkedRoute
-
-  [HOOK_REFRESHING]?: BeforeHook
 
   [HOOK_BEFORE_ENTER]?: BeforeHook
 
@@ -693,7 +688,7 @@ export class Router {
 
     startRoute: LinkedRoute | void,
 
-    failure: failure = function (value: false | Target) {
+    failure: Failure = function (value: false | Target) {
       if (value === false) {
         // 流程到此为止，恢复到当前路由
         if (from
@@ -713,7 +708,7 @@ export class Router {
       }
     },
 
-    callHook = function (name: string, success: success | void, failure: failure | void) {
+    callHook = function (name: string, success: Success | void, failure: Failure | void) {
       new Hooks(name)
       // 先调用组件的钩子
       // .add(currentComponent.options, currentComponent.root)
