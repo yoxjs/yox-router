@@ -806,7 +806,7 @@ export class Router {
                 extensions[ROUTER] = instance
                 extensions[ROUTE] = newRoute
 
-                startRoute.context = new Yox(
+                newRoute.context = new Yox(
                   Yox.object.extend(
                     {
                       el: instance.el,

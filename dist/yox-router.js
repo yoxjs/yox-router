@@ -435,7 +435,7 @@
                               var extensions = {};
                               extensions[ROUTER] = instance;
                               extensions[ROUTE] = newRoute;
-                              startRoute.context = new Yox(Yox.object.extend({
+                              newRoute.context = new Yox(Yox.object.extend({
                                   el: instance.el,
                                   props: filterProps(to.props, options_1),
                                   extensions: extensions
