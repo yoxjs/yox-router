@@ -412,12 +412,10 @@
                       return;
                   }
                   // 到达根组件，结束
-                  // oldRoute 可以为空，利用它就可以不再声明新变量
-                  oldRoute = newRoute;
                   // 从上往下更新 props
-                  while (oldRoute) {
-                      var parent = oldRoute.parent, context = oldRoute.context, component = oldRoute.component, options_1 = oldRoute.options;
-                      if (oldRoute === startRoute) {
+                  while (true) {
+                      var parent = newRoute.parent, context = newRoute.context, component = newRoute.component, options_1 = newRoute.options;
+                      if (newRoute === startRoute) {
                           if (parent) {
                               context = parent.context;
                               context.forceUpdate(filterProps(to.props, parent.options));
@@ -449,8 +447,8 @@
                           // 如果 <router-view> 定义在 if 里
                           // 当 router-view 从无到有时，这里要读取最新的 child
                           // 当 router-view 从有到无时，这里要判断它是否存在
-                          if (context[OUTLET]) {
-                              oldRoute = oldRoute.child;
+                          if (context[OUTLET] && newRoute.child) {
+                              newRoute = newRoute.child;
                               continue;
                           }
                       }

@@ -728,7 +728,7 @@ export class Router {
     diffComponent = function (route: LinkedRoute, oldRoute: LinkedRoute | void, isLeafRoute: boolean | void) {
 
       // route 是注册时的路由，不能修改，因此这里拷贝一个
-      const newRoute: LinkedRoute = Yox.object.copy(route)
+      let newRoute: LinkedRoute = Yox.object.copy(route)
 
       // 存储叶子路由，因为 diff 的过程是从下往上
       if (isLeafRoute) {
@@ -778,15 +778,12 @@ export class Router {
 
           // 到达根组件，结束
 
-          // oldRoute 可以为空，利用它就可以不再声明新变量
-          oldRoute = newRoute
-
           // 从上往下更新 props
-          while (oldRoute) {
+          while (true) {
 
-            let { parent, context, component, options } = oldRoute
+            let { parent, context, component, options } = newRoute
 
-            if (oldRoute === startRoute) {
+            if (newRoute === startRoute) {
 
               if (parent) {
 
@@ -835,8 +832,8 @@ export class Router {
               // 如果 <router-view> 定义在 if 里
               // 当 router-view 从无到有时，这里要读取最新的 child
               // 当 router-view 从有到无时，这里要判断它是否存在
-              if (context[OUTLET]) {
-                oldRoute = oldRoute.child
+              if (context[OUTLET] && newRoute.child) {
+                newRoute = newRoute.child as LinkedRoute
                 continue
               }
             }
