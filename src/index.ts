@@ -61,8 +61,6 @@ HOOK_BEFORE_LEAVE = 'beforeLeave',
 // 导航钩子 - 路由离开之后
 HOOK_AFTER_LEAVE = 'afterLeave'
 
-type PathTarget = string
-
 interface RouteTarget {
   name?: string
   path?: string
@@ -70,7 +68,7 @@ interface RouteTarget {
   query?: type.data
 }
 
-type Target = PathTarget | RouteTarget
+type Target = string | RouteTarget
 
 type next = (value?: false | Target) => void
 
@@ -92,7 +90,6 @@ interface RouteOptions {
   component: string
   name?: string
   children?: RouteOptions[]
-  [HOOK_REFRESHING]?: BeforeHook
   [HOOK_BEFORE_ENTER]?: BeforeHook
   [HOOK_AFTER_ENTER]?: AfterHook
   [HOOK_BEFORE_LEAVE]?: BeforeHook
@@ -103,7 +100,7 @@ interface LinkedRoute {
   path: string
   component: string
   route: RouteOptions
-  parent: LinkedRoute | void
+  parent?: LinkedRoute
   child?: LinkedRoute
   options?: YoxOptions
   context?: Yox
@@ -474,14 +471,9 @@ export class Router {
 
   constructor(options: RouterOptions) {
 
-    const instance = this, routes: LinkedRoute[] = []
+    const instance = this, routes: LinkedRoute[] = [], name2Path = {}
 
     instance.el = options.el
-
-    /**
-     * 路由表 name -> path
-     */
-    instance.name2Path = {}
 
     /**
      * hashchange 事件处理函数
@@ -535,6 +527,7 @@ export class Router {
       let { name, path, children } = route
 
       // 如果 path 以 / 结尾，删掉它
+      // 比如 { path: 'index/' }
       if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
         path = Yox.string.slice(path, 0, -1)
       }
@@ -542,8 +535,8 @@ export class Router {
       // 如果 path 不是以 / 开头，有两种情况：
       // 1. 没有上级或上级是 ''，需要自动加 / 前缀
       // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
-      if (path !== ROUTE_404
-        && !Yox.string.startsWith(path, SEPARATOR_PATH)
+      if (!Yox.string.startsWith(path, SEPARATOR_PATH)
+        && path !== ROUTE_404
       ) {
 
         const parent = Yox.array.last(pathStack)
@@ -566,8 +559,13 @@ export class Router {
         path,
         route: route,
         component: route.component,
-        parent: Yox.array.last(routeStack),
+      },
+      parent = Yox.array.last(routeStack)
+
+      if (parent) {
+        linkedRoute.parent = parent
       }
+
       if (children) {
         pathStack.push(path)
         routeStack.push(linkedRoute)
@@ -584,12 +582,12 @@ export class Router {
 
       if (name) {
         if (process.env.NODE_ENV === 'dev') {
-          if (!Yox.object.has(instance.name2Path, name)) {
+          if (!Yox.object.has(name2Path, name)) {
             Yox.logger.error(`Name[${name}] of the route is existed.`)
             return
           }
         }
-        instance.name2Path[name] = path
+        name2Path[name] = path
       }
       if (path === ROUTE_404) {
         route404 = linkedRoute
@@ -608,9 +606,14 @@ export class Router {
         return
       }
     }
-
+console.log(routes)
     instance.routes = routes
     instance.route404 = route404 as LinkedRoute
+
+    /**
+     * 路由表 name -> path
+     */
+    instance.name2Path = name2Path
 
   }
 
@@ -650,7 +653,7 @@ export class Router {
     let path: string, params: type.data | void, query: type.data | void
 
     if (Yox.is.string(target)) {
-      path = target as PathTarget
+      path = target as string
     }
     else {
       params = (target as RouteTarget).params

@@ -219,12 +219,8 @@
   }
   var Router = /** @class */ (function () {
       function Router(options) {
-          var instance = this, routes = [];
+          var instance = this, routes = [], name2Path = {};
           instance.el = options.el;
-          /**
-           * 路由表 name -> path
-           */
-          instance.name2Path = {};
           /**
            * hashchange 事件处理函数
            * 此函数必须写在实例上，不能写在类上
@@ -253,33 +249,36 @@
           var route404, pathStack = [], routeStack = [], callback = function (route) {
               var name = route.name, path = route.path, children = route.children;
               // 如果 path 以 / 结尾，删掉它
+              // 比如 { path: 'index/' }
               if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
                   path = Yox.string.slice(path, 0, -1);
               }
               // 如果 path 不是以 / 开头，有两种情况：
               // 1. 没有上级或上级是 ''，需要自动加 / 前缀
               // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
-              if (path !== ROUTE_404
-                  && !Yox.string.startsWith(path, SEPARATOR_PATH)) {
-                  var parent = Yox.array.last(pathStack);
+              if (!Yox.string.startsWith(path, SEPARATOR_PATH)
+                  && path !== ROUTE_404) {
+                  var parent_1 = Yox.array.last(pathStack);
                   if (path) {
-                      if (Yox.string.falsy(parent)) {
+                      if (Yox.string.falsy(parent_1)) {
                           path = SEPARATOR_PATH + path;
                       }
                       else {
-                          path = parent + SEPARATOR_PATH + path;
+                          path = parent_1 + SEPARATOR_PATH + path;
                       }
                   }
-                  else if (parent) {
-                      path = parent;
+                  else if (parent_1) {
+                      path = parent_1;
                   }
               }
               var linkedRoute = {
                   path: path,
                   route: route,
-                  component: route.component,
-                  parent: Yox.array.last(routeStack)
-              };
+                  component: route.component
+              }, parent = Yox.array.last(routeStack);
+              if (parent) {
+                  linkedRoute.parent = parent;
+              }
               if (children) {
                   pathStack.push(path);
                   routeStack.push(linkedRoute);
@@ -292,12 +291,12 @@
               }
               if (name) {
                   {
-                      if (!Yox.object.has(instance.name2Path, name)) {
+                      if (!Yox.object.has(name2Path, name)) {
                           Yox.logger.error("Name[" + name + "] of the route is existed.");
                           return;
                       }
                   }
-                  instance.name2Path[name] = path;
+                  name2Path[name] = path;
               }
               if (path === ROUTE_404) {
                   route404 = linkedRoute;
@@ -310,8 +309,13 @@
                   return;
               }
           }
+          console.log(routes);
           instance.routes = routes;
           instance.route404 = route404;
+          /**
+           * 路由表 name -> path
+           */
+          instance.name2Path = name2Path;
       }
       /**
        * 真正执行路由切换操作的函数
