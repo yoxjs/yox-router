@@ -415,14 +415,14 @@
       /**
        * 切换路由
        */
-      Router.prototype.setRoute = function (to, route) {
-          var instance = this, from = instance.location, childRoute, startRoute, failure = function (value) {
+      Router.prototype.setRoute = function (newLocation, route) {
+          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), oldLocation = instance.location, childRoute, startRoute, failure = function (value) {
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
-                  if (from
-                      && Yox.is.string(from.path)
-                      && from.path !== ROUTE_404) {
-                      window.location.hash = stringifyHash(from.path, from.params, from.query);
+                  if (oldLocation
+                      && Yox.is.string(oldLocation.path)
+                      && oldLocation.path !== ROUTE_404) {
+                      window.location.hash = stringifyHash(oldLocation.path, oldLocation.params, oldLocation.query);
                   }
               }
               else {
@@ -437,10 +437,10 @@
                   .add(route, route)
                   // 最后调用路由实例的钩子
                   .add(instance, instance)
-                  .run(to, from, success, failure);
+                  .run(newLocation, oldLocation, success, failure);
           }, 
           // 对比新旧两个路由链表
-          diffComponent = function (newRoute, oldRoute) {
+          diffComponent = function (newRoute, oldRoute, callback) {
               // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
               registry.loadComponent(newRoute.component, function (options) {
                   newRoute.options = options;
@@ -457,82 +457,86 @@
                       }
                       else {
                           // 把上次的组件实例搞过来
-                          var context = oldRoute.context;
-                          if (context) {
-                              context[ROUTE] = newRoute;
-                              newRoute.context = context;
-                          }
+                          newRoute.context = oldRoute.context;
                       }
                   }
                   else {
                       startRoute = newRoute;
                   }
                   if (newRoute.parent) {
-                      diffComponent(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED);
+                      diffComponent(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED, callback);
                       return;
                   }
                   // 到达根组件，结束
-                  // 从上往下更新 props
-                  while (true) {
-                      var parent = newRoute.parent, context = newRoute.context, component = newRoute.component, options_1 = newRoute.options;
-                      if (newRoute === startRoute) {
-                          if (parent) {
-                              context = parent.context;
-                              context.forceUpdate(filterProps(to.props, parent.options));
-                              context = context[OUTLET];
-                              if (context) {
-                                  var props = {};
-                                  props[COMPONENT] = component;
-                                  context.component(component, options_1);
-                                  context.forceUpdate(props);
-                              }
-                          }
-                          else {
-                              if (context) {
-                                  context.destroy();
-                              }
-                              // 每层路由组件都有 $route 和 $router 属性
-                              var extensions = {};
-                              extensions[ROUTER] = instance;
-                              extensions[ROUTE] = newRoute;
-                              newRoute.context = new Yox(Yox.object.extend({
-                                  el: instance.el,
-                                  props: filterProps(to.props, options_1),
-                                  extensions: extensions
-                              }, options_1));
-                          }
-                      }
-                      else if (context) {
-                          context.forceUpdate(filterProps(to.props, options_1));
-                          // 如果 <router-view> 定义在 if 里
-                          // 当 router-view 从无到有时，这里要读取最新的 child
-                          // 当 router-view 从有到无时，这里要判断它是否存在
-                          if (context[OUTLET] && newRoute.child) {
-                              newRoute = newRoute.child;
-                              continue;
-                          }
-                      }
-                      break;
-                  }
+                  callback(newRoute);
               });
-          }, enterRoute = function () {
-              var oldRoute = instance.route, newRoute = Yox.object.copy(route);
+          }, updateRoute = function (route) {
+              // 从上往下更新 props
+              while (true) {
+                  var parent = route.parent, context = route.context, component = route.component, options = route.options;
+                  if (route === startRoute) {
+                      if (parent) {
+                          context = parent.context;
+                          context.forceUpdate(filterProps(newLocation.props, parent.options));
+                          context = context[OUTLET];
+                          if (context) {
+                              var props = {};
+                              props[COMPONENT] = component;
+                              context[ROUTE] = route;
+                              context.component(component, options);
+                              context.forceUpdate(props);
+                          }
+                      }
+                      else {
+                          if (context) {
+                              context.destroy();
+                              route.onDestroy && route.onDestroy();
+                          }
+                          // 每层路由组件都有 $route 和 $router 属性
+                          var extensions = {};
+                          extensions[ROUTER] = instance;
+                          extensions[ROUTE] = route;
+                          route.context = new Yox(Yox.object.extend({
+                              el: instance.el,
+                              props: filterProps(newLocation.props, options),
+                              extensions: extensions
+                          }, options));
+                          route.onCreate && route.onCreate();
+                      }
+                  }
+                  else if (context) {
+                      context[ROUTE] = route;
+                      context.forceUpdate(filterProps(newLocation.props, options));
+                      // 如果 <router-view> 定义在 if 里
+                      // 当 router-view 从无到有时，这里要读取最新的 child
+                      // 当 router-view 从有到无时，这里要判断它是否存在
+                      if (context[OUTLET] && route.child) {
+                          route = route.child;
+                          continue;
+                      }
+                  }
+                  break;
+              }
+          }, enterRoute = function (callback) {
               callHook(newRoute, HOOK_BEFORE_ENTER, function () {
                   instance.route = newRoute;
-                  instance.location = to;
-                  diffComponent(newRoute, oldRoute);
-                  callHook(newRoute, HOOK_AFTER_ENTER);
+                  instance.location = newLocation;
+                  diffComponent(newRoute, oldRoute, callback);
               }, failure);
           };
-          if (from) {
-              var oldRoute_1 = instance.route;
-              callHook(instance.route, HOOK_BEFORE_LEAVE, function () {
-                  callHook(oldRoute_1, HOOK_AFTER_LEAVE);
-                  enterRoute();
+          newRoute.onCreate = function () {
+              callHook(this, HOOK_AFTER_ENTER);
+          };
+          if (oldRoute) {
+              oldRoute.onDestroy = function () {
+                  callHook(this, HOOK_AFTER_LEAVE);
+              };
+              callHook(oldRoute, HOOK_BEFORE_LEAVE, function () {
+                  enterRoute(updateRoute);
               }, failure);
           }
           else {
-              enterRoute();
+              enterRoute(updateRoute);
           }
       };
       return Router;
@@ -584,10 +588,18 @@
           childOptions.extensions = extensions;
       },
       afterChildCreate: function (child) {
-          child[ROUTE].context = child;
+          var route = child[ROUTE];
+          if (route) {
+              route.context = child;
+              route.onCreate && route.onCreate();
+          }
       },
       beforeChildDestroy: function (child) {
-          child[ROUTE].context = UNDEFINED;
+          var route = child[ROUTE];
+          if (route) {
+              route.onDestroy && route.onDestroy();
+              route.context = UNDEFINED;
+          }
       }
   };
   /**
