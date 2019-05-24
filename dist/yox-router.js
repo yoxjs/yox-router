@@ -488,8 +488,8 @@
   var RouterView = {
       template: '<$' + COMPONENT + '/>',
       beforeCreate: function (options) {
-          var parentContext = options.parent, route = parentContext[ROUTE].child, props = {}, components = {};
-          parentContext[OUTLET] = this;
+          var $parent = options.parent, route = $parent[ROUTE].child, props = {}, components = {};
+          $parent[OUTLET] = this;
           props[COMPONENT] = route.component;
           components[route.component] = route.options;
           options.props = props;
@@ -500,11 +500,11 @@
       },
       beforeChildCreate: function (childOptions) {
           var $parent = this.$parent, router = $parent[ROUTER], extensions = {};
+          extensions[ROUTE] = $parent[ROUTE].child;
+          extensions[ROUTER] = router;
           if (router.location) {
               childOptions.props = filterProps(router.location.props, childOptions);
           }
-          extensions[ROUTE] = $parent[ROUTE].child;
-          extensions[ROUTER] = router;
           childOptions.extensions = extensions;
       },
       afterChildCreate: function (child) {

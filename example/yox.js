@@ -6798,7 +6798,7 @@
               // 跟 nextTask 保持一个节奏
               // 这样可以预留一些优化的余地
               if (hook_1) {
-                  instance_1.nextTick(function () {
+                  Yox.nextTick(function () {
                       if (instance_1.$vnode) {
                           execute(hook_1, instance_1);
                       }

@@ -907,16 +907,16 @@ const RouterView: YoxOptions = {
 
     const { $parent } = this,
 
-    router: Router = $parent[ROUTER],
+    router = $parent[ROUTER] as Router,
 
     extensions = {}
+
+    extensions[ROUTE] = $parent[ROUTE].child
+    extensions[ROUTER] = router
 
     if (router.location) {
       childOptions.props = filterProps(router.location.props, childOptions)
     }
-
-    extensions[ROUTE] = $parent[ROUTE].child
-    extensions[ROUTER] = router
 
     childOptions.extensions = extensions
 
