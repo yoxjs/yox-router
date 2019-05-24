@@ -708,27 +708,19 @@ export class Router {
       }
     },
 
-    callHook = function (name: string, success: Success | void, failure: Failure | void) {
+    callHook = function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
       new Hooks(name)
       // 先调用组件的钩子
-      // .add(currentComponent.options, currentComponent.root)
+      .add(route.options, route.context)
       // 再调用路由配置的钩子
-      .add(location, route.route)
+      .add(route, route)
       // 最后调用路由实例的钩子
       .add(instance, instance)
       .run(to, from, success, failure)
     },
 
     // 对比新旧两个路由链表
-    diffComponent = function (route: LinkedRoute, oldRoute: LinkedRoute | void, isLeafRoute: boolean | void) {
-
-      // route 是注册时的路由，不能修改，因此这里拷贝一个
-      let newRoute: LinkedRoute = Yox.object.copy(route)
-
-      // 存储叶子路由，因为 diff 的过程是从下往上
-      if (isLeafRoute) {
-        instance.route = newRoute
-      }
+    diffComponent = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void) {
 
       // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
       registry.loadComponent(
@@ -765,7 +757,7 @@ export class Router {
 
           if (newRoute.parent) {
             diffComponent(
-              newRoute.parent,
+              Yox.object.copy(newRoute.parent),
               oldRoute ? oldRoute.parent : UNDEFINED
             )
             return
@@ -837,11 +829,40 @@ export class Router {
 
         }
       )
+    },
+
+    enterRoute = function () {
+      const oldRoute = instance.route, newRoute = Yox.object.copy(route)
+      callHook(
+        newRoute,
+        HOOK_BEFORE_ENTER,
+        function () {
+
+          instance.route = newRoute
+          instance.location = to
+
+          diffComponent(newRoute, oldRoute)
+          callHook(newRoute, HOOK_AFTER_ENTER)
+        },
+        failure
+      )
     }
 
-    instance.location = to
-
-    diffComponent(route, instance.route, true)
+    if (from) {
+      const oldRoute = instance.route
+      callHook(
+        instance.route,
+        HOOK_BEFORE_LEAVE,
+        function () {
+          callHook(oldRoute, HOOK_AFTER_LEAVE)
+          enterRoute()
+        },
+        failure
+      )
+    }
+    else {
+      enterRoute()
+    }
 
   }
 

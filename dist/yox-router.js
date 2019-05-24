@@ -27,7 +27,15 @@
   // 参数中的数组标识
   FLAG_ARRAY = '[]', 
   // 404 路由
-  ROUTE_404 = '/**'; 
+  ROUTE_404 = '/**', 
+  // 导航钩子 - 路由进入之前
+  HOOK_BEFORE_ENTER = 'beforeEnter', 
+  // 导航钩子 - 路由进入之后
+  HOOK_AFTER_ENTER = 'afterEnter', 
+  // 导航钩子 - 路由离开之前
+  HOOK_BEFORE_LEAVE = 'beforeLeave', 
+  // 导航钩子 - 路由离开之后
+  HOOK_AFTER_LEAVE = 'afterLeave';
   /**
    * 把字符串 value 解析成最合适的类型
    */
@@ -217,6 +225,41 @@
       }
       return result;
   }
+  // 钩子函数的调用链
+  var Hooks = /** @class */ (function () {
+      function Hooks(name) {
+          this.name = name;
+          this.list = [];
+      }
+      Hooks.prototype.add = function (target, ctx) {
+          var _a = this, name = _a.name, list = _a.list;
+          if (target && Yox.is.func(target[name])) {
+              list.push({
+                  fn: target[name],
+                  ctx: ctx
+              });
+          }
+          return this;
+      };
+      Hooks.prototype.run = function (to, from, success, failure) {
+          var list = this.list, next = function (value) {
+              if (value == null) {
+                  var task = list.shift();
+                  if (task) {
+                      task.fn.call(task.ctx, to, from, next);
+                  }
+                  else if (success) {
+                      success();
+                  }
+              }
+              else if (failure) {
+                  failure(value);
+              }
+          };
+          next();
+      };
+      return Hooks;
+  }());
   var Router = /** @class */ (function () {
       function Router(options) {
           var instance = this, routes = [], name2Path = {};
@@ -373,14 +416,31 @@
        * 切换路由
        */
       Router.prototype.setRoute = function (to, route) {
-          var instance = this, from = instance.location, childRoute, startRoute, // 对比新旧两个路由链表
-          diffComponent = function (route, oldRoute, isLeafRoute) {
-              // route 是注册时的路由，不能修改，因此这里拷贝一个
-              var newRoute = Yox.object.copy(route);
-              // 存储叶子路由，因为 diff 的过程是从下往上
-              if (isLeafRoute) {
-                  instance.route = newRoute;
+          var instance = this, from = instance.location, childRoute, startRoute, failure = function (value) {
+              if (value === false) {
+                  // 流程到此为止，恢复到当前路由
+                  if (from
+                      && Yox.is.string(from.path)
+                      && from.path !== ROUTE_404) {
+                      window.location.hash = stringifyHash(from.path, from.params, from.query);
+                  }
               }
+              else {
+                  // 跳转到别的路由
+                  instance.push(value);
+              }
+          }, callHook = function (route, name, success, failure) {
+              new Hooks(name)
+                  // 先调用组件的钩子
+                  .add(route.options, route.context)
+                  // 再调用路由配置的钩子
+                  .add(route, route)
+                  // 最后调用路由实例的钩子
+                  .add(instance, instance)
+                  .run(to, from, success, failure);
+          }, 
+          // 对比新旧两个路由链表
+          diffComponent = function (newRoute, oldRoute) {
               // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
               registry.loadComponent(newRoute.component, function (options) {
                   newRoute.options = options;
@@ -408,7 +468,7 @@
                       startRoute = newRoute;
                   }
                   if (newRoute.parent) {
-                      diffComponent(newRoute.parent, oldRoute ? oldRoute.parent : UNDEFINED);
+                      diffComponent(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED);
                       return;
                   }
                   // 到达根组件，结束
@@ -455,9 +515,25 @@
                       break;
                   }
               });
+          }, enterRoute = function () {
+              var oldRoute = instance.route, newRoute = Yox.object.copy(route);
+              callHook(newRoute, HOOK_BEFORE_ENTER, function () {
+                  instance.route = newRoute;
+                  instance.location = to;
+                  diffComponent(newRoute, oldRoute);
+                  callHook(newRoute, HOOK_AFTER_ENTER);
+              }, failure);
           };
-          instance.location = to;
-          diffComponent(route, instance.route, true);
+          if (from) {
+              var oldRoute_1 = instance.route;
+              callHook(instance.route, HOOK_BEFORE_LEAVE, function () {
+                  callHook(oldRoute_1, HOOK_AFTER_LEAVE);
+                  enterRoute();
+              }, failure);
+          }
+          else {
+              enterRoute();
+          }
       };
       return Router;
   }());
