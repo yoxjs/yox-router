@@ -778,7 +778,7 @@ export class Router {
       // 从上往下更新 props
       while (true) {
 
-        let { parent, context, component, options } = route
+        let { parent, context, component, options, onCreate } = route
 
         if (route === startRoute) {
 
@@ -802,7 +802,8 @@ export class Router {
           else {
             if (context) {
               context.destroy()
-              route.onDestroy && route.onDestroy()
+              const onDestroy = context[ROUTE].onDestroy
+              onDestroy && onDestroy()
             }
 
             // 每层路由组件都有 $route 和 $router 属性
@@ -820,7 +821,8 @@ export class Router {
                 options as YoxOptions
               )
             )
-            route.onCreate && route.onCreate()
+
+            onCreate && onCreate()
 
           }
 
@@ -860,12 +862,12 @@ export class Router {
     }
 
     newRoute.onCreate = function () {
-      callHook(this, HOOK_AFTER_ENTER)
+      callHook(newRoute, HOOK_AFTER_ENTER)
     }
 
     if (oldRoute) {
       oldRoute.onDestroy = function () {
-        callHook(this, HOOK_AFTER_LEAVE)
+        callHook(oldRoute as LinkedRoute, HOOK_AFTER_LEAVE)
       }
       callHook(
         oldRoute,

@@ -473,7 +473,7 @@
           }, updateRoute = function (route) {
               // 从上往下更新 props
               while (true) {
-                  var parent = route.parent, context = route.context, component = route.component, options = route.options;
+                  var parent = route.parent, context = route.context, component = route.component, options = route.options, onCreate = route.onCreate;
                   if (route === startRoute) {
                       if (parent) {
                           context = parent.context;
@@ -490,7 +490,8 @@
                       else {
                           if (context) {
                               context.destroy();
-                              route.onDestroy && route.onDestroy();
+                              var onDestroy = context[ROUTE].onDestroy;
+                              onDestroy && onDestroy();
                           }
                           // 每层路由组件都有 $route 和 $router 属性
                           var extensions = {};
@@ -501,7 +502,7 @@
                               props: filterProps(newLocation.props, options),
                               extensions: extensions
                           }, options));
-                          route.onCreate && route.onCreate();
+                          onCreate && onCreate();
                       }
                   }
                   else if (context) {
@@ -525,11 +526,11 @@
               }, failure);
           };
           newRoute.onCreate = function () {
-              callHook(this, HOOK_AFTER_ENTER);
+              callHook(newRoute, HOOK_AFTER_ENTER);
           };
           if (oldRoute) {
               oldRoute.onDestroy = function () {
-                  callHook(this, HOOK_AFTER_LEAVE);
+                  callHook(oldRoute, HOOK_AFTER_LEAVE);
               };
               callHook(oldRoute, HOOK_BEFORE_LEAVE, function () {
                   enterRoute(updateRoute);
