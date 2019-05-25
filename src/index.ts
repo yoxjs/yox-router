@@ -410,31 +410,34 @@ function formatPath(path: string, parentPath: string | void) {
  * 2. 避免覆盖 data 定义的数据
  */
 function filterProps(route: LinkedRoute, location: Location, options: YoxOptions) {
-  const result: type.data = {}
-  if (options.propTypes) {
+  const result: type.data = {}, propTypes = options.propTypes
+  if (propTypes) {
 
-    let props = location.query, routeParams = route.params
+    let props = location.query,
+
+    routeParams = route.params,
+
+    locationParams = location.params,
+
+    defaultValue: any
 
     // 从 location.params 挑出 route.params 参数
-    if (routeParams && location.params) {
+    if (routeParams && locationParams) {
       if (!props) {
         props = {}
       }
       for (let i = 0, key: string; key = routeParams[i]; i++) {
-        props[key] = location.params[key]
+        props[key] = locationParams[key]
       }
     }
 
     if (props) {
-      Yox.object.each(
-        options.propTypes,
-        function (rule: PropRule, key: string) {
-          const defaultValue = Yox.checkProp(props as type.data, key, rule)
-          result[key] = defaultValue !== UNDEFINED
-            ? defaultValue
-            : (props as type.data)[key]
-        }
-      )
+      for (let key in propTypes) {
+        defaultValue = Yox.checkProp(props, key, propTypes[key])
+        result[key] = defaultValue !== UNDEFINED
+          ? defaultValue
+          : props[key]
+      }
     }
 
   }

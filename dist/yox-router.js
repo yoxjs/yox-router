@@ -241,25 +241,25 @@
    * 2. 避免覆盖 data 定义的数据
    */
   function filterProps(route, location, options) {
-      var result = {};
-      if (options.propTypes) {
-          var props_1 = location.query, routeParams = route.params;
+      var result = {}, propTypes = options.propTypes;
+      if (propTypes) {
+          var props = location.query, routeParams = route.params, locationParams = location.params, defaultValue = void 0;
           // 从 location.params 挑出 route.params 参数
-          if (routeParams && location.params) {
-              if (!props_1) {
-                  props_1 = {};
+          if (routeParams && locationParams) {
+              if (!props) {
+                  props = {};
               }
               for (var i = 0, key = void 0; key = routeParams[i]; i++) {
-                  props_1[key] = location.params[key];
+                  props[key] = locationParams[key];
               }
           }
-          if (props_1) {
-              Yox.object.each(options.propTypes, function (rule, key) {
-                  var defaultValue = Yox.checkProp(props_1, key, rule);
+          if (props) {
+              for (var key in propTypes) {
+                  defaultValue = Yox.checkProp(props, key, propTypes[key]);
                   result[key] = defaultValue !== UNDEFINED
                       ? defaultValue
-                      : props_1[key];
-              });
+                      : props[key];
+              }
           }
       }
       return result;
