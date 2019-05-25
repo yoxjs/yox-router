@@ -558,22 +558,22 @@ export class Router {
 
     }
 
-    let pathStack: string[] = [],
-
-    routeStack: LinkedRoute[] = [],
+    let pathStack: any = [], routeStack: any = [],
 
     callback = function (routeOptions: RouteOptions) {
 
-      let { name, path, component, children } = routeOptions
+      let { name, path, component, children } = routeOptions,
 
-      path = formatPath(path, Yox.array.last(pathStack))
+      parentPath: string | void = pathStack[pathStack.length - 1],
 
-      const route: LinkedRoute = { path, component, route: routeOptions },
+      parentRoute: LinkedRoute | void = routeStack[routeStack.length - 1]
 
-      parent = Yox.array.last(routeStack)
+      path = formatPath(path, parentPath)
 
-      if (parent) {
-        route.parent = parent
+      const route: LinkedRoute = { path, component, route: routeOptions }
+
+      if (parentRoute) {
+        route.parent = parentRoute
       }
 
       if (children) {
@@ -608,6 +608,8 @@ export class Router {
       options.routes,
       callback
     )
+
+    pathStack = routeStack = UNDEFINED
 
     instance.name2Path = name2Path
 

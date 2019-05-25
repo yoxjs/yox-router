@@ -321,11 +321,11 @@
               }
           };
           var pathStack = [], routeStack = [], callback = function (routeOptions) {
-              var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children;
-              path = formatPath(path, Yox.array.last(pathStack));
-              var route = { path: path, component: component, route: routeOptions }, parent = Yox.array.last(routeStack);
-              if (parent) {
-                  route.parent = parent;
+              var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children, parentPath = pathStack[pathStack.length - 1], parentRoute = routeStack[routeStack.length - 1];
+              path = formatPath(path, parentPath);
+              var route = { path: path, component: component, route: routeOptions };
+              if (parentRoute) {
+                  route.parent = parentRoute;
               }
               if (children) {
                   pathStack.push(path);
@@ -349,6 +349,7 @@
               path2Route[path] = route;
           };
           Yox.array.each(options.routes, callback);
+          pathStack = routeStack = UNDEFINED;
           instance.name2Path = name2Path;
           {
               if (!route404) {
