@@ -308,22 +308,22 @@
            * 此函数必须写在实例上，不能写在类上
            * 否则一旦解绑，所有实例都解绑了
            */
-          instance.onHashChange = function () {
+          instance.onChange = function () {
               var hashStr = location.hash;
               // 如果不以 PREFIX_HASH 开头，表示不合法
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parseHash(routes, hashStr), route = hash.route, params = hash.params, query = hash.query;
+              var hash = parseHash(routes, hashStr), route = hash.route;
               if (route) {
                   instance.setRoute({
                       path: route.path,
-                      params: params,
-                      query: query
+                      params: hash.params,
+                      query: hash.query
                   }, route);
               }
               else {
-                  instance.push(instance.route404);
+                  instance.push(notFound);
               }
           };
           var pathStack = [], routeStack = [], callback = function (routeOptions) {
@@ -345,8 +345,8 @@
                   pathStack.push(path);
                   routeStack.push(route);
                   Yox.array.each(children, callback);
-                  pathStack.pop();
                   routeStack.pop();
+                  pathStack.pop();
               }
               else {
                   routes.push(route);
@@ -370,7 +370,6 @@
           };
           Yox.array.each(options.routes, callback);
           pathStack = routeStack = UNDEFINED;
-          instance.name2Path = name2Path;
           {
               if (!route404) {
                   Yox.logger.error("Route for 404 is required.");
@@ -387,6 +386,7 @@
           instance.route404 = notFound;
           instance.routes = routes;
           instance.path2Route = path2Route;
+          instance.name2Path = name2Path;
       }
       /**
        * 真正执行路由切换操作的函数
@@ -447,14 +447,14 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          domApi.on(window, 'hashchange', this.onHashChange);
-          this.onHashChange();
+          domApi.on(window, 'hashchange', this.onChange);
+          this.onChange();
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          domApi.off(window, 'hashchange', this.onHashChange);
+          domApi.off(window, 'hashchange', this.onChange);
       };
       /**
        * 切换路由

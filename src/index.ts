@@ -504,13 +504,14 @@ export class Router {
 
   path2Route: Record<string, LinkedRoute>
 
-  onHashChange: Function
-
-  // 当前地址栏的路径和参数
-  location?: Location
+  // 路由或参数发生了变化会触发此函数
+  onChange: Function
 
   // 当前渲染的路由
   route?: LinkedRoute
+
+  // 当前地址栏的路径和参数
+  location?: Location
 
   [HOOK_BEFORE_ENTER]?: BeforeHook
 
@@ -539,7 +540,7 @@ export class Router {
      * 此函数必须写在实例上，不能写在类上
      * 否则一旦解绑，所有实例都解绑了
      */
-    instance.onHashChange = function () {
+    instance.onChange = function () {
 
       let hashStr = location.hash
 
@@ -548,23 +549,20 @@ export class Router {
         ? hashStr.substr(PREFIX_HASH.length)
         : ''
 
-      const hash = parseHash(routes, hashStr),
-
-      { route, params, query } = hash
+      const hash = parseHash(routes, hashStr), { route } = hash
 
       if (route) {
-
         instance.setRoute(
           {
             path: route.path,
-            params,
-            query,
+            params: hash.params,
+            query: hash.query,
           },
           route
         )
       }
       else {
-        instance.push(instance.route404)
+        instance.push(notFound)
       }
 
     }
@@ -611,8 +609,8 @@ export class Router {
           children,
           callback
         )
-        pathStack.pop()
         routeStack.pop()
+        pathStack.pop()
       }
       else {
 
@@ -648,8 +646,6 @@ export class Router {
 
     pathStack = routeStack = UNDEFINED
 
-    instance.name2Path = name2Path
-
     if (process.env.NODE_ENV === 'dev') {
       if (!route404) {
         Yox.logger.error(`Route for 404 is required.`)
@@ -670,6 +666,8 @@ export class Router {
 
     instance.routes = routes
     instance.path2Route = path2Route
+
+    instance.name2Path = name2Path
 
   }
 
@@ -743,15 +741,15 @@ export class Router {
    * 启动路由
    */
   start() {
-    domApi.on(window, 'hashchange', this.onHashChange as type.listener)
-    this.onHashChange()
+    domApi.on(window, 'hashchange', this.onChange as type.listener)
+    this.onChange()
   }
 
   /**
    * 停止路由
    */
   stop() {
-    domApi.off(window, 'hashchange', this.onHashChange as type.listener)
+    domApi.off(window, 'hashchange', this.onChange as type.listener)
   }
 
   /**
