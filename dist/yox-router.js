@@ -173,9 +173,11 @@
       var result = { realpath: realpath }, route = getRouteByRealpath(routes, realpath);
       if (route) {
           result.route = route;
-          var params = parseParams(realpath, route.path);
-          if (params) {
-              result.params = params;
+          if (route.params) {
+              var params = parseParams(realpath, route.path);
+              if (params) {
+                  result.params = params;
+              }
           }
           if (search) {
               var query = parseQuery(search);
@@ -238,15 +240,27 @@
    * 1. 避免传入不符预期的数据
    * 2. 避免覆盖 data 定义的数据
    */
-  function filterProps(props, options) {
+  function filterProps(route, location, options) {
       var result = {};
       if (options.propTypes) {
-          Yox.object.each(options.propTypes, function (rule, key) {
-              var defaultValue = Yox.checkProp(props, key, rule);
-              result[key] = defaultValue !== UNDEFINED
-                  ? defaultValue
-                  : props[key];
-          });
+          var props_1 = location.query, routeParams = route.params;
+          // 从 location.params 挑出 route.params 参数
+          if (routeParams && location.params) {
+              if (!props_1) {
+                  props_1 = {};
+              }
+              for (var i = 0, key = void 0; key = routeParams[i]; i++) {
+                  props_1[key] = location.params[key];
+              }
+          }
+          if (props_1) {
+              Yox.object.each(options.propTypes, function (rule, key) {
+                  var defaultValue = Yox.checkProp(props_1, key, rule);
+                  result[key] = defaultValue !== UNDEFINED
+                      ? defaultValue
+                      : props_1[key];
+              });
+          }
       }
       return result;
   }
@@ -302,16 +316,8 @@
                   : '';
               var hash = parseHash(routes, hashStr), route = hash.route, params = hash.params, query = hash.query;
               if (route) {
-                  var props = {};
-                  if (params) {
-                      Yox.object.extend(props, params);
-                  }
-                  if (query) {
-                      Yox.object.extend(props, query);
-                  }
                   instance.setRoute({
                       path: route.path,
-                      props: props,
                       params: params,
                       query: query
                   }, route);
@@ -323,7 +329,15 @@
           var pathStack = [], routeStack = [], callback = function (routeOptions) {
               var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children, parentPath = pathStack[pathStack.length - 1], parentRoute = routeStack[routeStack.length - 1];
               path = formatPath(path, parentPath);
-              var route = { path: path, component: component, route: routeOptions };
+              var route = { path: path, component: component, route: routeOptions }, params = [];
+              Yox.array.each(path.split(SEPARATOR_PATH), function (item, index) {
+                  if (Yox.string.startsWith(item, PREFIX_PARAM)) {
+                      params.push(item.substr(PREFIX_PARAM.length));
+                  }
+              });
+              if (params.length) {
+                  route.params = params;
+              }
               if (parentRoute) {
                   route.parent = parentRoute;
               }
@@ -336,17 +350,23 @@
               }
               else {
                   routes.push(route);
-              }
-              if (name) {
+                  if (name) {
+                      {
+                          if (Yox.object.has(name2Path, name)) {
+                              Yox.logger.error("Name[" + name + "] of the route is existed.");
+                              return;
+                          }
+                      }
+                      name2Path[name] = path;
+                  }
                   {
-                      if (!Yox.object.has(name2Path, name)) {
-                          Yox.logger.error("Name[" + name + "] of the route is existed.");
+                      if (Yox.object.has(path2Route, path)) {
+                          Yox.logger.error("path [" + path + "] of the route is existed.");
                           return;
                       }
                   }
-                  name2Path[name] = path;
+                  path2Route[path] = route;
               }
-              path2Route[path] = route;
           };
           Yox.array.each(options.routes, callback);
           pathStack = routeStack = UNDEFINED;
@@ -440,7 +460,7 @@
        * 切换路由
        */
       Router.prototype.setRoute = function (newLocation, route) {
-          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), oldLocation = instance.location, childRoute, startRoute, failure = function (value) {
+          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), isRouteChange = !oldRoute || oldRoute.path === newRoute.path, oldLocation = instance.location, childRoute, startRoute, failure = function (value) {
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
                   if (oldLocation
@@ -452,16 +472,20 @@
                   // 跳转到别的路由
                   instance.push(value);
               }
-          }, callHook = function (route, name, success, failure) {
-              new Hooks(name)
-                  // 先调用组件的钩子
-                  .add(route.options, route.context)
-                  // 再调用路由配置的钩子
-                  .add(route.route, route.route)
-                  // 最后调用路由实例的钩子
-                  .add(instance, instance)
-                  .run(newLocation, oldLocation, success, failure);
-          }, 
+          }, callHook = isRouteChange
+              ? function (route, name, success, failure) {
+                  new Hooks(name)
+                      // 先调用组件的钩子
+                      .add(route.options, route.context)
+                      // 再调用路由配置的钩子
+                      .add(route.route, route.route)
+                      // 最后调用路由实例的钩子
+                      .add(instance, instance)
+                      .run(newLocation, oldLocation, success, failure);
+              }
+              : function (route, name, success, failure) {
+                  success && success();
+              }, 
           // 对比新旧两个路由链表
           diffComponent = function (newRoute, oldRoute, callback) {
               // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
@@ -500,7 +524,7 @@
                   if (route === startRoute) {
                       if (parent) {
                           context = parent.context;
-                          context.forceUpdate(filterProps(newLocation.props, parent.options));
+                          context.forceUpdate(filterProps(parent, newLocation, parent.options));
                           context = context[OUTLET];
                           if (context) {
                               var props = {};
@@ -522,7 +546,7 @@
                           extensions[ROUTE] = route;
                           route.context = new Yox(Yox.object.extend({
                               el: instance.el,
-                              props: filterProps(newLocation.props, options),
+                              props: filterProps(route, newLocation, options),
                               extensions: extensions
                           }, options));
                           onCreate && onCreate();
@@ -530,7 +554,7 @@
                   }
                   else if (context) {
                       context[ROUTE] = route;
-                      context.forceUpdate(filterProps(newLocation.props, options));
+                      context.forceUpdate(filterProps(route, newLocation, options));
                       // 如果 <router-view> 定义在 if 里
                       // 当 router-view 从无到有时，这里要读取最新的 child
                       // 当 router-view 从有到无时，这里要判断它是否存在
@@ -593,8 +617,8 @@
       template: '<$' + COMPONENT + '/>',
       beforeCreate: function (options) {
           var $parent = options.parent, route = $parent[ROUTE].child;
-          $parent[OUTLET] = this;
           if (route) {
+              $parent[OUTLET] = this;
               var props = {}, components = {};
               props[COMPONENT] = route.component;
               components[route.component] = route.options;
@@ -606,11 +630,11 @@
           this.$parent[OUTLET] = UNDEFINED;
       },
       beforeChildCreate: function (childOptions) {
-          var $parent = this.$parent, router = $parent[ROUTER], extensions = {};
-          extensions[ROUTE] = $parent[ROUTE].child;
+          var $parent = this.$parent, router = $parent[ROUTER], route = $parent[ROUTE].child, extensions = {};
+          extensions[ROUTE] = route;
           extensions[ROUTER] = router;
           if (router.location) {
-              childOptions.props = filterProps(router.location.props, childOptions);
+              childOptions.props = filterProps(route, router.location, childOptions);
           }
           childOptions.extensions = extensions;
       },

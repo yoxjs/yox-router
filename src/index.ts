@@ -95,6 +95,7 @@ interface LinkedRoute {
   path: string
   component: string
   route: RouteOptions
+  params?: string[]
   options?: YoxOptions
   context?: Yox
   parent?: LinkedRoute
@@ -112,7 +113,6 @@ interface Hash {
 
 interface Location {
   path: string
-  props: type.data
   params?: type.data
   query?: type.data
 }
@@ -322,9 +322,11 @@ function parseHash(routes: LinkedRoute[], hash: string) {
 
   if (route) {
     result.route = route
-    const params = parseParams(realpath, route.path as string)
-    if (params) {
-      result.params = params
+    if (route.params) {
+      const params = parseParams(realpath, route.path as string)
+      if (params) {
+        result.params = params
+      }
     }
     if (search) {
       const query = parseQuery(search)
@@ -407,18 +409,34 @@ function formatPath(path: string, parentPath: string | void) {
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(props: type.data, options: YoxOptions) {
+function filterProps(route: LinkedRoute, location: Location, options: YoxOptions) {
   const result: type.data = {}
   if (options.propTypes) {
-    Yox.object.each(
-      options.propTypes,
-      function (rule: PropRule, key: string) {
-        const defaultValue = Yox.checkProp(props, key, rule)
-        result[key] = defaultValue !== UNDEFINED
-          ? defaultValue
-          : props[key]
+
+    let props = location.query, routeParams = route.params
+
+    // 从 location.params 挑出 route.params 参数
+    if (routeParams && location.params) {
+      if (!props) {
+        props = {}
       }
-    )
+      for (let i = 0, key: string; key = routeParams[i]; i++) {
+        props[key] = location.params[key]
+      }
+    }
+
+    if (props) {
+      Yox.object.each(
+        options.propTypes,
+        function (rule: PropRule, key: string) {
+          const defaultValue = Yox.checkProp(props as type.data, key, rule)
+          result[key] = defaultValue !== UNDEFINED
+            ? defaultValue
+            : (props as type.data)[key]
+        }
+      )
+    }
+
   }
   return result
 }
@@ -533,19 +551,9 @@ export class Router {
 
       if (route) {
 
-        const props: type.data = {}
-
-        if (params) {
-          Yox.object.extend(props, params)
-        }
-        if (query) {
-          Yox.object.extend(props, query)
-        }
-
         instance.setRoute(
           {
             path: route.path,
-            props,
             params,
             query,
           },
@@ -570,7 +578,24 @@ export class Router {
 
       path = formatPath(path, parentPath)
 
-      const route: LinkedRoute = { path, component, route: routeOptions }
+      const route: LinkedRoute = { path, component, route: routeOptions },
+
+      params: string[] = []
+
+      Yox.array.each(
+        path.split(SEPARATOR_PATH),
+        function (item, index) {
+          if (Yox.string.startsWith(item, PREFIX_PARAM)) {
+            params.push(
+              item.substr(PREFIX_PARAM.length)
+            )
+          }
+        }
+      )
+
+      if (params.length) {
+        route.params = params
+      }
 
       if (parentRoute) {
         route.parent = parentRoute
@@ -587,20 +612,29 @@ export class Router {
         routeStack.pop()
       }
       else {
-        routes.push(route)
-      }
 
-      if (name) {
+        routes.push(route)
+
+        if (name) {
+          if (process.env.NODE_ENV === 'dev') {
+            if (Yox.object.has(name2Path, name)) {
+              Yox.logger.error(`Name[${name}] of the route is existed.`)
+              return
+            }
+          }
+          name2Path[name] = path
+        }
+
         if (process.env.NODE_ENV === 'dev') {
-          if (!Yox.object.has(name2Path, name)) {
-            Yox.logger.error(`Name[${name}] of the route is existed.`)
+          if (Yox.object.has(path2Route, path)) {
+            Yox.logger.error(`path [${path}] of the route is existed.`)
             return
           }
         }
-        name2Path[name] = path
-      }
 
-      path2Route[path] = route
+        path2Route[path] = route
+
+      }
 
     }
 
@@ -728,6 +762,8 @@ export class Router {
 
     newRoute = Yox.object.copy(route),
 
+    isRouteChange = !oldRoute || oldRoute.path === newRoute.path,
+
     oldLocation = instance.location,
 
     childRoute: LinkedRoute | void,
@@ -753,16 +789,20 @@ export class Router {
       }
     },
 
-    callHook = function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
-      new Hooks(name)
-      // 先调用组件的钩子
-      .add(route.options, route.context)
-      // 再调用路由配置的钩子
-      .add(route.route, route.route)
-      // 最后调用路由实例的钩子
-      .add(instance, instance)
-      .run(newLocation, oldLocation, success, failure)
-    },
+    callHook = isRouteChange
+      ? function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
+          new Hooks(name)
+          // 先调用组件的钩子
+          .add(route.options, route.context)
+          // 再调用路由配置的钩子
+          .add(route.route, route.route)
+          // 最后调用路由实例的钩子
+          .add(instance, instance)
+          .run(newLocation, oldLocation, success, failure)
+        }
+      : function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
+        success && success()
+      },
 
     // 对比新旧两个路由链表
     diffComponent = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void, callback: (route: LinkedRoute) => void) {
@@ -825,7 +865,7 @@ export class Router {
 
             context = parent.context as Yox
             context.forceUpdate(
-              filterProps(newLocation.props, parent.options as YoxOptions)
+              filterProps(parent, newLocation, parent.options as YoxOptions)
             )
 
             context = context[OUTLET]
@@ -839,6 +879,7 @@ export class Router {
 
           }
           else {
+
             if (context) {
               context.destroy()
               const onDestroy = context[ROUTE].onDestroy
@@ -854,7 +895,7 @@ export class Router {
               Yox.object.extend(
                 {
                   el: instance.el,
-                  props: filterProps(newLocation.props, options as YoxOptions),
+                  props: filterProps(route, newLocation, options as YoxOptions),
                   extensions,
                 },
                 options as YoxOptions
@@ -870,7 +911,7 @@ export class Router {
         else if (context) {
           context[ROUTE] = route
           context.forceUpdate(
-            filterProps(newLocation.props, options as YoxOptions)
+            filterProps(route, newLocation, options as YoxOptions)
           )
           // 如果 <router-view> 定义在 if 里
           // 当 router-view 从无到有时，这里要读取最新的 child
@@ -965,9 +1006,9 @@ const RouterView: YoxOptions = {
 
     route = $parent[ROUTE].child as LinkedRoute
 
-    $parent[OUTLET] = this
-
     if (route) {
+
+      $parent[OUTLET] = this
 
       const props = {}, components = {}
 
@@ -989,13 +1030,15 @@ const RouterView: YoxOptions = {
 
     router = $parent[ROUTER] as Router,
 
+    route = $parent[ROUTE].child as LinkedRoute,
+
     extensions = {}
 
-    extensions[ROUTE] = $parent[ROUTE].child
+    extensions[ROUTE] = route
     extensions[ROUTER] = router
 
     if (router.location) {
-      childOptions.props = filterProps(router.location.props, childOptions)
+      childOptions.props = filterProps(route, router.location, childOptions)
     }
 
     childOptions.extensions = extensions
