@@ -1525,24 +1525,27 @@
       }
       if (isComponent) {
           var componentOptions_1 = UNDEFINED;
-          context.loadComponent(tag, function (options) {
-              if (has$2(data, LOADING)) {
-                  // 异步组件
-                  if (data[LOADING]) {
-                      // 尝试使用最新的 vnode
-                      if (data[VNODE]) {
-                          vnode = data[VNODE];
-                          // 用完就删掉
-                          delete data[VNODE];
+          // 动态组件，tag 可能为空
+          if (tag) {
+              context.loadComponent(tag, function (options) {
+                  if (has$2(data, LOADING)) {
+                      // 异步组件
+                      if (data[LOADING]) {
+                          // 尝试使用最新的 vnode
+                          if (data[VNODE]) {
+                              vnode = data[VNODE];
+                              // 用完就删掉
+                              delete data[VNODE];
+                          }
+                          enterVnode(vnode, createComponent(vnode, options));
                       }
-                      enterVnode(vnode, createComponent(vnode, options));
                   }
-              }
-              // 同步组件
-              else {
-                  componentOptions_1 = options;
-              }
-          });
+                  // 同步组件
+                  else {
+                      componentOptions_1 = options;
+                  }
+              });
+          }
           // 不论是同步还是异步组件，都需要一个占位元素
           vnode.node = api.createComment(RAW_COMPONENT);
           if (componentOptions_1) {
@@ -4931,7 +4934,7 @@
               var componentName = context.get(tag);
               {
                   if (!componentName) {
-                      error("Dynamic component [" + tag + "] is not found.");
+                      warn("Dynamic component [" + tag + "] is not found.");
                   }
               }
               vnode.tag = componentName;

@@ -236,13 +236,12 @@
                   component: 'index',
                 },
               ]
-            },
-            {
-              path: '**',
-              component: 'index',
             }
-
-          ]
+          ],
+          route404: {
+            path: '404',
+            component: 'index',
+          }
         })
         router.beforeEnter = function (to, from, next) {
           console.log('router beforeEnter', to, from)

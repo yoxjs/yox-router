@@ -11,7 +11,7 @@
 }(this, function (exports) { 'use strict';
 
   var Yox, registry, domApi;
-  var UNDEFINED = void 0, OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'component', 
+  var UNDEFINED = void 0, OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', 
   // 点击事件
   EVENT_CLICK = 'click', 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
@@ -26,8 +26,6 @@
   SEPARATOR_PAIR = '=', 
   // 参数中的数组标识
   FLAG_ARRAY = '[]', 
-  // 404 路由
-  ROUTE_404 = '/**', 
   // 导航钩子 - 路由进入之前
   HOOK_BEFORE_ENTER = 'beforeEnter', 
   // 导航钩子 - 路由进入之后
@@ -205,7 +203,34 @@
               search = '?' + queryStr;
           }
       }
-      return PREFIX_HASH + realpath + search;
+      return realpath + search;
+  }
+  /**
+   * 格式化路径，确保它以 / 开头，不以 / 结尾
+   */
+  function formatPath(path, parentPath) {
+      // 如果 path 以 / 结尾，删掉它
+      // 比如 { path: 'index/' }
+      if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
+          path = Yox.string.slice(path, 0, -1);
+      }
+      // 如果 path 不是以 / 开头，有两种情况：
+      // 1. 没有上级或上级是 ''，需要自动加 / 前缀
+      // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
+      if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
+          if (path) {
+              if (Yox.string.falsy(parentPath)) {
+                  path = SEPARATOR_PATH + path;
+              }
+              else {
+                  path = parentPath + SEPARATOR_PATH + path;
+              }
+          }
+          else if (parentPath) {
+              path = parentPath;
+          }
+      }
+      return path;
   }
   /**
    * 按照 propTypes 定义的外部数据格式过滤路由参数，这样有两个好处：
@@ -262,7 +287,7 @@
   }());
   var Router = /** @class */ (function () {
       function Router(options) {
-          var instance = this, routes = [], name2Path = {};
+          var instance = this, route404 = options.route404, routes = [], name2Path = {}, path2Route = {};
           instance.el = options.el;
           /**
            * hashchange 事件处理函数
@@ -275,57 +300,42 @@
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parseHash(routes, hashStr), params = hash.params, query = hash.query, route = hash.route || instance.route404, props = {};
-              if (params) {
-                  Yox.object.extend(props, params);
+              var hash = parseHash(routes, hashStr), route = hash.route, params = hash.params, query = hash.query;
+              if (route) {
+                  var props = {};
+                  if (params) {
+                      Yox.object.extend(props, params);
+                  }
+                  if (query) {
+                      Yox.object.extend(props, query);
+                  }
+                  instance.setRoute({
+                      path: route.path,
+                      props: props,
+                      params: params,
+                      query: query
+                  }, route);
               }
-              if (query) {
-                  Yox.object.extend(props, query);
+              else {
+                  instance.push(instance.route404);
               }
-              instance.setRoute({
-                  path: route.path,
-                  props: props,
-                  params: params,
-                  query: query
-              }, route);
           };
-          var route404, pathStack = [], routeStack = [], callback = function (route) {
-              var name = route.name, path = route.path, component = route.component, children = route.children;
-              // 如果 path 以 / 结尾，删掉它
-              // 比如 { path: 'index/' }
-              if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
-                  path = Yox.string.slice(path, 0, -1);
-              }
-              // 如果 path 不是以 / 开头，有两种情况：
-              // 1. 没有上级或上级是 ''，需要自动加 / 前缀
-              // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
-              if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
-                  var parent_1 = Yox.array.last(pathStack);
-                  if (path) {
-                      if (Yox.string.falsy(parent_1)) {
-                          path = SEPARATOR_PATH + path;
-                      }
-                      else {
-                          path = parent_1 + SEPARATOR_PATH + path;
-                      }
-                  }
-                  else if (parent_1) {
-                      path = parent_1;
-                  }
-              }
-              var linkedRoute = { path: path, route: route, component: component }, parent = Yox.array.last(routeStack);
+          var pathStack = [], routeStack = [], callback = function (routeOptions) {
+              var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children;
+              path = formatPath(path, Yox.array.last(pathStack));
+              var route = { path: path, component: component, route: routeOptions }, parent = Yox.array.last(routeStack);
               if (parent) {
-                  linkedRoute.parent = parent;
+                  route.parent = parent;
               }
               if (children) {
                   pathStack.push(path);
-                  routeStack.push(linkedRoute);
+                  routeStack.push(route);
                   Yox.array.each(children, callback);
                   pathStack.pop();
                   routeStack.pop();
               }
               else {
-                  routes.push(linkedRoute);
+                  routes.push(route);
               }
               if (name) {
                   {
@@ -336,20 +346,26 @@
                   }
                   name2Path[name] = path;
               }
-              if (path === ROUTE_404) {
-                  route404 = linkedRoute;
-              }
+              path2Route[path] = route;
           };
           Yox.array.each(options.routes, callback);
+          instance.name2Path = name2Path;
           {
               if (!route404) {
-                  Yox.logger.error("Route for 404[\"" + ROUTE_404 + "\"] is required.");
+                  Yox.logger.error("Route for 404 is required.");
                   return;
               }
           }
-          instance.name2Path = name2Path;
+          var notFound = {
+              path: formatPath(route404.path),
+              route: route404,
+              component: route404.component
+          };
+          routes.push(notFound);
+          path2Route[notFound.path] = notFound;
+          instance.route404 = notFound;
           instance.routes = routes;
-          instance.route404 = route404;
+          instance.path2Route = path2Route;
       }
       /**
        * 真正执行路由切换操作的函数
@@ -397,7 +413,14 @@
                   path = target.path;
               }
           }
-          location.hash = stringifyHash(path, params, query);
+          this.setHash(path, params, query);
+      };
+      Router.prototype.setHash = function (path, params, query) {
+          path = formatPath(path);
+          if (!this.path2Route[path]) {
+              path = this.route404.path;
+          }
+          location.hash = PREFIX_HASH + stringifyHash(path, params, query);
       };
       /**
        * 启动路由
@@ -420,9 +443,8 @@
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
                   if (oldLocation
-                      && Yox.is.string(oldLocation.path)
-                      && oldLocation.path !== ROUTE_404) {
-                      window.location.hash = stringifyHash(oldLocation.path, oldLocation.params, oldLocation.query);
+                      && Yox.is.string(oldLocation.path)) {
+                      instance.setHash(oldLocation.path, oldLocation.params, oldLocation.query);
                   }
               }
               else {
@@ -434,7 +456,7 @@
                   // 先调用组件的钩子
                   .add(route.options, route.context)
                   // 再调用路由配置的钩子
-                  .add(route, route)
+                  .add(route.route, route.route)
                   // 最后调用路由实例的钩子
                   .add(instance, instance)
                   .run(newLocation, oldLocation, success, failure);
@@ -569,12 +591,15 @@
   var RouterView = {
       template: '<$' + COMPONENT + '/>',
       beforeCreate: function (options) {
-          var $parent = options.parent, route = $parent[ROUTE].child, props = {}, components = {};
+          var $parent = options.parent, route = $parent[ROUTE].child;
           $parent[OUTLET] = this;
-          props[COMPONENT] = route.component;
-          components[route.component] = route.options;
-          options.props = props;
-          options.components = components;
+          if (route) {
+              var props = {}, components = {};
+              props[COMPONENT] = route.component;
+              components[route.component] = route.options;
+              options.props = props;
+              options.components = components;
+          }
       },
       beforeDestroy: function () {
           this.$parent[OUTLET] = UNDEFINED;
