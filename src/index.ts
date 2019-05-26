@@ -2,7 +2,6 @@ import * as type from '../../yox-type/src/type'
 
 import API from '../../yox-type/src/interface/API'
 import Yox from '../../yox-type/src/interface/Yox'
-import PropRule from '../../yox-type/src/interface/PropRule'
 import YoxClass from '../../yox-type/src/interface/YoxClass'
 import Task from '../../yox-type/src/interface/Task'
 import YoxOptions from '../../yox-type/src/options/Yox'
@@ -65,10 +64,6 @@ interface RouteTarget {
 type Target = string | RouteTarget
 
 type Next = (value?: false | Target) => void
-
-type Success = () => void
-
-type Failure = (value: false | Target) => void
 
 type BeforeHook = (to: Location, from: Location | void, next: Next) => void
 
@@ -460,6 +455,7 @@ class Hooks {
   setLocation(to: Location, from: Location | void) {
     this.to = to
     this.from = from
+    return this
   }
 
   setName(name: string) {
@@ -477,33 +473,6 @@ class Hooks {
       })
     }
     return this
-  }
-
-  run(success: Success | void, failure: Failure | void) {
-
-    const { to, from, list } = this
-
-    if (!from || from.path !== to.path) {
-      const next = function (value?: false | Target) {
-        if (value === UNDEFINED) {
-          const task = list.shift()
-          if (task) {
-            task.fn.call(task.ctx, to, from, next)
-          }
-          else if (success) {
-            success()
-          }
-        }
-        else if (failure) {
-          failure(value)
-        }
-      }
-      next()
-    }
-    else if (success) {
-      success()
-    }
-
   }
 
 }
@@ -772,16 +741,56 @@ export class Router {
     domApi.off(window, 'hashchange', this.onChange as type.listener)
   }
 
-  guard(route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
-    this.hooks
-      .setName(name)
-      // 先调用组件的钩子
-      .add(route.options, route.context)
-      // 再调用路由配置的钩子
-      .add(route.route, route.route)
-      // 最后调用路由实例的钩子
-      .add(this, this)
-      .run(success, failure)
+  /**
+   * 路由守卫
+   */
+  guard(route: LinkedRoute, name: string, callback: () => void | void) {
+
+    const instance = this, { hooks } = instance, { to, from } = hooks
+
+    if (!from || from.path !== to.path) {
+
+      hooks
+        .setName(name)
+        // 先调用组件的钩子
+        .add(route.options, route.context)
+        // 再调用路由配置的钩子
+        .add(route.route, route.route)
+        // 最后调用路由实例的钩子
+        .add(instance, instance)
+
+      const handler = callback
+        ? function (task: Task) {
+            task.fn.call(task.ctx, to, from, next)
+          }
+        : function (task: Task) {
+            task.fn.call(task.ctx, to, from)
+            next()
+          },
+
+      next = function (value?: false | Target) {
+        if (value === UNDEFINED) {
+          const task = hooks.list.shift()
+          if (task) {
+            handler(task)
+          }
+          else if (callback) {
+            callback()
+          }
+        }
+        else if (value !== false) {
+          // 跳转到别的路由
+          instance.push(value)
+        }
+      }
+
+      next()
+
+    }
+    else if (callback) {
+      callback()
+    }
+
   }
 
   /**
@@ -798,25 +807,6 @@ export class Router {
     startRoute: LinkedRoute | void,
 
     oldLocation = instance.location,
-
-    failure: Failure = function (value: false | Target) {
-      if (value === false) {
-        // 流程到此为止，恢复到当前路由
-        if (oldLocation
-          && Yox.is.string(oldLocation.path)
-        ) {
-          instance.setHash(
-            oldLocation.path as string,
-            oldLocation.params,
-            oldLocation.query
-          )
-        }
-      }
-      else {
-        // 跳转到别的路由
-        instance.push(value)
-      }
-    },
 
     // 对比新旧两个路由链表
     diffRoute = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void, childRoute: LinkedRoute | void, callback: (route: LinkedRoute) => void) {
@@ -943,20 +933,28 @@ export class Router {
       }
     },
 
-    enterRoute = function (callback: (route: LinkedRoute) => void) {
-      instance.guard(
+    enterRoute = function () {
+      // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
+      diffRoute(
         newRoute,
-        HOOK_BEFORE_ENTER,
-        function () {
+        oldRoute,
+        UNDEFINED,
+        function (route) {
+          instance.guard(
+            newRoute,
+            HOOK_BEFORE_ENTER,
+            function () {
 
-          instance.route = newRoute
-          instance.location = location
+              instance.route = newRoute
+              instance.location = location
 
-          diffRoute(newRoute, oldRoute, UNDEFINED, callback)
+              updateRoute(route)
 
-        },
-        failure
+            }
+          )
+        }
       )
+
     }
 
     instance.hooks.setLocation(location, oldLocation)
@@ -965,14 +963,11 @@ export class Router {
       instance.guard(
         oldRoute,
         HOOK_BEFORE_LEAVE,
-        function () {
-          enterRoute(updateRoute)
-        },
-        failure
+        enterRoute
       )
     }
     else {
-      enterRoute(updateRoute)
+      enterRoute()
     }
 
   }

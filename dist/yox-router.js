@@ -281,6 +281,7 @@
       Hooks.prototype.setLocation = function (to, from) {
           this.to = to;
           this.from = from;
+          return this;
       };
       Hooks.prototype.setName = function (name) {
           this.name = name;
@@ -296,29 +297,6 @@
               });
           }
           return this;
-      };
-      Hooks.prototype.run = function (success, failure) {
-          var _a = this, to = _a.to, from = _a.from, list = _a.list;
-          if (!from || from.path !== to.path) {
-              var next_1 = function (value) {
-                  if (value === UNDEFINED) {
-                      var task = list.shift();
-                      if (task) {
-                          task.fn.call(task.ctx, to, from, next_1);
-                      }
-                      else if (success) {
-                          success();
-                      }
-                  }
-                  else if (failure) {
-                      failure(value);
-                  }
-              };
-              next_1();
-          }
-          else if (success) {
-              success();
-          }
       };
       return Hooks;
   }());
@@ -480,34 +458,53 @@
       Router.prototype.stop = function () {
           domApi.off(window, 'hashchange', this.onChange);
       };
-      Router.prototype.guard = function (route, name, success, failure) {
-          this.hooks
-              .setName(name)
-              // 先调用组件的钩子
-              .add(route.options, route.context)
-              // 再调用路由配置的钩子
-              .add(route.route, route.route)
-              // 最后调用路由实例的钩子
-              .add(this, this)
-              .run(success, failure);
+      /**
+       * 路由守卫
+       */
+      Router.prototype.guard = function (route, name, callback) {
+          var instance = this, hooks = instance.hooks, to = hooks.to, from = hooks.from;
+          if (!from || from.path !== to.path) {
+              hooks
+                  .setName(name)
+                  // 先调用组件的钩子
+                  .add(route.options, route.context)
+                  // 再调用路由配置的钩子
+                  .add(route.route, route.route)
+                  // 最后调用路由实例的钩子
+                  .add(instance, instance);
+              var handler_1 = callback
+                  ? function (task) {
+                      task.fn.call(task.ctx, to, from, next_1);
+                  }
+                  : function (task) {
+                      task.fn.call(task.ctx, to, from);
+                      next_1();
+                  }, next_1 = function (value) {
+                  if (value === UNDEFINED) {
+                      var task = hooks.list.shift();
+                      if (task) {
+                          handler_1(task);
+                      }
+                      else if (callback) {
+                          callback();
+                      }
+                  }
+                  else if (value !== false) {
+                      // 跳转到别的路由
+                      instance.push(value);
+                  }
+              };
+              next_1();
+          }
+          else if (callback) {
+              callback();
+          }
       };
       /**
        * 切换路由
        */
       Router.prototype.setRoute = function (location, route) {
-          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), startRoute, oldLocation = instance.location, failure = function (value) {
-              if (value === false) {
-                  // 流程到此为止，恢复到当前路由
-                  if (oldLocation
-                      && Yox.is.string(oldLocation.path)) {
-                      instance.setHash(oldLocation.path, oldLocation.params, oldLocation.query);
-                  }
-              }
-              else {
-                  // 跳转到别的路由
-                  instance.push(value);
-              }
-          }, 
+          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), startRoute, oldLocation = instance.location, 
           // 对比新旧两个路由链表
           diffRoute = function (newRoute, oldRoute, childRoute, callback) {
               // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
@@ -591,21 +588,22 @@
                   }
                   break;
               }
-          }, enterRoute = function (callback) {
-              instance.guard(newRoute, HOOK_BEFORE_ENTER, function () {
-                  instance.route = newRoute;
-                  instance.location = location;
-                  diffRoute(newRoute, oldRoute, UNDEFINED, callback);
-              }, failure);
+          }, enterRoute = function () {
+              // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
+              diffRoute(newRoute, oldRoute, UNDEFINED, function (route) {
+                  instance.guard(newRoute, HOOK_BEFORE_ENTER, function () {
+                      instance.route = newRoute;
+                      instance.location = location;
+                      updateRoute(route);
+                  });
+              });
           };
           instance.hooks.setLocation(location, oldLocation);
           if (oldRoute) {
-              instance.guard(oldRoute, HOOK_BEFORE_LEAVE, function () {
-                  enterRoute(updateRoute);
-              }, failure);
+              instance.guard(oldRoute, HOOK_BEFORE_LEAVE, enterRoute);
           }
           else {
-              enterRoute(updateRoute);
+              enterRoute();
           }
       };
       return Router;

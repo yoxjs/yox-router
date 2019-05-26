@@ -248,17 +248,15 @@
           console.log('router beforeEnter', to, from)
           next()
         }
-        router.afterEnter = function (to, from, next) {
+        router.afterEnter = function (to, from) {
           console.log('router afterEnter', to, from)
-          next()
         }
         router.beforeLeave = function (to, from, next) {
           console.log('router beforeLeave', to, from)
           next()
         }
-        router.afterLeave = function (to, from, next) {
+        router.afterLeave = function (to, from) {
           console.log('router afterLeave', to, from)
-          next()
         }
 
         router.start()
