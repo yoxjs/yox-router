@@ -483,24 +483,28 @@ class Hooks {
 
   run(success: Success | void, failure: Failure | void) {
 
-    const { to, from, list } = this,
+    const { to, from, list } = this
 
-    next = function (value?: false | Target) {
-      if (value === UNDEFINED) {
-        const task = list.shift()
-        if (task) {
-          task.fn.call(task.ctx, to, from, next)
+    if (!from || from.path !== to.path) {
+      const next = function (value?: false | Target) {
+        if (value === UNDEFINED) {
+          const task = list.shift()
+          if (task) {
+            task.fn.call(task.ctx, to, from, next)
+          }
+          else if (success) {
+            success()
+          }
         }
-        else if (success) {
-          success()
+        else if (failure) {
+          failure(value)
         }
       }
-      else if (failure) {
-        failure(value)
-      }
+      next()
     }
-
-    next()
+    else if (success) {
+      success()
+    }
 
   }
 
@@ -789,8 +793,6 @@ export class Router {
 
     newRoute = Yox.object.copy(route),
 
-    isRouteChange = !oldRoute || oldRoute.path === newRoute.path,
-
     oldLocation = instance.location,
 
     hooks = new Hooks(location, oldLocation),
@@ -818,16 +820,8 @@ export class Router {
       }
     },
 
-    callHook = isRouteChange
-      ? function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
-          instance.guard(hooks, route, name, success, failure)
-        }
-      : function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
-        success && success()
-      },
-
     // 对比新旧两个路由链表
-    diffComponent = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void, callback: (route: LinkedRoute) => void) {
+    diffRoute = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void, callback: (route: LinkedRoute) => void) {
 
       // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
       registry.loadComponent(
@@ -859,7 +853,7 @@ export class Router {
           }
 
           if (newRoute.parent) {
-            diffComponent(
+            diffRoute(
               Yox.object.copy(newRoute.parent),
               oldRoute ? oldRoute.parent : UNDEFINED,
               callback
@@ -948,7 +942,8 @@ export class Router {
     },
 
     enterRoute = function (callback: (route: LinkedRoute) => void) {
-      callHook(
+      instance.guard(
+        hooks,
         newRoute,
         HOOK_BEFORE_ENTER,
         function () {
@@ -956,7 +951,7 @@ export class Router {
           instance.route = newRoute
           instance.location = location
 
-          diffComponent(newRoute, oldRoute, callback)
+          diffRoute(newRoute, oldRoute, callback)
 
         },
         failure
@@ -964,14 +959,15 @@ export class Router {
     }
 
     newRoute.onCreate = function () {
-      callHook(newRoute, HOOK_AFTER_ENTER)
+      instance.guard(hooks, newRoute, HOOK_AFTER_ENTER)
     }
 
     if (oldRoute) {
       oldRoute.onDestroy = function () {
-        callHook(oldRoute as LinkedRoute, HOOK_AFTER_LEAVE)
+        instance.guard(hooks, oldRoute as LinkedRoute, HOOK_AFTER_LEAVE)
       }
-      callHook(
+      instance.guard(
+        hooks,
         oldRoute,
         HOOK_BEFORE_LEAVE,
         function () {

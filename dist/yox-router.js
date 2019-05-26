@@ -296,21 +296,27 @@
           return this;
       };
       Hooks.prototype.run = function (success, failure) {
-          var _a = this, to = _a.to, from = _a.from, list = _a.list, next = function (value) {
-              if (value === UNDEFINED) {
-                  var task = list.shift();
-                  if (task) {
-                      task.fn.call(task.ctx, to, from, next);
+          var _a = this, to = _a.to, from = _a.from, list = _a.list;
+          if (!from || from.path !== to.path) {
+              var next_1 = function (value) {
+                  if (value === UNDEFINED) {
+                      var task = list.shift();
+                      if (task) {
+                          task.fn.call(task.ctx, to, from, next_1);
+                      }
+                      else if (success) {
+                          success();
+                      }
                   }
-                  else if (success) {
-                      success();
+                  else if (failure) {
+                      failure(value);
                   }
-              }
-              else if (failure) {
-                  failure(value);
-              }
-          };
-          next();
+              };
+              next_1();
+          }
+          else if (success) {
+              success();
+          }
       };
       return Hooks;
   }());
@@ -486,7 +492,7 @@
        * 切换路由
        */
       Router.prototype.setRoute = function (location, route) {
-          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), isRouteChange = !oldRoute || oldRoute.path === newRoute.path, oldLocation = instance.location, hooks = new Hooks(location, oldLocation), childRoute, startRoute, failure = function (value) {
+          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), oldLocation = instance.location, hooks = new Hooks(location, oldLocation), childRoute, startRoute, failure = function (value) {
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
                   if (oldLocation
@@ -498,15 +504,9 @@
                   // 跳转到别的路由
                   instance.push(value);
               }
-          }, callHook = isRouteChange
-              ? function (route, name, success, failure) {
-                  instance.guard(hooks, route, name, success, failure);
-              }
-              : function (route, name, success, failure) {
-                  success && success();
-              }, 
+          }, 
           // 对比新旧两个路由链表
-          diffComponent = function (newRoute, oldRoute, callback) {
+          diffRoute = function (newRoute, oldRoute, callback) {
               // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
               registry.loadComponent(newRoute.component, function (options) {
                   newRoute.options = options;
@@ -530,7 +530,7 @@
                       startRoute = newRoute;
                   }
                   if (newRoute.parent) {
-                      diffComponent(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED, callback);
+                      diffRoute(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED, callback);
                       return;
                   }
                   // 到达根组件，结束
@@ -585,20 +585,20 @@
                   break;
               }
           }, enterRoute = function (callback) {
-              callHook(newRoute, HOOK_BEFORE_ENTER, function () {
+              instance.guard(hooks, newRoute, HOOK_BEFORE_ENTER, function () {
                   instance.route = newRoute;
                   instance.location = location;
-                  diffComponent(newRoute, oldRoute, callback);
+                  diffRoute(newRoute, oldRoute, callback);
               }, failure);
           };
           newRoute.onCreate = function () {
-              callHook(newRoute, HOOK_AFTER_ENTER);
+              instance.guard(hooks, newRoute, HOOK_AFTER_ENTER);
           };
           if (oldRoute) {
               oldRoute.onDestroy = function () {
-                  callHook(oldRoute, HOOK_AFTER_LEAVE);
+                  instance.guard(hooks, oldRoute, HOOK_AFTER_LEAVE);
               };
-              callHook(oldRoute, HOOK_BEFORE_LEAVE, function () {
+              instance.guard(hooks, oldRoute, HOOK_BEFORE_LEAVE, function () {
                   enterRoute(updateRoute);
               }, failure);
           }
