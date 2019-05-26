@@ -10,8 +10,31 @@
   (global = global || self, factory(global.YoxRouter = {}));
 }(this, function (exports) { 'use strict';
 
+  /**
+   * 为了压缩，定义的常量
+   */
+  var TRUE = true;
+  var FALSE = false;
+  var NULL = null;
+  var UNDEFINED = void 0;
+
+  var RAW_TRUE = 'true';
+  var RAW_FALSE = 'false';
+  var RAW_NULL = 'null';
+  var RAW_UNDEFINED = 'undefined';
+
+  /**
+   * 空对象，很多地方会用到，比如 `a || EMPTY_OBJECT` 确保是个对象
+   */
+  var EMPTY_OBJECT = Object.freeze({});
+
+  /**
+   * 空数组
+   */
+  var EMPTY_ARRAY = Object.freeze([]);
+
   var Yox, registry, domApi;
-  var UNDEFINED = void 0, OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', 
+  var OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', 
   // 点击事件
   EVENT_CLICK = 'click', 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
@@ -43,16 +66,16 @@
           result = +value;
       }
       else if (Yox.is.string(value)) {
-          if (value === 'true') {
-              result = true;
+          if (value === RAW_TRUE) {
+              result = TRUE;
           }
-          else if (value === 'false') {
-              result = false;
+          else if (value === RAW_FALSE) {
+              result = FALSE;
           }
-          else if (value === 'null') {
-              result = null;
+          else if (value === RAW_NULL) {
+              result = NULL;
           }
-          else if (value === 'undefined') {
+          else if (value === RAW_UNDEFINED) {
               result = UNDEFINED;
           }
           else {
@@ -72,11 +95,11 @@
       else if (Yox.is.number(value) || Yox.is.boolean(value)) {
           result.push(value.toString());
       }
-      else if (value === null) {
-          result.push('null');
+      else if (value === NULL) {
+          result.push(RAW_NULL);
       }
       else if (value === UNDEFINED) {
-          result.push('undefined');
+          result.push(RAW_UNDEFINED);
       }
       return result.join(SEPARATOR_PAIR);
   }
@@ -158,12 +181,12 @@
                       }
                   }
                   result = route;
-                  return false;
+                  return FALSE;
               }
           }
           else if (route.path === realpath) {
               result = route;
-              return false;
+              return FALSE;
           }
       });
       return result;
@@ -489,7 +512,7 @@
                           callback();
                       }
                   }
-                  else if (value !== false) {
+                  else if (value !== FALSE) {
                       // 跳转到别的路由
                       instance.push(value);
                   }
@@ -537,7 +560,7 @@
               });
           }, updateRoute = function (route) {
               // 从上往下更新 props
-              while (true) {
+              while (TRUE) {
                   var parent = route.parent, context = route.context, component = route.component, options = route.options;
                   if (route === startRoute) {
                       if (parent) {
@@ -613,7 +636,7 @@
           // 当前组件如果是根组件，则没有 $root 属性
           var $root = vnode.context.$root || vnode.context, router = $root[ROUTER], listener = function (_) {
               var value = directive.getter && directive.getter();
-              router.push(value != null ? value : directive.value);
+              router.push(value != NULL ? value : directive.value);
           };
           if (vnode.isComponent) {
               node.on(EVENT_CLICK, listener);

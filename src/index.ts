@@ -1,5 +1,7 @@
 import * as type from '../../yox-type/src/type'
 
+import * as env from '../../yox-common/src/util/env'
+
 import API from '../../yox-type/src/interface/API'
 import Yox from '../../yox-type/src/interface/Yox'
 import YoxClass from '../../yox-type/src/interface/YoxClass'
@@ -11,9 +13,7 @@ import CustomEvent from '../../yox-type/src/event/CustomEvent'
 
 let Yox: YoxClass, registry: Yox, domApi: API
 
-const UNDEFINED = void 0,
-
-OUTLET = '$outlet',
+const OUTLET = '$outlet',
 
 ROUTE = '$route',
 
@@ -119,17 +119,17 @@ function parseValue(value: string) {
     result = +value
   }
   else if (Yox.is.string(value)) {
-    if (value === 'true') {
-      result = true
+    if (value === env.RAW_TRUE) {
+      result = env.TRUE
     }
-    else if (value === 'false') {
-      result = false
+    else if (value === env.RAW_FALSE) {
+      result = env.FALSE
     }
-    else if (value === 'null') {
-      result = null
+    else if (value === env.RAW_NULL) {
+      result = env.NULL
     }
-    else if (value === 'undefined') {
-      result = UNDEFINED
+    else if (value === env.RAW_UNDEFINED) {
+      result = env.UNDEFINED
     }
     else {
       result = decodeURIComponent(value)
@@ -153,14 +153,14 @@ function stringifyPair(key: string, value: any) {
       value.toString()
     )
   }
-  else if (value === null) {
+  else if (value === env.NULL) {
     result.push(
-      'null'
+      env.RAW_NULL
     )
   }
-  else if (value === UNDEFINED) {
+  else if (value === env.UNDEFINED) {
     result.push(
-      'undefined'
+      env.RAW_UNDEFINED
     )
   }
   return result.join(SEPARATOR_PAIR)
@@ -284,12 +284,12 @@ function getRouteByRealpath(routes: LinkedRoute[], realpath: string) {
             }
           }
           result = route
-          return false
+          return env.FALSE
         }
       }
       else if (route.path === realpath) {
         result = route
-        return false
+        return env.FALSE
       }
     }
   )
@@ -431,7 +431,7 @@ function filterProps(route: LinkedRoute, location: Location, options: YoxOptions
     if (props) {
       for (let key in propTypes) {
         defaultValue = Yox.checkProp(props, key, propTypes[key])
-        result[key] = defaultValue !== UNDEFINED
+        result[key] = defaultValue !== env.UNDEFINED
           ? defaultValue
           : props[key]
       }
@@ -631,7 +631,7 @@ export class Router {
       callback
     )
 
-    pathStack = routeStack = UNDEFINED
+    pathStack = routeStack = env.UNDEFINED
 
     if (process.env.NODE_ENV === 'dev') {
       if (!route404) {
@@ -744,7 +744,7 @@ export class Router {
   /**
    * 路由守卫
    */
-  guard(route: LinkedRoute, name: string, callback: () => void | void) {
+  guard(route: LinkedRoute, name: string, callback?: () => void) {
 
     const instance = this, { hooks } = instance, { to, from } = hooks
 
@@ -769,7 +769,7 @@ export class Router {
           },
 
       next = function (value?: false | Target) {
-        if (value === UNDEFINED) {
+        if (value === env.UNDEFINED) {
           const task = hooks.list.shift()
           if (task) {
             handler(task)
@@ -778,7 +778,7 @@ export class Router {
             callback()
           }
         }
-        else if (value !== false) {
+        else if (value !== env.FALSE) {
           // 跳转到别的路由
           instance.push(value)
         }
@@ -841,7 +841,7 @@ export class Router {
           if (newRoute.parent) {
             diffRoute(
               Yox.object.copy(newRoute.parent),
-              oldRoute ? oldRoute.parent : UNDEFINED,
+              oldRoute ? oldRoute.parent : env.UNDEFINED,
               newRoute,
               callback
             )
@@ -858,7 +858,7 @@ export class Router {
     updateRoute = function (route: LinkedRoute) {
 
       // 从上往下更新 props
-      while (true) {
+      while (env.TRUE) {
 
         let { parent, context, component, options } = route
 
@@ -887,7 +887,7 @@ export class Router {
               context.destroy()
               const oldRoute = context[ROUTE]
               if (!oldRoute.child) {
-                oldRoute.context = UNDEFINED
+                oldRoute.context = env.UNDEFINED
                 instance.guard(oldRoute, HOOK_AFTER_LEAVE)
               }
             }
@@ -938,7 +938,7 @@ export class Router {
       diffRoute(
         newRoute,
         oldRoute,
-        UNDEFINED,
+        env.UNDEFINED,
         function (route) {
           instance.guard(
             newRoute,
@@ -984,7 +984,7 @@ const directive = {
 
     listener = function (_: CustomEvent) {
       const value = directive.getter && directive.getter()
-      router.push(value != null ? value : directive.value)
+      router.push(value != env.NULL ? value : directive.value)
     }
 
     if (vnode.isComponent) {
@@ -1030,7 +1030,7 @@ const RouterView: YoxOptions = {
 
   },
   beforeDestroy() {
-    this.$parent[OUTLET] = UNDEFINED
+    this.$parent[OUTLET] = env.UNDEFINED
   },
   beforeChildCreate(childOptions: YoxOptions) {
 
@@ -1064,7 +1064,7 @@ const RouterView: YoxOptions = {
   beforeChildDestroy(child: Yox) {
     const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
     if (route) {
-      route.context = UNDEFINED
+      route.context = env.UNDEFINED
       if (!route.child) {
         router.guard(route, HOOK_AFTER_LEAVE)
       }
