@@ -746,6 +746,11 @@ export class Router {
    */
   guard(route: LinkedRoute, name: string, callback?: () => void) {
 
+    // 必须是叶子节点
+    if (route.child) {
+      return
+    }
+
     const instance = this, { hooks } = instance, { to, from } = hooks
 
     if (!from || from.path !== to.path) {
@@ -886,10 +891,8 @@ export class Router {
             if (context) {
               context.destroy()
               const oldRoute = context[ROUTE]
-              if (!oldRoute.child) {
-                oldRoute.context = env.UNDEFINED
-                instance.guard(oldRoute, HOOK_AFTER_LEAVE)
-              }
+              oldRoute.context = env.UNDEFINED
+              instance.guard(oldRoute, HOOK_AFTER_LEAVE)
             }
 
             // 每层路由组件都有 $route 和 $router 属性
@@ -908,9 +911,7 @@ export class Router {
               )
             )
 
-            if (!route.child) {
-              instance.guard(route, HOOK_AFTER_ENTER)
-            }
+            instance.guard(route, HOOK_AFTER_ENTER)
 
           }
 
@@ -1056,18 +1057,14 @@ const RouterView: YoxOptions = {
     const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
     if (route) {
       route.context = child
-      if (!route.child) {
-        router.guard(route, HOOK_AFTER_ENTER)
-      }
+      router.guard(route, HOOK_AFTER_ENTER)
     }
   },
   beforeChildDestroy(child: Yox) {
     const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
     if (route) {
       route.context = env.UNDEFINED
-      if (!route.child) {
-        router.guard(route, HOOK_AFTER_LEAVE)
-      }
+      router.guard(route, HOOK_AFTER_LEAVE)
     }
   }
 }

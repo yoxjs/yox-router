@@ -485,6 +485,10 @@
        * 路由守卫
        */
       Router.prototype.guard = function (route, name, callback) {
+          // 必须是叶子节点
+          if (route.child) {
+              return;
+          }
           var instance = this, hooks = instance.hooks, to = hooks.to, from = hooks.from;
           if (!from || from.path !== to.path) {
               hooks
@@ -579,10 +583,8 @@
                           if (context) {
                               context.destroy();
                               var oldRoute_1 = context[ROUTE];
-                              if (!oldRoute_1.child) {
-                                  oldRoute_1.context = UNDEFINED;
-                                  instance.guard(oldRoute_1, HOOK_AFTER_LEAVE);
-                              }
+                              oldRoute_1.context = UNDEFINED;
+                              instance.guard(oldRoute_1, HOOK_AFTER_LEAVE);
                           }
                           // 每层路由组件都有 $route 和 $router 属性
                           var extensions = {};
@@ -593,9 +595,7 @@
                               props: filterProps(route, location, options),
                               extensions: extensions
                           }, options));
-                          if (!route.child) {
-                              instance.guard(route, HOOK_AFTER_ENTER);
-                          }
+                          instance.guard(route, HOOK_AFTER_ENTER);
                       }
                   }
                   else if (context) {
@@ -684,18 +684,14 @@
           var router = child[ROUTER], route = child[ROUTE];
           if (route) {
               route.context = child;
-              if (!route.child) {
-                  router.guard(route, HOOK_AFTER_ENTER);
-              }
+              router.guard(route, HOOK_AFTER_ENTER);
           }
       },
       beforeChildDestroy: function (child) {
           var router = child[ROUTER], route = child[ROUTE];
           if (route) {
               route.context = UNDEFINED;
-              if (!route.child) {
-                  router.guard(route, HOOK_AFTER_LEAVE);
-              }
+              router.guard(route, HOOK_AFTER_LEAVE);
           }
       }
   };
