@@ -276,11 +276,13 @@
   }
   // 钩子函数的调用链
   var Hooks = /** @class */ (function () {
-      function Hooks(to, from) {
+      function Hooks() {
+      }
+      Hooks.prototype.setLocation = function (to, from) {
           this.to = to;
           this.from = from;
-      }
-      Hooks.prototype.reset = function (name) {
+      };
+      Hooks.prototype.setName = function (name) {
           this.name = name;
           this.list = [];
           return this;
@@ -408,6 +410,7 @@
           instance.routes = routes;
           instance.path2Route = path2Route;
           instance.name2Path = name2Path;
+          instance.hooks = new Hooks();
       }
       /**
        * 真正执行路由切换操作的函数
@@ -477,9 +480,9 @@
       Router.prototype.stop = function () {
           domApi.off(window, 'hashchange', this.onChange);
       };
-      Router.prototype.guard = function (hooks, route, name, success, failure) {
-          hooks
-              .reset(name)
+      Router.prototype.guard = function (route, name, success, failure) {
+          this.hooks
+              .setName(name)
               // 先调用组件的钩子
               .add(route.options, route.context)
               // 再调用路由配置的钩子
@@ -492,7 +495,7 @@
        * 切换路由
        */
       Router.prototype.setRoute = function (location, route) {
-          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), oldLocation = instance.location, hooks = new Hooks(location, oldLocation), childRoute, startRoute, failure = function (value) {
+          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), startRoute, oldLocation = instance.location, failure = function (value) {
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
                   if (oldLocation
@@ -506,7 +509,7 @@
               }
           }, 
           // 对比新旧两个路由链表
-          diffRoute = function (newRoute, oldRoute, callback) {
+          diffRoute = function (newRoute, oldRoute, childRoute, callback) {
               // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
               registry.loadComponent(newRoute.component, function (options) {
                   newRoute.options = options;
@@ -515,7 +518,6 @@
                       newRoute.child = childRoute;
                       childRoute.parent = newRoute;
                   }
-                  childRoute = newRoute;
                   if (oldRoute) {
                       // 同级的两个组件不同，疑似起始更新的路由
                       if (oldRoute.options !== options) {
@@ -530,7 +532,7 @@
                       startRoute = newRoute;
                   }
                   if (newRoute.parent) {
-                      diffRoute(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED, callback);
+                      diffRoute(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED, newRoute, callback);
                       return;
                   }
                   // 到达根组件，结束
@@ -539,7 +541,7 @@
           }, updateRoute = function (route) {
               // 从上往下更新 props
               while (true) {
-                  var parent = route.parent, context = route.context, component = route.component, options = route.options, onCreate = route.onCreate;
+                  var parent = route.parent, context = route.context, component = route.component, options = route.options;
                   if (route === startRoute) {
                       if (parent) {
                           context = parent.context;
@@ -556,8 +558,9 @@
                       else {
                           if (context) {
                               context.destroy();
-                              var onDestroy = context[ROUTE].onDestroy;
-                              onDestroy && onDestroy();
+                              if (!route.child) {
+                                  instance.guard(context[ROUTE], HOOK_AFTER_LEAVE);
+                              }
                           }
                           // 每层路由组件都有 $route 和 $router 属性
                           var extensions = {};
@@ -568,7 +571,9 @@
                               props: filterProps(route, location, options),
                               extensions: extensions
                           }, options));
-                          onCreate && onCreate();
+                          if (!route.child) {
+                              instance.guard(route, HOOK_AFTER_ENTER);
+                          }
                       }
                   }
                   else if (context) {
@@ -585,20 +590,15 @@
                   break;
               }
           }, enterRoute = function (callback) {
-              instance.guard(hooks, newRoute, HOOK_BEFORE_ENTER, function () {
+              instance.guard(newRoute, HOOK_BEFORE_ENTER, function () {
                   instance.route = newRoute;
                   instance.location = location;
-                  diffRoute(newRoute, oldRoute, callback);
+                  diffRoute(newRoute, oldRoute, UNDEFINED, callback);
               }, failure);
           };
-          newRoute.onCreate = function () {
-              instance.guard(hooks, newRoute, HOOK_AFTER_ENTER);
-          };
+          instance.hooks.setLocation(location, oldLocation);
           if (oldRoute) {
-              oldRoute.onDestroy = function () {
-                  instance.guard(hooks, oldRoute, HOOK_AFTER_LEAVE);
-              };
-              instance.guard(hooks, oldRoute, HOOK_BEFORE_LEAVE, function () {
+              instance.guard(oldRoute, HOOK_BEFORE_LEAVE, function () {
                   enterRoute(updateRoute);
               }, failure);
           }
@@ -658,16 +658,20 @@
           childOptions.extensions = extensions;
       },
       afterChildCreate: function (child) {
-          var route = child[ROUTE];
+          var router = child[ROUTER], route = child[ROUTE];
           if (route) {
               route.context = child;
-              route.onCreate && route.onCreate();
+              if (!route.child) {
+                  router.guard(route, HOOK_AFTER_ENTER);
+              }
           }
       },
       beforeChildDestroy: function (child) {
-          var route = child[ROUTE];
+          var router = child[ROUTER], route = child[ROUTE];
           if (route) {
-              route.onDestroy && route.onDestroy();
+              if (!route.child) {
+                  router.guard(route, HOOK_AFTER_LEAVE);
+              }
               route.context = UNDEFINED;
           }
       }

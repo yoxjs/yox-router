@@ -100,8 +100,6 @@ interface LinkedRoute {
   context?: Yox
   parent?: LinkedRoute
   child?: LinkedRoute
-  onCreate?: () => void
-  onDestroy?: () => void
 }
 
 interface Hash {
@@ -459,12 +457,12 @@ class Hooks {
 
   list: Task[]
 
-  constructor(to: Location, from: Location | void) {
+  setLocation(to: Location, from: Location | void) {
     this.to = to
     this.from = from
   }
 
-  reset(name: string) {
+  setName(name: string) {
     this.name = name
     this.list = []
     return this
@@ -521,6 +519,8 @@ export class Router {
   name2Path: Record<string, string>
 
   path2Route: Record<string, LinkedRoute>
+
+  hooks: Hooks
 
   // 路由或参数发生了变化会触发此函数
   onChange: Function
@@ -687,6 +687,8 @@ export class Router {
 
     instance.name2Path = name2Path
 
+    instance.hooks = new Hooks()
+
   }
 
   /**
@@ -770,9 +772,9 @@ export class Router {
     domApi.off(window, 'hashchange', this.onChange as type.listener)
   }
 
-  guard(hooks: Hooks, route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
-    hooks
-      .reset(name)
+  guard(route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
+    this.hooks
+      .setName(name)
       // 先调用组件的钩子
       .add(route.options, route.context)
       // 再调用路由配置的钩子
@@ -793,13 +795,9 @@ export class Router {
 
     newRoute = Yox.object.copy(route),
 
-    oldLocation = instance.location,
-
-    hooks = new Hooks(location, oldLocation),
-
-    childRoute: LinkedRoute | void,
-
     startRoute: LinkedRoute | void,
+
+    oldLocation = instance.location,
 
     failure: Failure = function (value: false | Target) {
       if (value === false) {
@@ -821,7 +819,7 @@ export class Router {
     },
 
     // 对比新旧两个路由链表
-    diffRoute = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void, callback: (route: LinkedRoute) => void) {
+    diffRoute = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void, childRoute: LinkedRoute | void, callback: (route: LinkedRoute) => void) {
 
       // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
       registry.loadComponent(
@@ -835,8 +833,6 @@ export class Router {
             newRoute.child = childRoute
             childRoute.parent = newRoute
           }
-
-          childRoute = newRoute
 
           if (oldRoute) {
             // 同级的两个组件不同，疑似起始更新的路由
@@ -856,6 +852,7 @@ export class Router {
             diffRoute(
               Yox.object.copy(newRoute.parent),
               oldRoute ? oldRoute.parent : UNDEFINED,
+              newRoute,
               callback
             )
             return
@@ -873,7 +870,7 @@ export class Router {
       // 从上往下更新 props
       while (true) {
 
-        let { parent, context, component, options, onCreate } = route
+        let { parent, context, component, options } = route
 
         if (route === startRoute) {
 
@@ -898,8 +895,9 @@ export class Router {
 
             if (context) {
               context.destroy()
-              const onDestroy = context[ROUTE].onDestroy
-              onDestroy && onDestroy()
+              if (!route.child) {
+                instance.guard(context[ROUTE], HOOK_AFTER_LEAVE)
+              }
             }
 
             // 每层路由组件都有 $route 和 $router 属性
@@ -918,7 +916,9 @@ export class Router {
               )
             )
 
-            onCreate && onCreate()
+            if (!route.child) {
+              instance.guard(route, HOOK_AFTER_ENTER)
+            }
 
           }
 
@@ -943,7 +943,6 @@ export class Router {
 
     enterRoute = function (callback: (route: LinkedRoute) => void) {
       instance.guard(
-        hooks,
         newRoute,
         HOOK_BEFORE_ENTER,
         function () {
@@ -951,23 +950,17 @@ export class Router {
           instance.route = newRoute
           instance.location = location
 
-          diffRoute(newRoute, oldRoute, callback)
+          diffRoute(newRoute, oldRoute, UNDEFINED, callback)
 
         },
         failure
       )
     }
 
-    newRoute.onCreate = function () {
-      instance.guard(hooks, newRoute, HOOK_AFTER_ENTER)
-    }
+    instance.hooks.setLocation(location, oldLocation)
 
     if (oldRoute) {
-      oldRoute.onDestroy = function () {
-        instance.guard(hooks, oldRoute as LinkedRoute, HOOK_AFTER_LEAVE)
-      }
       instance.guard(
-        hooks,
         oldRoute,
         HOOK_BEFORE_LEAVE,
         function () {
@@ -990,7 +983,7 @@ const directive = {
     // 当前组件如果是根组件，则没有 $root 属性
     const $root = vnode.context.$root || vnode.context,
 
-    router: Router = $root[ROUTER],
+    router = $root[ROUTER] as Router,
 
     listener = function (_: CustomEvent) {
       const value = directive.getter && directive.getter()
@@ -1063,16 +1056,20 @@ const RouterView: YoxOptions = {
 
   },
   afterChildCreate(child: Yox) {
-    const route = child[ROUTE] as LinkedRoute
+    const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
     if (route) {
       route.context = child
-      route.onCreate && route.onCreate()
+      if (!route.child) {
+        router.guard(route, HOOK_AFTER_ENTER)
+      }
     }
   },
   beforeChildDestroy(child: Yox) {
-    const route = child[ROUTE] as LinkedRoute
+    const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
     if (route) {
-      route.onDestroy && route.onDestroy()
+      if (!route.child) {
+        router.guard(route, HOOK_AFTER_LEAVE)
+      }
       route.context = UNDEFINED
     }
   }
