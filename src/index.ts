@@ -895,8 +895,10 @@ export class Router {
 
             if (context) {
               context.destroy()
-              if (!route.child) {
-                instance.guard(context[ROUTE], HOOK_AFTER_LEAVE)
+              const oldRoute = context[ROUTE]
+              if (!oldRoute.child) {
+                oldRoute.context = UNDEFINED
+                instance.guard(oldRoute, HOOK_AFTER_LEAVE)
               }
             }
 
@@ -1067,10 +1069,10 @@ const RouterView: YoxOptions = {
   beforeChildDestroy(child: Yox) {
     const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
     if (route) {
+      route.context = UNDEFINED
       if (!route.child) {
         router.guard(route, HOOK_AFTER_LEAVE)
       }
-      route.context = UNDEFINED
     }
   }
 }

@@ -558,8 +558,10 @@
                       else {
                           if (context) {
                               context.destroy();
-                              if (!route.child) {
-                                  instance.guard(context[ROUTE], HOOK_AFTER_LEAVE);
+                              var oldRoute_1 = context[ROUTE];
+                              if (!oldRoute_1.child) {
+                                  oldRoute_1.context = UNDEFINED;
+                                  instance.guard(oldRoute_1, HOOK_AFTER_LEAVE);
                               }
                           }
                           // 每层路由组件都有 $route 和 $router 属性
@@ -669,10 +671,10 @@
       beforeChildDestroy: function (child) {
           var router = child[ROUTER], route = child[ROUTE];
           if (route) {
+              route.context = UNDEFINED;
               if (!route.child) {
                   router.guard(route, HOOK_AFTER_LEAVE);
               }
-              route.context = UNDEFINED;
           }
       }
   };
