@@ -215,26 +215,24 @@ function parseQuery(query: string) {
  */
 function stringifyQuery(query: Object) {
   const result: string[] = []
-  Yox.object.each(
-    query,
-    function (value, key) {
-      if (Yox.is.array(value)) {
-        Yox.array.each(
-          value,
-          function (value) {
-            result.push(
-              stringifyPair(key + FLAG_ARRAY, value)
-            )
-          }
-        )
-      }
-      else {
-        result.push(
-          stringifyPair(key, value)
-        )
-      }
+  for (let key in query) {
+    const value = query[key]
+    if (Yox.is.array(value)) {
+      Yox.array.each(
+        value,
+        function (value) {
+          result.push(
+            stringifyPair(key + FLAG_ARRAY, value)
+          )
+        }
+      )
     }
-  )
+    else {
+      result.push(
+        stringifyPair(key, value)
+      )
+    }
+  }
   return result.join(SEPARATOR_QUERY)
 }
 
@@ -281,16 +279,22 @@ function getRouteByRealpath(routes: LinkedRoute[], realpath: string) {
   Yox.array.each(
     routes,
     function (route) {
-      const pathTerms = (route.path as string).split(SEPARATOR_PATH)
-      if (length === pathTerms.length) {
-        for (let i = 0; i < length; i++) {
-          // 非参数段不相同
-          if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
-            && pathTerms[i] !== realpathTerms[i]
-          ) {
-            return
+      if (route.params) {
+        const pathTerms = route.path.split(SEPARATOR_PATH)
+        if (length === pathTerms.length) {
+          for (let i = 0; i < length; i++) {
+            // 非参数段不相同
+            if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
+              && pathTerms[i] !== realpathTerms[i]
+            ) {
+              return
+            }
           }
+          result = route
+          return false
         }
+      }
+      else if (route.path === realpath) {
         result = route
         return false
       }
@@ -323,7 +327,7 @@ function parseHash(routes: LinkedRoute[], hash: string) {
   if (route) {
     result.route = route
     if (route.params) {
-      const params = parseParams(realpath, route.path as string)
+      const params = parseParams(realpath, route.path)
       if (params) {
         result.params = params
       }
@@ -449,11 +453,21 @@ class Hooks {
 
   name: string
 
+  to: Location
+
+  from: Location | void
+
   list: Task[]
 
-  constructor(name: string) {
+  constructor(to: Location, from: Location | void) {
+    this.to = to
+    this.from = from
+  }
+
+  reset(name: string) {
     this.name = name
     this.list = []
+    return this
   }
 
   add(target: Object | void, ctx: any) {
@@ -467,12 +481,12 @@ class Hooks {
     return this
   }
 
-  run(to: Location, from: Location | void, success: Success | void, failure: Failure | void) {
+  run(success: Success | void, failure: Failure | void) {
 
-    const { list } = this,
+    const { to, from, list } = this,
 
-    next: Next = function (value?: false | Target) {
-      if (value == null) {
+    next = function (value?: false | Target) {
+      if (value === UNDEFINED) {
         const task = list.shift()
         if (task) {
           task.fn.call(task.ctx, to, from, next)
@@ -513,11 +527,11 @@ export class Router {
   // 当前地址栏的路径和参数
   location?: Location
 
+  [HOOK_BEFORE_LEAVE]?: BeforeHook
+
   [HOOK_BEFORE_ENTER]?: BeforeHook
 
   [HOOK_AFTER_ENTER]?: AfterHook
-
-  [HOOK_BEFORE_LEAVE]?: BeforeHook
 
   [HOOK_AFTER_LEAVE]?: AfterHook
 
@@ -752,10 +766,22 @@ export class Router {
     domApi.off(window, 'hashchange', this.onChange as type.listener)
   }
 
+  guard(hooks: Hooks, route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
+    hooks
+      .reset(name)
+      // 先调用组件的钩子
+      .add(route.options, route.context)
+      // 再调用路由配置的钩子
+      .add(route.route, route.route)
+      // 最后调用路由实例的钩子
+      .add(this, this)
+      .run(success, failure)
+  }
+
   /**
    * 切换路由
    */
-  private setRoute(newLocation: Location, route: LinkedRoute) {
+  private setRoute(location: Location, route: LinkedRoute) {
 
     let instance = this,
 
@@ -766,6 +792,8 @@ export class Router {
     isRouteChange = !oldRoute || oldRoute.path === newRoute.path,
 
     oldLocation = instance.location,
+
+    hooks = new Hooks(location, oldLocation),
 
     childRoute: LinkedRoute | void,
 
@@ -792,14 +820,7 @@ export class Router {
 
     callHook = isRouteChange
       ? function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
-          new Hooks(name)
-          // 先调用组件的钩子
-          .add(route.options, route.context)
-          // 再调用路由配置的钩子
-          .add(route.route, route.route)
-          // 最后调用路由实例的钩子
-          .add(instance, instance)
-          .run(newLocation, oldLocation, success, failure)
+          instance.guard(hooks, route, name, success, failure)
         }
       : function (route: LinkedRoute, name: string, success: Success | void, failure: Failure | void) {
         success && success()
@@ -866,7 +887,7 @@ export class Router {
 
             context = parent.context as Yox
             context.forceUpdate(
-              filterProps(parent, newLocation, parent.options as YoxOptions)
+              filterProps(parent, location, parent.options as YoxOptions)
             )
 
             context = context[OUTLET]
@@ -896,7 +917,7 @@ export class Router {
               Yox.object.extend(
                 {
                   el: instance.el,
-                  props: filterProps(route, newLocation, options as YoxOptions),
+                  props: filterProps(route, location, options as YoxOptions),
                   extensions,
                 },
                 options as YoxOptions
@@ -912,7 +933,7 @@ export class Router {
         else if (context) {
           context[ROUTE] = route
           context.forceUpdate(
-            filterProps(route, newLocation, options as YoxOptions)
+            filterProps(route, location, options as YoxOptions)
           )
           // 如果 <router-view> 定义在 if 里
           // 当 router-view 从无到有时，这里要读取最新的 child
@@ -933,7 +954,7 @@ export class Router {
         function () {
 
           instance.route = newRoute
-          instance.location = newLocation
+          instance.location = location
 
           diffComponent(newRoute, oldRoute, callback)
 

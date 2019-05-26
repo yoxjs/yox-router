@@ -108,7 +108,8 @@
    */
   function stringifyQuery(query) {
       var result = [];
-      Yox.object.each(query, function (value, key) {
+      var _loop_1 = function (key) {
+          var value = query[key];
           if (Yox.is.array(value)) {
               Yox.array.each(value, function (value) {
                   result.push(stringifyPair(key + FLAG_ARRAY, value));
@@ -117,7 +118,10 @@
           else {
               result.push(stringifyPair(key, value));
           }
-      });
+      };
+      for (var key in query) {
+          _loop_1(key);
+      }
       return result.join(SEPARATOR_QUERY);
   }
   /**
@@ -143,15 +147,21 @@
   function getRouteByRealpath(routes, realpath) {
       var result, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length;
       Yox.array.each(routes, function (route) {
-          var pathTerms = route.path.split(SEPARATOR_PATH);
-          if (length === pathTerms.length) {
-              for (var i = 0; i < length; i++) {
-                  // 非参数段不相同
-                  if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
-                      && pathTerms[i] !== realpathTerms[i]) {
-                      return;
+          if (route.params) {
+              var pathTerms = route.path.split(SEPARATOR_PATH);
+              if (length === pathTerms.length) {
+                  for (var i = 0; i < length; i++) {
+                      // 非参数段不相同
+                      if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
+                          && pathTerms[i] !== realpathTerms[i]) {
+                          return;
+                      }
                   }
+                  result = route;
+                  return false;
               }
+          }
+          else if (route.path === realpath) {
               result = route;
               return false;
           }
@@ -266,10 +276,15 @@
   }
   // 钩子函数的调用链
   var Hooks = /** @class */ (function () {
-      function Hooks(name) {
+      function Hooks(to, from) {
+          this.to = to;
+          this.from = from;
+      }
+      Hooks.prototype.reset = function (name) {
           this.name = name;
           this.list = [];
-      }
+          return this;
+      };
       Hooks.prototype.add = function (target, ctx) {
           var _a = this, name = _a.name, list = _a.list;
           if (target && Yox.is.func(target[name])) {
@@ -280,9 +295,9 @@
           }
           return this;
       };
-      Hooks.prototype.run = function (to, from, success, failure) {
-          var list = this.list, next = function (value) {
-              if (value == null) {
+      Hooks.prototype.run = function (success, failure) {
+          var _a = this, to = _a.to, from = _a.from, list = _a.list, next = function (value) {
+              if (value === UNDEFINED) {
                   var task = list.shift();
                   if (task) {
                       task.fn.call(task.ctx, to, from, next);
@@ -456,11 +471,22 @@
       Router.prototype.stop = function () {
           domApi.off(window, 'hashchange', this.onChange);
       };
+      Router.prototype.guard = function (hooks, route, name, success, failure) {
+          hooks
+              .reset(name)
+              // 先调用组件的钩子
+              .add(route.options, route.context)
+              // 再调用路由配置的钩子
+              .add(route.route, route.route)
+              // 最后调用路由实例的钩子
+              .add(this, this)
+              .run(success, failure);
+      };
       /**
        * 切换路由
        */
-      Router.prototype.setRoute = function (newLocation, route) {
-          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), isRouteChange = !oldRoute || oldRoute.path === newRoute.path, oldLocation = instance.location, childRoute, startRoute, failure = function (value) {
+      Router.prototype.setRoute = function (location, route) {
+          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), isRouteChange = !oldRoute || oldRoute.path === newRoute.path, oldLocation = instance.location, hooks = new Hooks(location, oldLocation), childRoute, startRoute, failure = function (value) {
               if (value === false) {
                   // 流程到此为止，恢复到当前路由
                   if (oldLocation
@@ -474,14 +500,7 @@
               }
           }, callHook = isRouteChange
               ? function (route, name, success, failure) {
-                  new Hooks(name)
-                      // 先调用组件的钩子
-                      .add(route.options, route.context)
-                      // 再调用路由配置的钩子
-                      .add(route.route, route.route)
-                      // 最后调用路由实例的钩子
-                      .add(instance, instance)
-                      .run(newLocation, oldLocation, success, failure);
+                  instance.guard(hooks, route, name, success, failure);
               }
               : function (route, name, success, failure) {
                   success && success();
@@ -524,7 +543,7 @@
                   if (route === startRoute) {
                       if (parent) {
                           context = parent.context;
-                          context.forceUpdate(filterProps(parent, newLocation, parent.options));
+                          context.forceUpdate(filterProps(parent, location, parent.options));
                           context = context[OUTLET];
                           if (context) {
                               var props = {};
@@ -546,7 +565,7 @@
                           extensions[ROUTE] = route;
                           route.context = new Yox(Yox.object.extend({
                               el: instance.el,
-                              props: filterProps(route, newLocation, options),
+                              props: filterProps(route, location, options),
                               extensions: extensions
                           }, options));
                           onCreate && onCreate();
@@ -554,7 +573,7 @@
                   }
                   else if (context) {
                       context[ROUTE] = route;
-                      context.forceUpdate(filterProps(route, newLocation, options));
+                      context.forceUpdate(filterProps(route, location, options));
                       // 如果 <router-view> 定义在 if 里
                       // 当 router-view 从无到有时，这里要读取最新的 child
                       // 当 router-view 从有到无时，这里要判断它是否存在
@@ -568,7 +587,7 @@
           }, enterRoute = function (callback) {
               callHook(newRoute, HOOK_BEFORE_ENTER, function () {
                   instance.route = newRoute;
-                  instance.location = newLocation;
+                  instance.location = location;
                   diffComponent(newRoute, oldRoute, callback);
               }, failure);
           };
