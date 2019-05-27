@@ -33,34 +33,26 @@
    */
   var EMPTY_ARRAY = Object.freeze([]);
 
-  var Yox, registry, domApi;
-  var OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', 
-  // 点击事件
-  EVENT_CLICK = 'click', 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-  PREFIX_HASH = '#!', 
+  var PREFIX_HASH = '#!';
   // path 中的参数前缀，如 #!/user/:userId
-  PREFIX_PARAM = ':', 
+  var PREFIX_PARAM = ':';
   // path 分隔符
-  SEPARATOR_PATH = '/', 
-  // query 分隔符
-  SEPARATOR_QUERY = '&', 
-  // 键值对分隔符
-  SEPARATOR_PAIR = '=', 
-  // 参数中的数组标识
-  FLAG_ARRAY = '[]', 
+  var SEPARATOR_PATH = '/';
+  var SEPARATOR_SEARCH = '?';
   // 导航钩子 - 路由进入之前
-  HOOK_BEFORE_ENTER = 'beforeEnter', 
+  var HOOK_BEFORE_ENTER = 'beforeEnter';
   // 导航钩子 - 路由进入之后
-  HOOK_AFTER_ENTER = 'afterEnter', 
+  var HOOK_AFTER_ENTER = 'afterEnter';
   // 导航钩子 - 路由离开之前
-  HOOK_BEFORE_LEAVE = 'beforeLeave', 
+  var HOOK_BEFORE_LEAVE = 'beforeLeave';
   // 导航钩子 - 路由离开之后
-  HOOK_AFTER_LEAVE = 'afterLeave';
+  var HOOK_AFTER_LEAVE = 'afterLeave';
+
   /**
    * 把字符串 value 解析成最合适的类型
    */
-  function parseValue(value) {
+  function parse(Yox, value) {
       var result;
       if (Yox.is.numeric(value)) {
           result = +value;
@@ -84,29 +76,29 @@
       }
       return result;
   }
-  /**
-   * 把 key value 序列化成合适的 key=value 格式
-   */
-  function stringifyPair(key, value) {
-      var result = [key];
+  function stringify(Yox, value) {
       if (Yox.is.string(value)) {
-          result.push(encodeURIComponent(value));
+          return encodeURIComponent(value);
       }
       else if (Yox.is.number(value) || Yox.is.boolean(value)) {
-          result.push(value.toString());
+          return value.toString();
       }
       else if (value === NULL) {
-          result.push(RAW_NULL);
+          return RAW_NULL;
       }
-      else if (value === UNDEFINED) {
-          result.push(RAW_UNDEFINED);
-      }
-      return result.join(SEPARATOR_PAIR);
+      return RAW_UNDEFINED;
   }
+
+  // query 分隔符
+  var SEPARATOR_QUERY = '&', 
+  // 键值对分隔符
+  SEPARATOR_PAIR = '=', 
+  // 参数中的数组标识
+  FLAG_ARRAY = '[]';
   /**
    * 把 GET 参数解析成对象
    */
-  function parseQuery(query) {
+  function parse$1(Yox, query) {
       var result;
       Yox.array.each(query.split(SEPARATOR_QUERY), function (term) {
           var terms = term.split(SEPARATOR_PAIR), key = Yox.string.trim(terms[0]), value = terms[1];
@@ -114,7 +106,7 @@
               if (!result) {
                   result = {};
               }
-              value = parseValue(value);
+              value = parse(Yox, value);
               if (Yox.string.endsWith(key, FLAG_ARRAY)) {
                   key = Yox.string.slice(key, 0, -FLAG_ARRAY.length);
                   Yox.array.push(result[key] || (result[key] = []), value);
@@ -129,17 +121,17 @@
   /**
    * 把对象解析成 key1=value1&key2=value2
    */
-  function stringifyQuery(query) {
+  function stringify$1(Yox, query) {
       var result = [];
       var _loop_1 = function (key) {
           var value = query[key];
           if (Yox.is.array(value)) {
               Yox.array.each(value, function (value) {
-                  result.push(stringifyPair(key + FLAG_ARRAY, value));
+                  result.push(key + FLAG_ARRAY + SEPARATOR_PAIR + stringify(Yox, value));
               });
           }
           else {
-              result.push(stringifyPair(key, value));
+              result.push(key + SEPARATOR_PAIR + stringify(Yox, value));
           }
       };
       for (var key in query) {
@@ -147,10 +139,11 @@
       }
       return result.join(SEPARATOR_QUERY);
   }
+
   /**
    * 解析 path 中的参数
    */
-  function parseParams(realpath, path) {
+  function parseParams(Yox, realpath, path) {
       var result, realpathTerms = realpath.split(SEPARATOR_PATH), pathTerms = path.split(SEPARATOR_PATH);
       if (realpathTerms.length === pathTerms.length) {
           Yox.array.each(pathTerms, function (item, index) {
@@ -158,7 +151,7 @@
                   if (!result) {
                       result = {};
                   }
-                  result[item.substr(PREFIX_PARAM.length)] = parseValue(realpathTerms[index]);
+                  result[item.substr(PREFIX_PARAM.length)] = parse(Yox, realpathTerms[index]);
               }
           });
       }
@@ -167,7 +160,7 @@
   /**
    * 通过 realpath 获取配置的路由
    */
-  function getRouteByRealpath(routes, realpath) {
+  function getRouteByRealpath(Yox, routes, realpath) {
       var result, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length;
       Yox.array.each(routes, function (route) {
           if (route.params) {
@@ -194,8 +187,8 @@
   /**
    * 完整解析 hash 数据
    */
-  function parseHash(routes, hash) {
-      var realpath, search, index = hash.indexOf('?');
+  function parse$2(Yox, routes, hash) {
+      var realpath, search, index = hash.indexOf(SEPARATOR_SEARCH);
       if (index >= 0) {
           realpath = hash.substring(0, index);
           search = hash.substring(index + 1);
@@ -203,17 +196,17 @@
       else {
           realpath = hash;
       }
-      var result = { realpath: realpath }, route = getRouteByRealpath(routes, realpath);
+      var result = { realpath: realpath }, route = getRouteByRealpath(Yox, routes, realpath);
       if (route) {
           result.route = route;
           if (route.params) {
-              var params = parseParams(realpath, route.path);
+              var params = parseParams(Yox, realpath, route.path);
               if (params) {
                   result.params = params;
               }
           }
           if (search) {
-              var query = parseQuery(search);
+              var query = parse$1(Yox, search);
               if (query) {
                   result.query = query;
               }
@@ -224,7 +217,7 @@
   /**
    * 把结构化数据序列化成 hash
    */
-  function stringifyHash(path, params, query) {
+  function stringify$2(Yox, path, params, query) {
       var terms = [], realpath, search = '';
       Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
           terms.push(Yox.string.startsWith(item, PREFIX_PARAM)
@@ -233,13 +226,18 @@
       });
       realpath = terms.join(SEPARATOR_PATH);
       if (query) {
-          var queryStr = stringifyQuery(query);
+          var queryStr = stringify$1(Yox, query);
           if (queryStr) {
-              search = '?' + queryStr;
+              search = SEPARATOR_SEARCH + queryStr;
           }
       }
       return realpath + search;
   }
+
+  var Yox, registry, domApi;
+  var OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', 
+  // 点击事件
+  EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -335,7 +333,7 @@
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parseHash(routes, hashStr), route = hash.route;
+              var hash = parse$2(Yox, routes, hashStr), route = hash.route;
               if (route) {
                   instance.setRoute({
                       path: route.path,
@@ -463,7 +461,7 @@
           if (!this.path2Route[path]) {
               path = this.route404.path;
           }
-          location.hash = PREFIX_HASH + stringifyHash(path, params, query);
+          location.hash = PREFIX_HASH + stringify$2(Yox, path, params, query);
       };
       /**
        * 启动路由

@@ -11,6 +11,10 @@ import VNode from '../../yox-type/src/vnode/VNode'
 import Directive from '../../yox-type/src/vnode/Directive'
 import CustomEvent from '../../yox-type/src/event/CustomEvent'
 
+import * as constant from './constant'
+import * as typeUtil from './type'
+import * as hashUtil from './hash'
+
 let Yox: YoxClass, registry: Yox, domApi: API
 
 const OUTLET = '$outlet',
@@ -22,350 +26,8 @@ ROUTER = '$router',
 COMPONENT = 'RouteComponent',
 
 // 点击事件
-EVENT_CLICK = 'click',
+EVENT_CLICK = 'click'
 
-// hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-PREFIX_HASH = '#!',
-
-// path 中的参数前缀，如 #!/user/:userId
-PREFIX_PARAM = ':',
-
-// path 分隔符
-SEPARATOR_PATH = '/',
-
-// query 分隔符
-SEPARATOR_QUERY = '&',
-
-// 键值对分隔符
-SEPARATOR_PAIR = '=',
-
-// 参数中的数组标识
-FLAG_ARRAY = '[]',
-
-// 导航钩子 - 路由进入之前
-HOOK_BEFORE_ENTER = 'beforeEnter',
-
-// 导航钩子 - 路由进入之后
-HOOK_AFTER_ENTER = 'afterEnter',
-
-// 导航钩子 - 路由离开之前
-HOOK_BEFORE_LEAVE = 'beforeLeave',
-
-// 导航钩子 - 路由离开之后
-HOOK_AFTER_LEAVE = 'afterLeave'
-
-interface RouteTarget {
-  name?: string
-  path?: string
-  params?: type.data
-  query?: type.data
-}
-
-type Target = string | RouteTarget
-
-type Next = (value?: false | Target) => void
-
-type BeforeHook = (to: Location, from: Location | void, next: Next) => void
-
-type AfterHook = (to: Location, from: Location | void) => void
-
-interface RouterOptions {
-  el: Element
-  routes: RouteOptions[]
-  route404: RouteOptions
-}
-
-interface RouteOptions {
-  path: string
-  component: string
-  name?: string
-  children?: RouteOptions[]
-  [HOOK_BEFORE_ENTER]?: BeforeHook
-  [HOOK_AFTER_ENTER]?: AfterHook
-  [HOOK_BEFORE_LEAVE]?: BeforeHook
-  [HOOK_AFTER_LEAVE]?: AfterHook
-}
-
-interface LinkedRoute {
-  path: string
-  component: string
-  route: RouteOptions
-  params?: string[]
-  options?: YoxOptions
-  context?: Yox
-  parent?: LinkedRoute
-  child?: LinkedRoute
-}
-
-interface Hash {
-  realpath: string
-  route?: LinkedRoute
-  params?: type.data
-  query?: type.data
-}
-
-interface Location {
-  path: string
-  params?: type.data
-  query?: type.data
-}
-
-/**
- * 把字符串 value 解析成最合适的类型
- */
-function parseValue(value: string) {
-  let result: any
-  if (Yox.is.numeric(value)) {
-    result = +value
-  }
-  else if (Yox.is.string(value)) {
-    if (value === env.RAW_TRUE) {
-      result = env.TRUE
-    }
-    else if (value === env.RAW_FALSE) {
-      result = env.FALSE
-    }
-    else if (value === env.RAW_NULL) {
-      result = env.NULL
-    }
-    else if (value === env.RAW_UNDEFINED) {
-      result = env.UNDEFINED
-    }
-    else {
-      result = decodeURIComponent(value)
-    }
-  }
-  return result
-}
-
-/**
- * 把 key value 序列化成合适的 key=value 格式
- */
-function stringifyPair(key: string, value: any) {
-  let result = [key]
-  if (Yox.is.string(value)) {
-    result.push(
-      encodeURIComponent(value)
-    )
-  }
-  else if (Yox.is.number(value) || Yox.is.boolean(value)) {
-    result.push(
-      value.toString()
-    )
-  }
-  else if (value === env.NULL) {
-    result.push(
-      env.RAW_NULL
-    )
-  }
-  else if (value === env.UNDEFINED) {
-    result.push(
-      env.RAW_UNDEFINED
-    )
-  }
-  return result.join(SEPARATOR_PAIR)
-}
-
-/**
- * 把 GET 参数解析成对象
- */
-function parseQuery(query: string) {
-  let result: Object | undefined
-  Yox.array.each(
-    query.split(SEPARATOR_QUERY),
-    function (term) {
-
-      let terms = term.split(SEPARATOR_PAIR),
-
-      key = Yox.string.trim(terms[0]),
-
-      value = terms[1]
-
-      if (key) {
-        if (!result) {
-          result = {}
-        }
-        value = parseValue(value)
-        if (Yox.string.endsWith(key, FLAG_ARRAY)) {
-          key = Yox.string.slice(key, 0, -FLAG_ARRAY.length)
-          Yox.array.push(
-            result[key] || (result[key] = []),
-            value
-          )
-        }
-        else {
-          result[key] = value
-        }
-      }
-
-    }
-  )
-  return result
-}
-
-/**
- * 把对象解析成 key1=value1&key2=value2
- */
-function stringifyQuery(query: Object) {
-  const result: string[] = []
-  for (let key in query) {
-    const value = query[key]
-    if (Yox.is.array(value)) {
-      Yox.array.each(
-        value,
-        function (value) {
-          result.push(
-            stringifyPair(key + FLAG_ARRAY, value)
-          )
-        }
-      )
-    }
-    else {
-      result.push(
-        stringifyPair(key, value)
-      )
-    }
-  }
-  return result.join(SEPARATOR_QUERY)
-}
-
-/**
- * 解析 path 中的参数
- */
-function parseParams(realpath: string, path: string) {
-
-  let result: Object | undefined,
-
-  realpathTerms = realpath.split(SEPARATOR_PATH),
-
-  pathTerms = path.split(SEPARATOR_PATH)
-
-  if (realpathTerms.length === pathTerms.length) {
-    Yox.array.each(
-      pathTerms,
-      function (item, index) {
-        if (Yox.string.startsWith(item, PREFIX_PARAM)) {
-          if (!result) {
-            result = {}
-          }
-          result[item.substr(PREFIX_PARAM.length)] = parseValue(realpathTerms[index])
-        }
-      }
-    )
-  }
-
-  return result
-
-}
-
-/**
- * 通过 realpath 获取配置的路由
- */
-function getRouteByRealpath(routes: LinkedRoute[], realpath: string) {
-
-  let result: LinkedRoute | undefined,
-
-  realpathTerms = realpath.split(SEPARATOR_PATH),
-
-  length = realpathTerms.length
-
-  Yox.array.each(
-    routes,
-    function (route) {
-      if (route.params) {
-        const pathTerms = route.path.split(SEPARATOR_PATH)
-        if (length === pathTerms.length) {
-          for (let i = 0; i < length; i++) {
-            // 非参数段不相同
-            if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
-              && pathTerms[i] !== realpathTerms[i]
-            ) {
-              return
-            }
-          }
-          result = route
-          return env.FALSE
-        }
-      }
-      else if (route.path === realpath) {
-        result = route
-        return env.FALSE
-      }
-    }
-  )
-
-  return result
-
-}
-
-/**
- * 完整解析 hash 数据
- */
-function parseHash(routes: LinkedRoute[], hash: string) {
-
-  let realpath: string, search: string | void, index = hash.indexOf('?')
-
-  if (index >= 0) {
-    realpath = hash.substring(0, index)
-    search = hash.substring(index + 1)
-  }
-  else {
-    realpath = hash
-  }
-
-  const result: Hash = { realpath },
-
-  route = getRouteByRealpath(routes, realpath)
-
-  if (route) {
-    result.route = route
-    if (route.params) {
-      const params = parseParams(realpath, route.path)
-      if (params) {
-        result.params = params
-      }
-    }
-    if (search) {
-      const query = parseQuery(search)
-      if (query) {
-        result.query = query
-      }
-    }
-  }
-
-  return result
-}
-
-/**
- * 把结构化数据序列化成 hash
- */
-function stringifyHash(path: string, params: Object | void, query: Object | void) {
-
-  let terms: string[] = [], realpath: string, search = ''
-
-  Yox.array.each(
-    path.split(SEPARATOR_PATH),
-    function (item) {
-      terms.push(
-        Yox.string.startsWith(item, PREFIX_PARAM)
-          ? params[item.substr(PREFIX_PARAM.length)]
-          : item
-      )
-    }
-  )
-
-  realpath = terms.join(SEPARATOR_PATH)
-
-  if (query) {
-    const queryStr = stringifyQuery(query)
-    if (queryStr) {
-      search = '?' + queryStr
-    }
-  }
-
-  return realpath + search
-
-}
 
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
@@ -374,21 +36,21 @@ function formatPath(path: string, parentPath: string | void) {
 
   // 如果 path 以 / 结尾，删掉它
   // 比如 { path: 'index/' }
-  if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
+  if (Yox.string.endsWith(path, constant.SEPARATOR_PATH)) {
     path = Yox.string.slice(path, 0, -1)
   }
 
   // 如果 path 不是以 / 开头，有两种情况：
   // 1. 没有上级或上级是 ''，需要自动加 / 前缀
   // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
-  if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
+  if (!Yox.string.startsWith(path, constant.SEPARATOR_PATH)) {
 
     if (path) {
       if (Yox.string.falsy(parentPath)) {
-        path = SEPARATOR_PATH + path
+        path = constant.SEPARATOR_PATH + path
       }
       else {
-        path = parentPath + SEPARATOR_PATH + path
+        path = parentPath + constant.SEPARATOR_PATH + path
       }
     }
     else if (parentPath) {
@@ -406,7 +68,7 @@ function formatPath(path: string, parentPath: string | void) {
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: LinkedRoute, location: Location, options: YoxOptions) {
+function filterProps(route: typeUtil.LinkedRoute, location: typeUtil.Location, options: YoxOptions) {
   const result: type.data = {}, propTypes = options.propTypes
   if (propTypes) {
 
@@ -441,13 +103,13 @@ class Hooks {
 
   name: string
 
-  to: Location
+  to: typeUtil.Location
 
-  from: Location | void
+  from: typeUtil.Location | void
 
   list: Task[]
 
-  setLocation(to: Location, from: Location | void) {
+  setLocation(to: typeUtil.Location, from: typeUtil.Location | void) {
     this.to = to
     this.from = from
     return this
@@ -476,13 +138,13 @@ export class Router {
 
   el: Element
 
-  routes: LinkedRoute[]
+  routes: typeUtil.LinkedRoute[]
 
-  route404: LinkedRoute
+  route404: typeUtil.LinkedRoute
 
   name2Path: Record<string, string>
 
-  path2Route: Record<string, LinkedRoute>
+  path2Route: Record<string, typeUtil.LinkedRoute>
 
   hooks: Hooks
 
@@ -490,26 +152,26 @@ export class Router {
   onChange: Function
 
   // 当前渲染的路由
-  route?: LinkedRoute
+  route?: typeUtil.LinkedRoute
 
   // 当前地址栏的路径和参数
-  location?: Location
+  location?: typeUtil.Location
 
-  [HOOK_BEFORE_LEAVE]?: BeforeHook
+  [constant.HOOK_BEFORE_LEAVE]?: typeUtil.BeforeHook
 
-  [HOOK_BEFORE_ENTER]?: BeforeHook
+  [constant.HOOK_BEFORE_ENTER]?: typeUtil.BeforeHook
 
-  [HOOK_AFTER_ENTER]?: AfterHook
+  [constant.HOOK_AFTER_ENTER]?: typeUtil.AfterHook
 
-  [HOOK_AFTER_LEAVE]?: AfterHook
+  [constant.HOOK_AFTER_LEAVE]?: typeUtil.AfterHook
 
-  constructor(options: RouterOptions) {
+  constructor(options: typeUtil.RouterOptions) {
 
     const instance = this,
 
     route404 = options.route404,
 
-    routes: LinkedRoute[] = [],
+    routes: typeUtil.LinkedRoute[] = [],
 
     name2Path = {},
 
@@ -527,11 +189,11 @@ export class Router {
       let hashStr = location.hash
 
       // 如果不以 PREFIX_HASH 开头，表示不合法
-      hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
-        ? hashStr.substr(PREFIX_HASH.length)
+      hashStr = Yox.string.startsWith(hashStr, constant.PREFIX_HASH)
+        ? hashStr.substr(constant.PREFIX_HASH.length)
         : ''
 
-      const hash = parseHash(routes, hashStr), { route } = hash
+      const hash = hashUtil.parse(Yox, routes, hashStr), { route } = hash
 
       if (route) {
         instance.setRoute(
@@ -551,26 +213,26 @@ export class Router {
 
     let pathStack: any = [], routeStack: any = [],
 
-    callback = function (routeOptions: RouteOptions) {
+    callback = function (routeOptions: typeUtil.RouteOptions) {
 
       let { name, path, component, children } = routeOptions,
 
       parentPath: string | void = pathStack[pathStack.length - 1],
 
-      parentRoute: LinkedRoute | void = routeStack[routeStack.length - 1]
+      parentRoute: typeUtil.LinkedRoute | void = routeStack[routeStack.length - 1]
 
       path = formatPath(path, parentPath)
 
-      const route: LinkedRoute = { path, component, route: routeOptions },
+      const route: typeUtil.LinkedRoute = { path, component, route: routeOptions },
 
       params: string[] = []
 
       Yox.array.each(
-        path.split(SEPARATOR_PATH),
+        path.split(constant.SEPARATOR_PATH),
         function (item, index) {
-          if (Yox.string.startsWith(item, PREFIX_PARAM)) {
+          if (Yox.string.startsWith(item, constant.PREFIX_PARAM)) {
             params.push(
-              item.substr(PREFIX_PARAM.length)
+              item.substr(constant.PREFIX_PARAM.length)
             )
           }
         }
@@ -679,7 +341,7 @@ export class Router {
    * })
    *
    */
-  push(target: Target) {
+  push(target: typeUtil.Target) {
 
     let path: string, params: type.data | void, query: type.data | void
 
@@ -687,10 +349,10 @@ export class Router {
       path = target as string
     }
     else {
-      params = (target as RouteTarget).params
-      query = (target as RouteTarget).query
+      params = (target as typeUtil.RouteTarget).params
+      query = (target as typeUtil.RouteTarget).query
 
-      const name = (target as RouteTarget).name
+      const name = (target as typeUtil.RouteTarget).name
       if (name) {
         path = this.name2Path[name]
         if (process.env.NODE_ENV === 'dev') {
@@ -701,7 +363,7 @@ export class Router {
         }
       }
       else {
-        path = (target as RouteTarget).path as string
+        path = (target as typeUtil.RouteTarget).path as string
       }
     }
 
@@ -717,7 +379,7 @@ export class Router {
       path = this.route404.path
     }
 
-    location.hash = PREFIX_HASH + stringifyHash(path, params, query)
+    location.hash = constant.PREFIX_HASH + hashUtil.stringify(Yox, path, params, query)
 
   }
 
@@ -739,7 +401,7 @@ export class Router {
   /**
    * 路由守卫
    */
-  guard(route: LinkedRoute, name: string, callback?: () => void) {
+  guard(route: typeUtil.LinkedRoute, name: string, callback?: () => void) {
 
     // 必须是叶子节点
     if (route.child) {
@@ -768,7 +430,7 @@ export class Router {
             next()
           },
 
-      next = function (value?: false | Target) {
+      next = function (value?: false | typeUtil.Target) {
         if (value === env.UNDEFINED) {
           const task = hooks.list.shift()
           if (task) {
@@ -796,7 +458,7 @@ export class Router {
   /**
    * 切换路由
    */
-  private setRoute(location: Location, route: LinkedRoute) {
+  private setRoute(location: typeUtil.Location, route: typeUtil.LinkedRoute) {
 
     let instance = this,
 
@@ -804,12 +466,12 @@ export class Router {
 
     newRoute = Yox.object.copy(route),
 
-    startRoute: LinkedRoute | void,
+    startRoute: typeUtil.LinkedRoute | void,
 
     oldLocation = instance.location,
 
     // 对比新旧两个路由链表
-    diffRoute = function (newRoute: LinkedRoute, oldRoute: LinkedRoute | void, childRoute: LinkedRoute | void, callback: (route: LinkedRoute) => void) {
+    diffRoute = function (newRoute: typeUtil.LinkedRoute, oldRoute: typeUtil.LinkedRoute | void, childRoute: typeUtil.LinkedRoute | void, callback: (route: LinkedRoute) => void) {
 
       // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
       registry.loadComponent(
@@ -855,7 +517,7 @@ export class Router {
       )
     },
 
-    updateRoute = function (route: LinkedRoute) {
+    updateRoute = function (route: typeUtil.LinkedRoute) {
 
       // 从上往下更新 props
       while (env.TRUE) {
@@ -887,7 +549,7 @@ export class Router {
               context.destroy()
               const oldRoute = context[ROUTE]
               oldRoute.context = env.UNDEFINED
-              instance.guard(oldRoute, HOOK_AFTER_LEAVE)
+              instance.guard(oldRoute, constant.HOOK_AFTER_LEAVE)
             }
 
             // 每层路由组件都有 $route 和 $router 属性
@@ -906,7 +568,7 @@ export class Router {
               )
             )
 
-            instance.guard(route, HOOK_AFTER_ENTER)
+            instance.guard(route, constant.HOOK_AFTER_ENTER)
 
           }
 
@@ -921,7 +583,7 @@ export class Router {
           // 当 router-view 从无到有时，这里要读取最新的 child
           // 当 router-view 从有到无时，这里要判断它是否存在
           if (context[OUTLET] && route.child) {
-            route = route.child as LinkedRoute
+            route = route.child as typeUtil.LinkedRoute
             continue
           }
         }
@@ -938,7 +600,7 @@ export class Router {
         function (route) {
           instance.guard(
             newRoute,
-            HOOK_BEFORE_ENTER,
+            constant.HOOK_BEFORE_ENTER,
             function () {
 
               instance.route = newRoute
@@ -958,7 +620,7 @@ export class Router {
     if (oldRoute) {
       instance.guard(
         oldRoute,
-        HOOK_BEFORE_LEAVE,
+        constant.HOOK_BEFORE_LEAVE,
         enterRoute
       )
     }
@@ -1008,7 +670,7 @@ const RouterView: YoxOptions = {
 
     const $parent = options.parent as Yox,
 
-    route = $parent[ROUTE].child as LinkedRoute
+    route = $parent[ROUTE].child as typeUtil.LinkedRoute
 
     if (route) {
 
@@ -1034,7 +696,7 @@ const RouterView: YoxOptions = {
 
     router = $parent[ROUTER] as Router,
 
-    route = $parent[ROUTE].child as LinkedRoute,
+    route = $parent[ROUTE].child as typeUtil.LinkedRoute,
 
     extensions = {}
 
@@ -1049,17 +711,17 @@ const RouterView: YoxOptions = {
 
   },
   afterChildCreate(child: Yox) {
-    const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
+    const router = child[ROUTER] as Router, route = child[ROUTE] as typeUtil.LinkedRoute
     if (route) {
       route.context = child
-      router.guard(route, HOOK_AFTER_ENTER)
+      router.guard(route, constant.HOOK_AFTER_ENTER)
     }
   },
   beforeChildDestroy(child: Yox) {
-    const router = child[ROUTER] as Router, route = child[ROUTE] as LinkedRoute
+    const router = child[ROUTER] as Router, route = child[ROUTE] as typeUtil.LinkedRoute
     if (route) {
       route.context = env.UNDEFINED
-      router.guard(route, HOOK_AFTER_LEAVE)
+      router.guard(route, constant.HOOK_AFTER_LEAVE)
     }
   }
 }
