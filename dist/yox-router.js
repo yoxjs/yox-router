@@ -33,6 +33,52 @@
    */
   var EMPTY_ARRAY = Object.freeze([]);
 
+  /**
+   * 空字符串
+   */
+  var EMPTY_STRING = '';
+
+  var Hooks = /** @class */ (function () {
+      function Hooks() {
+      }
+      Hooks.prototype.setLocation = function (to, from) {
+          this.to = to;
+          this.from = from;
+          return this;
+      };
+      Hooks.prototype.setName = function (name) {
+          this.name = name;
+          this.list = [];
+          return this;
+      };
+      Hooks.prototype.add = function (target, ctx) {
+          var _a = this, name = _a.name, list = _a.list;
+          if (target && target[name]) {
+              list.push({
+                  fn: target[name],
+                  ctx: ctx
+              });
+          }
+          return this;
+      };
+      Hooks.prototype.next = function (next, complete) {
+          var task = this.list.shift();
+          if (task) {
+              if (complete) {
+                  task.fn.call(task.ctx, this.to, this.from, next);
+              }
+              else {
+                  task.fn.call(task.ctx, this.to, this.from);
+                  next();
+              }
+          }
+          else if (complete) {
+              complete();
+          }
+      };
+      return Hooks;
+  }());
+
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
   var PREFIX_HASH = '#!';
   // path 中的参数前缀，如 #!/user/:userId
@@ -218,7 +264,7 @@
    * 把结构化数据序列化成 hash
    */
   function stringify$2(Yox, path, params, query) {
-      var terms = [], realpath, search = '';
+      var terms = [], realpath, search = EMPTY_STRING;
       Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
           terms.push(Yox.string.startsWith(item, PREFIX_PARAM)
               ? params[item.substr(PREFIX_PARAM.length)]
@@ -235,9 +281,7 @@
   }
 
   var Yox, registry, domApi;
-  var OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', 
-  // 点击事件
-  EVENT_CLICK = 'click';
+  var OUTLET = '$outlet', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -292,32 +336,6 @@
       }
       return result;
   }
-  // 钩子函数的调用链
-  var Hooks = /** @class */ (function () {
-      function Hooks() {
-      }
-      Hooks.prototype.setLocation = function (to, from) {
-          this.to = to;
-          this.from = from;
-          return this;
-      };
-      Hooks.prototype.setName = function (name) {
-          this.name = name;
-          this.list = [];
-          return this;
-      };
-      Hooks.prototype.add = function (target, ctx) {
-          var _a = this, name = _a.name, list = _a.list;
-          if (target && Yox.is.func(target[name])) {
-              list.push({
-                  fn: target[name],
-                  ctx: ctx
-              });
-          }
-          return this;
-      };
-      return Hooks;
-  }());
   var Router = /** @class */ (function () {
       function Router(options) {
           var instance = this, route404 = options.route404, routes = [], name2Path = {}, path2Route = {};
@@ -349,7 +367,7 @@
               var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children, parentPath = pathStack[pathStack.length - 1], parentRoute = routeStack[routeStack.length - 1];
               path = formatPath(path, parentPath);
               var route = { path: path, component: component, route: routeOptions }, params = [];
-              Yox.array.each(path.split(SEPARATOR_PATH), function (item, index) {
+              Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
                   if (Yox.string.startsWith(item, PREFIX_PARAM)) {
                       params.push(item.substr(PREFIX_PARAM.length));
                   }
@@ -494,22 +512,9 @@
                   .add(route.route, route.route)
                   // 最后调用路由实例的钩子
                   .add(instance, instance);
-              var handler_1 = callback
-                  ? function (task) {
-                      task.fn.call(task.ctx, to, from, next_1);
-                  }
-                  : function (task) {
-                      task.fn.call(task.ctx, to, from);
-                      next_1();
-                  }, next_1 = function (value) {
+              var next_1 = function (value) {
                   if (value === UNDEFINED) {
-                      var task = hooks.list.shift();
-                      if (task) {
-                          handler_1(task);
-                      }
-                      else if (callback) {
-                          callback();
-                      }
+                      hooks.next(next_1, callback);
                   }
                   else if (value !== FALSE) {
                       // 跳转到别的路由
