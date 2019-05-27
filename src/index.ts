@@ -312,10 +312,7 @@ export class Router {
       path = target as string
     }
     else {
-      params = (target as typeUtil.RouteTarget).params
-      query = (target as typeUtil.RouteTarget).query
-
-      const name = (target as typeUtil.RouteTarget).name
+      const route = target as typeUtil.RouteTarget, name = route.name
       if (name) {
         path = this.name2Path[name]
         if (process.env.NODE_ENV === 'dev') {
@@ -326,8 +323,10 @@ export class Router {
         }
       }
       else {
-        path = (target as typeUtil.RouteTarget).path as string
+        path = route.path as string
       }
+      params = route.params
+      query = route.query
     }
 
     this.setHash(path, params, query)
