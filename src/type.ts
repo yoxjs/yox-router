@@ -1,6 +1,9 @@
 import * as type from '../../yox-type/src/type'
 
+import Yox from '../../yox-type/src/interface/Yox'
 import YoxOptions from '../../yox-type/src/options/Yox'
+
+import * as constant from './constant'
 
 export interface RouteTarget {
   name?: string
@@ -28,10 +31,10 @@ export interface RouteOptions {
   component: string
   name?: string
   children?: RouteOptions[]
-  [HOOK_BEFORE_ENTER]?: BeforeHook
-  [HOOK_AFTER_ENTER]?: AfterHook
-  [HOOK_BEFORE_LEAVE]?: BeforeHook
-  [HOOK_AFTER_LEAVE]?: AfterHook
+  [constant.HOOK_BEFORE_ENTER]?: BeforeHook
+  [constant.HOOK_AFTER_ENTER]?: AfterHook
+  [constant.HOOK_BEFORE_LEAVE]?: BeforeHook
+  [constant.HOOK_AFTER_LEAVE]?: AfterHook
 }
 
 export interface LinkedRoute {

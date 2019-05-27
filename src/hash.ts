@@ -118,7 +118,7 @@ export function parse(Yox: YoxClass, routes: type.LinkedRoute[], hash: string) {
  */
 export function stringify(Yox: YoxClass, path: string, params: Object | void, query: Object | void) {
 
-  let terms: string[] = [], realpath: string, search = ''
+  let terms: string[] = [], realpath: string, search = env.EMPTY_STRING
 
   Yox.array.each(
     path.split(constant.SEPARATOR_PATH),

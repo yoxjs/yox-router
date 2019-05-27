@@ -5,12 +5,13 @@ import * as env from '../../yox-common/src/util/env'
 import API from '../../yox-type/src/interface/API'
 import Yox from '../../yox-type/src/interface/Yox'
 import YoxClass from '../../yox-type/src/interface/YoxClass'
-import Task from '../../yox-type/src/interface/Task'
+
 import YoxOptions from '../../yox-type/src/options/Yox'
 import VNode from '../../yox-type/src/vnode/VNode'
 import Directive from '../../yox-type/src/vnode/Directive'
 import CustomEvent from '../../yox-type/src/event/CustomEvent'
 
+import Hooks from './Hooks'
 import * as constant from './constant'
 import * as typeUtil from './type'
 import * as hashUtil from './hash'
@@ -25,9 +26,7 @@ ROUTER = '$router',
 
 COMPONENT = 'RouteComponent',
 
-// 点击事件
 EVENT_CLICK = 'click'
-
 
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
@@ -96,42 +95,6 @@ function filterProps(route: typeUtil.LinkedRoute, location: typeUtil.Location, o
 
   }
   return result
-}
-
-// 钩子函数的调用链
-class Hooks {
-
-  name: string
-
-  to: typeUtil.Location
-
-  from: typeUtil.Location | void
-
-  list: Task[]
-
-  setLocation(to: typeUtil.Location, from: typeUtil.Location | void) {
-    this.to = to
-    this.from = from
-    return this
-  }
-
-  setName(name: string) {
-    this.name = name
-    this.list = []
-    return this
-  }
-
-  add(target: Object | void, ctx: any) {
-    const { name, list } = this
-    if (target && Yox.is.func(target[name])) {
-      list.push({
-        fn: target[name] as Function,
-        ctx,
-      })
-    }
-    return this
-  }
-
 }
 
 export class Router {
@@ -229,7 +192,7 @@ export class Router {
 
       Yox.array.each(
         path.split(constant.SEPARATOR_PATH),
-        function (item, index) {
+        function (item) {
           if (Yox.string.startsWith(item, constant.PREFIX_PARAM)) {
             params.push(
               item.substr(constant.PREFIX_PARAM.length)
@@ -421,24 +384,9 @@ export class Router {
         // 最后调用路由实例的钩子
         .add(instance, instance)
 
-      const handler = callback
-        ? function (task: Task) {
-            task.fn.call(task.ctx, to, from, next)
-          }
-        : function (task: Task) {
-            task.fn.call(task.ctx, to, from)
-            next()
-          },
-
-      next = function (value?: false | typeUtil.Target) {
+      const next = function (value?: false | typeUtil.Target) {
         if (value === env.UNDEFINED) {
-          const task = hooks.list.shift()
-          if (task) {
-            handler(task)
-          }
-          else if (callback) {
-            callback()
-          }
+          hooks.next(next, callback)
         }
         else if (value !== env.FALSE) {
           // 跳转到别的路由
