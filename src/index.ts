@@ -414,9 +414,7 @@ function filterProps(route: LinkedRoute, location: Location, options: YoxOptions
 
     routeParams = route.params,
 
-    locationParams = location.params,
-
-    defaultValue: any
+    locationParams = location.params
 
     // 从 location.params 挑出 route.params 参数
     if (routeParams && locationParams) {
@@ -430,10 +428,7 @@ function filterProps(route: LinkedRoute, location: Location, options: YoxOptions
 
     if (props) {
       for (let key in propTypes) {
-        defaultValue = Yox.checkProp(props, key, propTypes[key])
-        result[key] = defaultValue !== env.UNDEFINED
-          ? defaultValue
-          : props[key]
+        result[key] = Yox.checkProp(key, props[key], propTypes[key])
       }
     }
 

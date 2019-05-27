@@ -276,7 +276,7 @@
   function filterProps(route, location, options) {
       var result = {}, propTypes = options.propTypes;
       if (propTypes) {
-          var props = location.query, routeParams = route.params, locationParams = location.params, defaultValue = void 0;
+          var props = location.query, routeParams = route.params, locationParams = location.params;
           // 从 location.params 挑出 route.params 参数
           if (routeParams && locationParams) {
               if (!props) {
@@ -288,10 +288,7 @@
           }
           if (props) {
               for (var key in propTypes) {
-                  defaultValue = Yox.checkProp(props, key, propTypes[key]);
-                  result[key] = defaultValue !== UNDEFINED
-                      ? defaultValue
-                      : props[key];
+                  result[key] = Yox.checkProp(key, props[key], propTypes[key]);
               }
           }
       }
