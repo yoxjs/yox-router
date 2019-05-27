@@ -419,8 +419,7 @@ export class Router {
     oldLocation = instance.location,
 
     // 对比新旧两个路由链表
-    diffRoute = function (newRoute: typeUtil.LinkedRoute, oldRoute: typeUtil.LinkedRoute | void, childRoute: typeUtil.LinkedRoute | void, callback: (route: LinkedRoute) => void) {
-
+    diffRoute = function (newRoute: typeUtil.LinkedRoute, oldRoute: typeUtil.LinkedRoute | void, childRoute: typeUtil.LinkedRoute | void, callback: (route: typeUtil.LinkedRoute) => void) {
       // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
       registry.loadComponent(
         newRoute.component,
@@ -466,7 +465,6 @@ export class Router {
     },
 
     updateRoute = function (route: typeUtil.LinkedRoute) {
-
       // 从上往下更新 props
       while (env.TRUE) {
 
@@ -539,42 +537,45 @@ export class Router {
       }
     },
 
-    enterRoute = function () {
-      // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
-      diffRoute(
+    enterRoute = function (route: typeUtil.LinkedRoute) {
+      instance.guard(
         newRoute,
-        oldRoute,
-        env.UNDEFINED,
-        function (route) {
-          instance.guard(
-            newRoute,
-            constant.HOOK_BEFORE_ENTER,
-            function () {
+        constant.HOOK_BEFORE_ENTER,
+        function () {
 
-              instance.route = newRoute
-              instance.location = location
+          instance.route = newRoute
+          instance.location = location
 
-              updateRoute(route)
+          updateRoute(route)
 
-            }
-          )
         }
       )
-
     }
 
     instance.hooks.setLocation(location, oldLocation)
 
-    if (oldRoute) {
-      instance.guard(
-        oldRoute,
-        constant.HOOK_BEFORE_LEAVE,
-        enterRoute
-      )
-    }
-    else {
-      enterRoute()
-    }
+    // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
+    diffRoute(
+      newRoute,
+      oldRoute,
+      env.UNDEFINED,
+      function (route) {
+
+        if (oldRoute) {
+          instance.guard(
+            oldRoute,
+            constant.HOOK_BEFORE_LEAVE,
+            function () {
+              enterRoute(route)
+            }
+          )
+        }
+        else {
+          enterRoute(route)
+        }
+
+      }
+    )
 
   }
 
@@ -659,18 +660,28 @@ const RouterView: YoxOptions = {
 
   },
   afterChildCreate(child: Yox) {
-    const router = child[ROUTER] as Router, route = child[ROUTE] as typeUtil.LinkedRoute
+
+    const router = child[ROUTER] as Router,
+
+    route = child[ROUTE] as typeUtil.LinkedRoute
+
     if (route) {
       route.context = child
       router.guard(route, constant.HOOK_AFTER_ENTER)
     }
+
   },
   beforeChildDestroy(child: Yox) {
-    const router = child[ROUTER] as Router, route = child[ROUTE] as typeUtil.LinkedRoute
+
+    const router = child[ROUTER] as Router,
+
+    route = child[ROUTE] as typeUtil.LinkedRoute
+
     if (route) {
       route.context = env.UNDEFINED
       router.guard(route, constant.HOOK_AFTER_LEAVE)
     }
+
   }
 }
 

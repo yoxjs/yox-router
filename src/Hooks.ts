@@ -26,7 +26,7 @@ export default class Hooks {
     return this
   }
 
-  add(target: YoxOptions | typeUtil.LinkedRoute | Router | void, ctx: any) {
+  add(target: YoxOptions | typeUtil.RouteOptions | Router | void, ctx: any) {
     const { name, list } = this
     if (target && target[name]) {
       list.push({

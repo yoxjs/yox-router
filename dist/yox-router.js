@@ -611,23 +611,25 @@
                   }
                   break;
               }
-          }, enterRoute = function () {
-              // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
-              diffRoute(newRoute, oldRoute, UNDEFINED, function (route) {
-                  instance.guard(newRoute, HOOK_BEFORE_ENTER, function () {
-                      instance.route = newRoute;
-                      instance.location = location;
-                      updateRoute(route);
-                  });
+          }, enterRoute = function (route) {
+              instance.guard(newRoute, HOOK_BEFORE_ENTER, function () {
+                  instance.route = newRoute;
+                  instance.location = location;
+                  updateRoute(route);
               });
           };
           instance.hooks.setLocation(location, oldLocation);
-          if (oldRoute) {
-              instance.guard(oldRoute, HOOK_BEFORE_LEAVE, enterRoute);
-          }
-          else {
-              enterRoute();
-          }
+          // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
+          diffRoute(newRoute, oldRoute, UNDEFINED, function (route) {
+              if (oldRoute) {
+                  instance.guard(oldRoute, HOOK_BEFORE_LEAVE, function () {
+                      enterRoute(route);
+                  });
+              }
+              else {
+                  enterRoute(route);
+              }
+          });
       };
       return Router;
   }());
