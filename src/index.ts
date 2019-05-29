@@ -186,6 +186,9 @@ export class Router {
 
   }
 
+  /**
+   * 添加新的路由
+   */
   add(routes: typeUtil.RouteOptions[]) {
 
     let instance = this, pathStack: any = [], routeStack: any = [],
@@ -383,11 +386,14 @@ export class Router {
 
     path = formatPath(path)
 
-    if (!this.path2Route[path]) {
+    if (this.path2Route[path]) {
+      path = hashUtil.stringify(Yox, path, params, query)
+    }
+    else {
       path = this.route404.path
     }
 
-    location.hash = constant.PREFIX_HASH + hashUtil.stringify(Yox, path, params, query)
+    location.hash = constant.PREFIX_HASH + path
 
   }
 
