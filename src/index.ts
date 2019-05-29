@@ -391,6 +391,139 @@ export class Router {
 
   }
 
+  private diffRoute(
+    newRoute: typeUtil.LinkedRoute,
+    oldRoute: typeUtil.LinkedRoute | void,
+    onComplete: (topRoute: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) => void,
+    startRoute: typeUtil.LinkedRoute | void,
+    childRoute: typeUtil.LinkedRoute | void,
+  ) {
+    const instance = this
+    // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
+    registry.loadComponent(
+      newRoute.component,
+      function (options) {
+
+        newRoute.options = options
+
+        // 更新链路
+        if (childRoute) {
+          newRoute.child = childRoute
+          childRoute.parent = newRoute
+        }
+
+        if (oldRoute) {
+          // 同级的两个组件不同，疑似起始更新的路由
+          if (oldRoute.options !== options) {
+            startRoute = newRoute
+          }
+          else {
+            // 把上次的组件实例搞过来
+            newRoute.context = oldRoute.context
+          }
+        }
+        else {
+          startRoute = newRoute
+        }
+
+        if (newRoute.parent) {
+          instance.diffRoute(
+            Yox.object.copy(newRoute.parent),
+            oldRoute ? oldRoute.parent : env.UNDEFINED,
+            onComplete,
+            startRoute,
+            newRoute,
+          )
+          return
+        }
+
+        // 到达根组件，结束
+        onComplete(newRoute, startRoute)
+
+      }
+    )
+  }
+
+  private updateRoute(route: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) {
+
+    const instance = this, location = instance.location as typeUtil.Location
+
+    // 从上往下更新 props
+    while (env.TRUE) {
+
+      let { parent, context, component, options } = route
+
+      if (route === startRoute) {
+
+        if (parent) {
+
+          context = parent.context as Yox
+          context.forceUpdate(
+            filterProps(
+              parent,
+              location,
+              parent.options as YoxOptions
+            )
+          )
+
+          context = context[ROUTE_VIEW]
+          if (context) {
+            const props = {}
+            props[COMPONENT] = component
+            context[ROUTE] = route
+            context.component(component, options)
+            context.forceUpdate(props)
+          }
+
+        }
+        else {
+
+          if (context) {
+            context.destroy()
+            const oldRoute = context[ROUTE]
+            oldRoute.context = env.UNDEFINED
+            instance.guard(oldRoute, constant.HOOK_AFTER_LEAVE)
+          }
+
+          // 每层路由组件都有 $route 和 $router 属性
+          const extensions = {}
+          extensions[ROUTER] = instance
+          extensions[ROUTE] = route
+
+          route.context = new Yox(
+            Yox.object.extend(
+              {
+                el: instance.el,
+                props: filterProps(route, location, options as YoxOptions),
+                extensions,
+              },
+              options as YoxOptions
+            )
+          )
+
+          instance.guard(route, constant.HOOK_AFTER_ENTER)
+
+        }
+
+      }
+
+      else if (context) {
+        context[ROUTE] = route
+        context.forceUpdate(
+          filterProps(route, location, options as YoxOptions)
+        )
+        // 如果 <router-view> 定义在 if 里
+        // 当 router-view 从无到有时，这里要读取最新的 child
+        // 当 router-view 从有到无时，这里要判断它是否存在
+        if (context[ROUTE_VIEW] && route.child) {
+          route = route.child as typeUtil.LinkedRoute
+          continue
+        }
+      }
+      break
+    }
+  }
+
   /**
    * 切换路由
    */
@@ -402,130 +535,9 @@ export class Router {
 
     newRoute = Yox.object.copy(route),
 
-    startRoute: typeUtil.LinkedRoute | void,
-
     oldLocation = instance.location,
 
-    // 对比新旧两个路由链表
-    diffRoute = function (newRoute: typeUtil.LinkedRoute, oldRoute: typeUtil.LinkedRoute | void, childRoute: typeUtil.LinkedRoute | void, callback: (route: typeUtil.LinkedRoute) => void) {
-      // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
-      registry.loadComponent(
-        newRoute.component,
-        function (options) {
-
-          newRoute.options = options
-
-          // 更新链路
-          if (childRoute) {
-            newRoute.child = childRoute
-            childRoute.parent = newRoute
-          }
-
-          if (oldRoute) {
-            // 同级的两个组件不同，疑似起始更新的路由
-            if (oldRoute.options !== options) {
-              startRoute = newRoute
-            }
-            else {
-              // 把上次的组件实例搞过来
-              newRoute.context = oldRoute.context
-            }
-          }
-          else {
-            startRoute = newRoute
-          }
-
-          if (newRoute.parent) {
-            diffRoute(
-              Yox.object.copy(newRoute.parent),
-              oldRoute ? oldRoute.parent : env.UNDEFINED,
-              newRoute,
-              callback
-            )
-            return
-          }
-
-          // 到达根组件，结束
-          callback(newRoute)
-
-        }
-      )
-    },
-
-    updateRoute = function (route: typeUtil.LinkedRoute) {
-      // 从上往下更新 props
-      while (env.TRUE) {
-
-        let { parent, context, component, options } = route
-
-        if (route === startRoute) {
-
-          if (parent) {
-
-            context = parent.context as Yox
-            context.forceUpdate(
-              filterProps(parent, location, parent.options as YoxOptions)
-            )
-
-            context = context[ROUTE_VIEW]
-            if (context) {
-              const props = {}
-              props[COMPONENT] = component
-              context[ROUTE] = route
-              context.component(component, options)
-              context.forceUpdate(props)
-            }
-
-          }
-          else {
-
-            if (context) {
-              context.destroy()
-              const oldRoute = context[ROUTE]
-              oldRoute.context = env.UNDEFINED
-              instance.guard(oldRoute, constant.HOOK_AFTER_LEAVE)
-            }
-
-            // 每层路由组件都有 $route 和 $router 属性
-            const extensions = {}
-            extensions[ROUTER] = instance
-            extensions[ROUTE] = route
-
-            route.context = new Yox(
-              Yox.object.extend(
-                {
-                  el: instance.el,
-                  props: filterProps(route, location, options as YoxOptions),
-                  extensions,
-                },
-                options as YoxOptions
-              )
-            )
-
-            instance.guard(route, constant.HOOK_AFTER_ENTER)
-
-          }
-
-        }
-
-        else if (context) {
-          context[ROUTE] = route
-          context.forceUpdate(
-            filterProps(route, location, options as YoxOptions)
-          )
-          // 如果 <router-view> 定义在 if 里
-          // 当 router-view 从无到有时，这里要读取最新的 child
-          // 当 router-view 从有到无时，这里要判断它是否存在
-          if (context[ROUTE_VIEW] && route.child) {
-            route = route.child as typeUtil.LinkedRoute
-            continue
-          }
-        }
-        break
-      }
-    },
-
-    enterRoute = function (route: typeUtil.LinkedRoute) {
+    enterRoute = function (route: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) {
       instance.guard(
         newRoute,
         constant.HOOK_BEFORE_ENTER,
@@ -534,7 +546,7 @@ export class Router {
           instance.route = newRoute
           instance.location = location
 
-          updateRoute(route)
+          instance.updateRoute(route, startRoute)
 
         }
       )
@@ -543,23 +555,22 @@ export class Router {
     instance.hooks.setLocation(location, oldLocation)
 
     // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
-    diffRoute(
+    instance.diffRoute(
       newRoute,
       oldRoute,
-      env.UNDEFINED,
-      function (route) {
+      function (route, startRoute) {
 
         if (oldRoute) {
           instance.guard(
             oldRoute,
             constant.HOOK_BEFORE_LEAVE,
             function () {
-              enterRoute(route)
+              enterRoute(route, startRoute)
             }
           )
         }
         else {
-          enterRoute(route)
+          enterRoute(route, startRoute)
         }
 
       }
