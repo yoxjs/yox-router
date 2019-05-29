@@ -18,7 +18,7 @@ import * as hashUtil from './hash'
 
 let Yox: YoxClass, registry: Yox, domApi: API
 
-const OUTLET = '$outlet',
+const ROUTE_VIEW = '$routeView',
 
 ROUTE = '$route',
 
@@ -322,18 +322,6 @@ export class Router {
 
   }
 
-  setHash(path: string, params: Object | void, query: Object | void) {
-
-    path = formatPath(path)
-
-    if (!this.path2Route[path]) {
-      path = this.route404.path
-    }
-
-    location.hash = constant.PREFIX_HASH + hashUtil.stringify(Yox, path, params, query)
-
-  }
-
   /**
    * 启动路由
    */
@@ -352,7 +340,7 @@ export class Router {
   /**
    * 路由守卫
    */
-  guard(route: typeUtil.LinkedRoute, name: string, callback?: () => void) {
+  private guard(route: typeUtil.LinkedRoute, name: string, callback?: () => void) {
 
     // 必须是叶子节点
     if (route.child) {
@@ -388,6 +376,18 @@ export class Router {
     else if (callback) {
       callback()
     }
+
+  }
+
+  private setHash(path: string, params: Object | void, query: Object | void) {
+
+    path = formatPath(path)
+
+    if (!this.path2Route[path]) {
+      path = this.route404.path
+    }
+
+    location.hash = constant.PREFIX_HASH + hashUtil.stringify(Yox, path, params, query)
 
   }
 
@@ -467,7 +467,7 @@ export class Router {
               filterProps(parent, location, parent.options as YoxOptions)
             )
 
-            context = context[OUTLET]
+            context = context[ROUTE_VIEW]
             if (context) {
               const props = {}
               props[COMPONENT] = component
@@ -516,7 +516,7 @@ export class Router {
           // 如果 <router-view> 定义在 if 里
           // 当 router-view 从无到有时，这里要读取最新的 child
           // 当 router-view 从有到无时，这里要判断它是否存在
-          if (context[OUTLET] && route.child) {
+          if (context[ROUTE_VIEW] && route.child) {
             route = route.child as typeUtil.LinkedRoute
             continue
           }
@@ -611,7 +611,7 @@ const RouterView: YoxOptions = {
 
     if (route) {
 
-      $parent[OUTLET] = this
+      $parent[ROUTE_VIEW] = this
 
       const props = {}, components = {}
 
@@ -625,7 +625,7 @@ const RouterView: YoxOptions = {
 
   },
   beforeDestroy() {
-    this.$parent[OUTLET] = env.UNDEFINED
+    this.$parent[ROUTE_VIEW] = env.UNDEFINED
   },
   beforeChildCreate(childOptions: YoxOptions) {
 
