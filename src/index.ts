@@ -61,6 +61,40 @@ function formatPath(path: string, parentPath: string | void) {
   return path
 }
 
+function toLocation(target: typeUtil.Target, name2Path: type.data, path2Route: type.data): typeUtil.Location {
+  let path: string, params: type.data | void, query: type.data | void
+
+  if (Yox.is.string(target)) {
+    path = target as string
+  }
+  else {
+    const route = target as typeUtil.RouteTarget, name = route.name
+    if (name) {
+      path = name2Path[name]
+      if (process.env.NODE_ENV === 'dev') {
+        if (!Yox.is.string(path)) {
+          Yox.logger.error(`The route of name[${name}] is not found.`)
+        }
+      }
+    }
+    else {
+      path = route.path as string
+    }
+    params = route.params
+    query = route.query
+  }
+
+  path = formatPath(path)
+
+  if (process.env.NODE_ENV === 'dev') {
+    if (!path2Route[path]) {
+      Yox.logger.error(`The route of path[${path}] is not found.`)
+    }
+  }
+
+  return { path, params, query }
+}
+
 /**
  * 按照 propTypes 定义的外部数据格式过滤路由参数，这样有两个好处：
  *
@@ -109,6 +143,10 @@ export class Router {
 
   path2Route: Record<string, typeUtil.LinkedRoute>
 
+  history: typeUtil.Location[]
+
+  pending: typeUtil.Pending | void
+
   hooks: Hooks
 
   // 路由或参数发生了变化会触发此函数
@@ -141,27 +179,42 @@ export class Router {
      */
     instance.onChange = function () {
 
-      let hashStr = location.hash
+      const { pending } = instance
 
-      // 如果不以 PREFIX_HASH 开头，表示不合法
-      hashStr = Yox.string.startsWith(hashStr, constant.PREFIX_HASH)
-        ? hashStr.substr(constant.PREFIX_HASH.length)
-        : ''
-
-      const hash = hashUtil.parse(Yox, instance.routes, hashStr), { route } = hash
-
-      if (route) {
+      // 通过 push 或 replace 触发的
+      if (pending) {
+        instance.pending = env.UNDEFINED
         instance.setRoute(
-          {
-            path: route.path,
-            params: hash.params,
-            query: hash.query,
-          },
-          route
+          pending.location,
+          pending.route,
+          pending.complete
         )
       }
+      // 直接修改地址栏触发
       else {
-        instance.push(instance.route404)
+
+        let hashStr = location.hash
+
+        // 如果不以 PREFIX_HASH 开头，表示不合法
+        hashStr = Yox.string.startsWith(hashStr, constant.PREFIX_HASH)
+          ? hashStr.substr(constant.PREFIX_HASH.length)
+          : ''
+
+        const hash = hashUtil.parse(Yox, instance.routes, hashStr), { route } = hash
+
+        if (route) {
+          instance.setRoute(
+            {
+              path: route.path,
+              params: hash.params,
+              query: hash.query,
+            },
+            route
+          )
+        }
+        else {
+          instance.replace(instance.route404)
+        }
       }
 
     }
@@ -177,6 +230,7 @@ export class Router {
     instance.name2Path = {}
     instance.path2Route = {}
 
+    instance.history = []
     instance.hooks = new Hooks()
 
     instance.add(options.routes)
@@ -298,30 +352,27 @@ export class Router {
    */
   push(target: typeUtil.Target) {
 
-    let path: string, params: type.data | void, query: type.data | void
+    const instance = this
 
-    if (Yox.is.string(target)) {
-      path = target as string
-    }
-    else {
-      const route = target as typeUtil.RouteTarget, name = route.name
-      if (name) {
-        path = this.name2Path[name]
-        if (process.env.NODE_ENV === 'dev') {
-          if (!Yox.is.string(path)) {
-            Yox.logger.error(`Name[${name}] of the route is not found.`)
-            return
-          }
-        }
+    instance.setHash(
+      toLocation(target, instance.name2Path, instance.path2Route),
+      function (location) {
+        instance.history.push(location)
       }
-      else {
-        path = route.path as string
-      }
-      params = route.params
-      query = route.query
-    }
+    )
 
-    this.setHash(path, params, query)
+  }
+
+  replace(target: typeUtil.Target) {
+
+    const instance = this
+
+    instance.setHash(
+      toLocation(target, instance.name2Path, instance.path2Route),
+      function (location) {
+        instance.history[instance.history.length - 1] = location
+      }
+    )
 
   }
 
@@ -343,14 +394,14 @@ export class Router {
   /**
    * 路由守卫
    */
-  private guard(route: typeUtil.LinkedRoute, name: string, callback?: () => void) {
+  guard(route: typeUtil.LinkedRoute, name: string, isGuard: boolean, callback?: typeUtil.Callback) {
 
     // 必须是叶子节点
     if (route.child) {
       return
     }
 
-    const instance = this, { hooks } = instance, { to, from } = hooks
+    const instance = this, { location, hooks } = instance, { to, from } = hooks
 
     if (!from || from.path !== to.path) {
 
@@ -365,9 +416,14 @@ export class Router {
 
       const next = function (value?: false | typeUtil.Target) {
         if (value === env.UNDEFINED) {
-          hooks.next(next, callback)
+          hooks.next(next, isGuard, callback)
         }
-        else if (value !== env.FALSE) {
+        else if (value === env.FALSE) {
+          if (location) {
+            instance.replace(location)
+          }
+        }
+        else {
           // 跳转到别的路由
           instance.push(value)
         }
@@ -382,25 +438,36 @@ export class Router {
 
   }
 
-  private setHash(path: string, params: Object | void, query: Object | void) {
+  private setHash(location: typeUtil.Location, complete: typeUtil.RouteComplete) {
 
-    path = formatPath(path)
+    let instance = this,
 
-    if (this.path2Route[path]) {
-      path = hashUtil.stringify(Yox, path, params, query)
+    route = instance.path2Route[location.path],
+
+    hashStr: string
+
+    if (route) {
+      hashStr = hashUtil.stringify(Yox, location.path, location.params, location.query)
     }
     else {
-      path = this.route404.path
+      route = instance.route404
+      hashStr = route.path
     }
 
-    location.hash = constant.PREFIX_HASH + path
+    instance.pending = {
+      location,
+      route,
+      complete,
+    }
+
+    window.location.hash = constant.PREFIX_HASH + hashStr
 
   }
 
   private diffRoute(
     route: typeUtil.LinkedRoute,
     oldRoute: typeUtil.LinkedRoute | void,
-    onComplete: (route: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) => void,
+    complete: typeUtil.DiffComplete,
     startRoute: typeUtil.LinkedRoute | void,
     childRoute: typeUtil.LinkedRoute | void,
   ) {
@@ -436,7 +503,7 @@ export class Router {
           instance.diffRoute(
             Yox.object.copy(route.parent),
             oldRoute ? oldRoute.parent : env.UNDEFINED,
-            onComplete,
+            complete,
             startRoute,
             route,
           )
@@ -444,7 +511,7 @@ export class Router {
         }
 
         // 到达根组件，结束
-        onComplete(route, startRoute)
+        complete(route, startRoute)
 
       }
     )
@@ -491,7 +558,7 @@ export class Router {
             context.destroy()
             const oldRoute = context[ROUTE]
             oldRoute.context = env.UNDEFINED
-            instance.guard(oldRoute, constant.HOOK_AFTER_LEAVE)
+            instance.guard(oldRoute, constant.HOOK_AFTER_LEAVE, env.FALSE)
           }
 
           // 每层路由组件都有 $route 和 $router 属性
@@ -510,7 +577,7 @@ export class Router {
             )
           )
 
-          instance.guard(route, constant.HOOK_AFTER_ENTER)
+          instance.guard(route, constant.HOOK_AFTER_ENTER, env.FALSE)
 
         }
 
@@ -533,52 +600,54 @@ export class Router {
     }
   }
 
-  private setRoute(location: typeUtil.Location, route: typeUtil.LinkedRoute) {
+  private setRoute(location: typeUtil.Location, route: typeUtil.LinkedRoute, complete?: typeUtil.RouteComplete) {
 
     const instance = this,
 
-    oldRoute = instance.route,
-
     newRoute = Yox.object.copy(route),
 
-    enterRoute = function (route: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) {
-      instance.guard(
+    oldRoute = instance.route,
+
+    enterRoute = function () {
+      // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
+      instance.diffRoute(
         newRoute,
-        constant.HOOK_BEFORE_ENTER,
-        function () {
+        oldRoute,
+        function (route, startRoute) {
+          instance.guard(
+            newRoute,
+            constant.HOOK_BEFORE_ENTER,
+            env.TRUE,
+            function () {
 
-          instance.route = newRoute
-          instance.location = location
+              instance.route = newRoute
+              instance.location = location
 
-          instance.updateRoute(route, startRoute)
+              instance.updateRoute(route, startRoute)
 
+              if (complete) {
+                complete(location)
+              }
+
+            }
+          )
         }
       )
     }
 
     instance.hooks.setLocation(location, instance.location)
 
-    // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
-    instance.diffRoute(
-      newRoute,
-      oldRoute,
-      function (route, startRoute) {
-
-        if (oldRoute) {
-          instance.guard(
-            oldRoute,
-            constant.HOOK_BEFORE_LEAVE,
-            function () {
-              enterRoute(route, startRoute)
-            }
-          )
-        }
-        else {
-          enterRoute(route, startRoute)
-        }
-
-      }
-    )
+    if (oldRoute) {
+      instance.guard(
+        oldRoute,
+        constant.HOOK_BEFORE_LEAVE,
+        env.TRUE,
+        enterRoute
+      )
+    }
+    else {
+      enterRoute()
+    }
 
   }
 
@@ -670,7 +739,7 @@ const RouterView: YoxOptions = {
 
     if (route) {
       route.context = child
-      router.guard(route, constant.HOOK_AFTER_ENTER)
+      router.guard(route, constant.HOOK_AFTER_ENTER, env.FALSE)
     }
 
   },
@@ -682,7 +751,7 @@ const RouterView: YoxOptions = {
 
     if (route) {
       route.context = env.UNDEFINED
-      router.guard(route, constant.HOOK_AFTER_LEAVE)
+      router.guard(route, constant.HOOK_AFTER_LEAVE, env.FALSE)
     }
 
   }

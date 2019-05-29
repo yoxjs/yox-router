@@ -16,9 +16,15 @@ export type Target = string | RouteTarget
 
 export type Next = (value?: false | Target) => void
 
+export type Callback = () => void
+
 export type BeforeHook = (to: Location, from: Location | void, next: Next) => void
 
 export type AfterHook = (to: Location, from: Location | void) => void
+
+export type RouteComplete = (location: Location) => void
+
+export type DiffComplete = (route: LinkedRoute, startRoute: LinkedRoute | void) => void
 
 export interface RouterOptions {
   el: Element
@@ -59,4 +65,10 @@ export interface Location {
   path: string
   params?: type.data
   query?: type.data
+}
+
+export interface Pending {
+  location: Location
+  route: LinkedRoute
+  complete: RouteComplete
 }
