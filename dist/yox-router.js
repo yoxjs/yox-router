@@ -338,7 +338,7 @@
   }
   var Router = /** @class */ (function () {
       function Router(options) {
-          var instance = this, route404 = options.route404, routes = [], name2Path = {}, path2Route = {};
+          var instance = this, route404 = options.route404;
           instance.el = options.el;
           /**
            * hashchange 事件处理函数
@@ -351,7 +351,7 @@
               hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : '';
-              var hash = parse$2(Yox, routes, hashStr), route = hash.route;
+              var hash = parse$2(Yox, instance.routes, hashStr), route = hash.route;
               if (route) {
                   instance.setRoute({
                       path: route.path,
@@ -360,10 +360,25 @@
                   }, route);
               }
               else {
-                  instance.push(notFound);
+                  instance.push(instance.route404);
               }
           };
-          var pathStack = [], routeStack = [], callback = function (routeOptions) {
+          {
+              if (!route404) {
+                  Yox.logger.error("Route for 404 is required.");
+                  return;
+              }
+          }
+          instance.routes = [];
+          instance.name2Path = {};
+          instance.path2Route = {};
+          instance.hooks = new Hooks();
+          instance.add(options.routes);
+          instance.add([route404]);
+          instance.route404 = Yox.array.last(instance.routes);
+      }
+      Router.prototype.add = function (routes) {
+          var instance = this, pathStack = [], routeStack = [], callback = function (routeOptions) {
               var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children, parentPath = pathStack[pathStack.length - 1], parentRoute = routeStack[routeStack.length - 1];
               path = formatPath(path, parentPath);
               var route = { path: path, component: component, route: routeOptions }, params = [];
@@ -386,46 +401,28 @@
                   pathStack.pop();
               }
               else {
-                  routes.push(route);
+                  instance.routes.push(route);
                   if (name) {
                       {
-                          if (Yox.object.has(name2Path, name)) {
+                          if (Yox.object.has(instance.name2Path, name)) {
                               Yox.logger.error("Name[" + name + "] of the route is existed.");
                               return;
                           }
                       }
-                      name2Path[name] = path;
+                      instance.name2Path[name] = path;
                   }
                   {
-                      if (Yox.object.has(path2Route, path)) {
+                      if (Yox.object.has(instance.path2Route, path)) {
                           Yox.logger.error("path [" + path + "] of the route is existed.");
                           return;
                       }
                   }
-                  path2Route[path] = route;
+                  instance.path2Route[path] = route;
               }
           };
-          Yox.array.each(options.routes, callback);
+          Yox.array.each(routes, callback);
           pathStack = routeStack = UNDEFINED;
-          {
-              if (!route404) {
-                  Yox.logger.error("Route for 404 is required.");
-                  return;
-              }
-          }
-          var notFound = {
-              path: formatPath(route404.path),
-              route: route404,
-              component: route404.component
-          };
-          routes.push(notFound);
-          path2Route[notFound.path] = notFound;
-          instance.route404 = notFound;
-          instance.routes = routes;
-          instance.path2Route = path2Route;
-          instance.name2Path = name2Path;
-          instance.hooks = new Hooks();
-      }
+      };
       /**
        * 真正执行路由切换操作的函数
        *
@@ -456,9 +453,7 @@
               path = target;
           }
           else {
-              params = target.params;
-              query = target.query;
-              var name = target.name;
+              var route = target, name = route.name;
               if (name) {
                   path = this.name2Path[name];
                   {
@@ -469,8 +464,10 @@
                   }
               }
               else {
-                  path = target.path;
+                  path = route.path;
               }
+              params = route.params;
+              query = route.query;
           }
           this.setHash(path, params, query);
       };

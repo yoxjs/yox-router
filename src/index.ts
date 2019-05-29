@@ -130,15 +130,7 @@ export class Router {
 
   constructor(options: typeUtil.RouterOptions) {
 
-    const instance = this,
-
-    route404 = options.route404,
-
-    routes: typeUtil.LinkedRoute[] = [],
-
-    name2Path = {},
-
-    path2Route = {}
+    const instance = this, route404 = options.route404
 
     instance.el = options.el
 
@@ -156,7 +148,7 @@ export class Router {
         ? hashStr.substr(constant.PREFIX_HASH.length)
         : ''
 
-      const hash = hashUtil.parse(Yox, routes, hashStr), { route } = hash
+      const hash = hashUtil.parse(Yox, instance.routes, hashStr), { route } = hash
 
       if (route) {
         instance.setRoute(
@@ -169,12 +161,34 @@ export class Router {
         )
       }
       else {
-        instance.push(notFound)
+        instance.push(instance.route404)
       }
 
     }
 
-    let pathStack: any = [], routeStack: any = [],
+    if (process.env.NODE_ENV === 'dev') {
+      if (!route404) {
+        Yox.logger.error(`Route for 404 is required.`)
+        return
+      }
+    }
+
+    instance.routes = []
+    instance.name2Path = {}
+    instance.path2Route = {}
+
+    instance.hooks = new Hooks()
+
+    instance.add(options.routes)
+    instance.add([route404])
+
+    instance.route404 = Yox.array.last(instance.routes) as typeUtil.LinkedRoute
+
+  }
+
+  add(routes: typeUtil.RouteOptions[]) {
+
+    let instance = this, pathStack: any = [], routeStack: any = [],
 
     callback = function (routeOptions: typeUtil.RouteOptions) {
 
@@ -221,62 +235,37 @@ export class Router {
       }
       else {
 
-        routes.push(route)
+        instance.routes.push(route)
 
         if (name) {
           if (process.env.NODE_ENV === 'dev') {
-            if (Yox.object.has(name2Path, name)) {
+            if (Yox.object.has(instance.name2Path, name)) {
               Yox.logger.error(`Name[${name}] of the route is existed.`)
               return
             }
           }
-          name2Path[name] = path
+          instance.name2Path[name] = path
         }
 
         if (process.env.NODE_ENV === 'dev') {
-          if (Yox.object.has(path2Route, path)) {
+          if (Yox.object.has(instance.path2Route, path)) {
             Yox.logger.error(`path [${path}] of the route is existed.`)
             return
           }
         }
 
-        path2Route[path] = route
+        instance.path2Route[path] = route
 
       }
 
     }
 
     Yox.array.each(
-      options.routes,
+      routes,
       callback
     )
 
     pathStack = routeStack = env.UNDEFINED
-
-    if (process.env.NODE_ENV === 'dev') {
-      if (!route404) {
-        Yox.logger.error(`Route for 404 is required.`)
-        return
-      }
-    }
-
-    const notFound = {
-      path: formatPath(route404.path),
-      route: route404,
-      component: route404.component,
-    }
-
-    routes.push(notFound)
-    path2Route[notFound.path] = notFound
-
-    instance.route404 = notFound
-
-    instance.routes = routes
-    instance.path2Route = path2Route
-
-    instance.name2Path = name2Path
-
-    instance.hooks = new Hooks()
 
   }
 
