@@ -524,35 +524,35 @@
           }
           location.hash = PREFIX_HASH + stringify$2(Yox, path, params, query);
       };
-      Router.prototype.diffRoute = function (newRoute, oldRoute, onComplete, startRoute, childRoute) {
+      Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute) {
           var instance = this;
           // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
-          registry.loadComponent(newRoute.component, function (options) {
-              newRoute.options = options;
+          registry.loadComponent(route.component, function (options) {
+              route.options = options;
               // 更新链路
               if (childRoute) {
-                  newRoute.child = childRoute;
-                  childRoute.parent = newRoute;
+                  route.child = childRoute;
+                  childRoute.parent = route;
               }
               if (oldRoute) {
                   // 同级的两个组件不同，疑似起始更新的路由
                   if (oldRoute.options !== options) {
-                      startRoute = newRoute;
+                      startRoute = route;
                   }
                   else {
                       // 把上次的组件实例搞过来
-                      newRoute.context = oldRoute.context;
+                      route.context = oldRoute.context;
                   }
               }
               else {
-                  startRoute = newRoute;
+                  startRoute = route;
               }
-              if (newRoute.parent) {
-                  instance.diffRoute(Yox.object.copy(newRoute.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, newRoute);
+              if (route.parent) {
+                  instance.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route);
                   return;
               }
               // 到达根组件，结束
-              onComplete(newRoute, startRoute);
+              onComplete(route, startRoute);
           });
       };
       Router.prototype.updateRoute = function (route, startRoute) {
@@ -606,18 +606,15 @@
               break;
           }
       };
-      /**
-       * 切换路由
-       */
       Router.prototype.setRoute = function (location, route) {
-          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), oldLocation = instance.location, enterRoute = function (route, startRoute) {
+          var instance = this, oldRoute = instance.route, newRoute = Yox.object.copy(route), enterRoute = function (route, startRoute) {
               instance.guard(newRoute, HOOK_BEFORE_ENTER, function () {
                   instance.route = newRoute;
                   instance.location = location;
                   instance.updateRoute(route, startRoute);
               });
           };
-          instance.hooks.setLocation(location, oldLocation);
+          instance.hooks.setLocation(location, instance.location);
           // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
           instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
               if (oldRoute) {

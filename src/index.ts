@@ -392,59 +392,62 @@ export class Router {
   }
 
   private diffRoute(
-    newRoute: typeUtil.LinkedRoute,
+    route: typeUtil.LinkedRoute,
     oldRoute: typeUtil.LinkedRoute | void,
-    onComplete: (topRoute: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) => void,
+    onComplete: (route: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) => void,
     startRoute: typeUtil.LinkedRoute | void,
     childRoute: typeUtil.LinkedRoute | void,
   ) {
     const instance = this
     // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
     registry.loadComponent(
-      newRoute.component,
+      route.component,
       function (options) {
 
-        newRoute.options = options
+        route.options = options
 
         // 更新链路
         if (childRoute) {
-          newRoute.child = childRoute
-          childRoute.parent = newRoute
+          route.child = childRoute
+          childRoute.parent = route
         }
 
         if (oldRoute) {
           // 同级的两个组件不同，疑似起始更新的路由
           if (oldRoute.options !== options) {
-            startRoute = newRoute
+            startRoute = route
           }
           else {
             // 把上次的组件实例搞过来
-            newRoute.context = oldRoute.context
+            route.context = oldRoute.context
           }
         }
         else {
-          startRoute = newRoute
+          startRoute = route
         }
 
-        if (newRoute.parent) {
+        if (route.parent) {
           instance.diffRoute(
-            Yox.object.copy(newRoute.parent),
+            Yox.object.copy(route.parent),
             oldRoute ? oldRoute.parent : env.UNDEFINED,
             onComplete,
             startRoute,
-            newRoute,
+            route,
           )
           return
         }
 
         // 到达根组件，结束
-        onComplete(newRoute, startRoute)
+        onComplete(route, startRoute)
 
       }
     )
   }
 
-  private updateRoute(route: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) {
+  private updateRoute(
+    route: typeUtil.LinkedRoute,
+    startRoute: typeUtil.LinkedRoute | void
+  ) {
 
     const instance = this, location = instance.location as typeUtil.Location
 
@@ -524,18 +527,13 @@ export class Router {
     }
   }
 
-  /**
-   * 切换路由
-   */
   private setRoute(location: typeUtil.Location, route: typeUtil.LinkedRoute) {
 
-    let instance = this,
+    const instance = this,
 
     oldRoute = instance.route,
 
     newRoute = Yox.object.copy(route),
-
-    oldLocation = instance.location,
 
     enterRoute = function (route: typeUtil.LinkedRoute, startRoute: typeUtil.LinkedRoute | void) {
       instance.guard(
@@ -552,7 +550,7 @@ export class Router {
       )
     }
 
-    instance.hooks.setLocation(location, oldLocation)
+    instance.hooks.setLocation(location, instance.location)
 
     // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
     instance.diffRoute(
