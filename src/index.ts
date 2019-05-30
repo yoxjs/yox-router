@@ -145,6 +145,8 @@ export class Router {
 
   history: typeUtil.Location[]
 
+  cursor: number
+
   pending: typeUtil.Pending | void
 
   hooks: Hooks
@@ -231,6 +233,8 @@ export class Router {
     instance.path2Route = {}
 
     instance.history = []
+    instance.cursor = -1
+
     instance.hooks = new Hooks()
 
     instance.add(options.routes)
@@ -357,7 +361,14 @@ export class Router {
     instance.setHash(
       toLocation(target, instance.name2Path, instance.path2Route),
       function (location) {
-        instance.history.push(location)
+        const history = instance.history, cursor = instance.cursor + 1
+        // 确保下一个为空
+        // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
+        if (history[cursor]) {
+          history.length = cursor
+        }
+        history[cursor] = location
+        instance.cursor = cursor
       }
     )
 
@@ -370,9 +381,31 @@ export class Router {
     instance.setHash(
       toLocation(target, instance.name2Path, instance.path2Route),
       function (location) {
-        instance.history[instance.history.length - 1] = location
+        const history = instance.history, cursor = instance.cursor
+        if (history[cursor]) {
+          history[cursor] = location
+        }
       }
     )
+
+  }
+
+  go(offset: number) {
+
+    const instance = this,
+
+    cursor = instance.cursor + offset,
+
+    location = instance.history[cursor]
+
+    if (location) {
+      instance.setHash(
+        location,
+        function () {
+          instance.cursor = cursor
+        }
+      )
+    }
 
   }
 

@@ -411,6 +411,7 @@
           instance.name2Path = {};
           instance.path2Route = {};
           instance.history = [];
+          instance.cursor = -1;
           instance.hooks = new Hooks();
           instance.add(options.routes);
           instance.add([route404]);
@@ -492,14 +493,32 @@
       Router.prototype.push = function (target) {
           var instance = this;
           instance.setHash(toLocation(target, instance.name2Path, instance.path2Route), function (location) {
-              instance.history.push(location);
+              var history = instance.history, cursor = instance.cursor + 1;
+              // 确保下一个为空
+              // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
+              if (history[cursor]) {
+                  history.length = cursor;
+              }
+              history[cursor] = location;
+              instance.cursor = cursor;
           });
       };
       Router.prototype.replace = function (target) {
           var instance = this;
           instance.setHash(toLocation(target, instance.name2Path, instance.path2Route), function (location) {
-              instance.history[instance.history.length - 1] = location;
+              var history = instance.history, cursor = instance.cursor;
+              if (history[cursor]) {
+                  history[cursor] = location;
+              }
           });
+      };
+      Router.prototype.go = function (offset) {
+          var instance = this, cursor = instance.cursor + offset, location = instance.history[cursor];
+          if (location) {
+              instance.setHash(location, function () {
+                  instance.cursor = cursor;
+              });
+          }
       };
       /**
        * 启动路由
