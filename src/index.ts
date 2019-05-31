@@ -117,11 +117,9 @@ function filterProps(route: typeUtil.LinkedRoute, location: typeUtil.Location, o
 
     // 从 location.params 挑出 route.params 定义过的参数
     if (routeParams && locationParams) {
-      if (!props) {
-        props = {}
-      }
+      props = props ? Yox.object.copy(props) : {}
       for (let i = 0, key: string; key = routeParams[i]; i++) {
-        props[key] = locationParams[key]
+        (props as type.data)[key] = locationParams[key]
       }
     }
 
@@ -427,7 +425,9 @@ export class Router {
   guard(route: typeUtil.LinkedRoute, name: string, isGuard?: boolean, callback?: typeUtil.Callback) {
 
     // 必须是叶子节点
-    if (route.child) {
+    // 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
+    const child = route.child
+    if (child && child.context) {
       return
     }
 
@@ -596,7 +596,6 @@ export class Router {
           if (context) {
             const props = {}
             props[ROUTE_COMPONENT] = component
-            context[ROUTE] = route
             context.component(component, options)
             context.forceUpdate(props)
           }
