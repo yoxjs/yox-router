@@ -7,6 +7,7 @@ export const PREFIX_PARAM = ':'
 // path 分隔符
 export const SEPARATOR_PATH = '/'
 
+// path 和 search 的分隔符
 export const SEPARATOR_SEARCH = '?'
 
 // 导航钩子 - 路由进入之前

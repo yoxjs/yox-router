@@ -20,6 +20,9 @@ CDN
 ```html
 <script src="https://unpkg.com/yox@latest"></script>
 <script src="https://unpkg.com/yox-router@latest"></script>
+<script>
+  Yox.use(YoxRouter)
+</script>
 ```
 
 ## Document
