@@ -24,6 +24,13 @@
   var RAW_UNDEFINED = 'undefined';
 
   /**
+   * Single instance for noop function
+   */
+  var EMPTY_FUNCTION = function () {
+    /** yox */
+  };
+
+  /**
    * 空对象，很多地方会用到，比如 `a || EMPTY_OBJECT` 确保是个对象
    */
   var EMPTY_OBJECT = Object.freeze({});
@@ -281,7 +288,7 @@
   }
 
   var Yox, registry, domApi;
-  var ROUTE_VIEW = '$routeView', ROUTE = '$route', ROUTER = '$router', COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
+  var WINDOW = window, LOCATION = WINDOW.location, ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -375,30 +382,30 @@
            * 否则一旦解绑，所有实例都解绑了
            */
           instance.onChange = function () {
-              var pending = instance.pending;
+              var hashStr = LOCATION.hash, pending = instance.pending, routes = instance.routes, route404 = instance.route404;
               // 通过 push 或 replace 触发的
               if (pending) {
+                  if (pending.hash === hashStr) {
+                      instance.setRoute(pending.location, pending.route);
+                      return;
+                  }
                   instance.pending = UNDEFINED;
-                  instance.setRoute(pending.location, pending.route, pending.complete);
               }
+              // 如果不以 PREFIX_HASH 开头，表示不合法
+              hashStr = hashStr.indexOf(PREFIX_HASH) === 0
+                  ? hashStr.substr(PREFIX_HASH.length)
+                  : '';
               // 直接修改地址栏触发
+              var hash = parse$2(Yox, routes, hashStr), route = hash.route;
+              if (route) {
+                  instance.setRoute({
+                      path: route.path,
+                      params: hash.params,
+                      query: hash.query
+                  }, route);
+              }
               else {
-                  var hashStr = location.hash;
-                  // 如果不以 PREFIX_HASH 开头，表示不合法
-                  hashStr = Yox.string.startsWith(hashStr, PREFIX_HASH)
-                      ? hashStr.substr(PREFIX_HASH.length)
-                      : '';
-                  var hash = parse$2(Yox, instance.routes, hashStr), route = hash.route;
-                  if (route) {
-                      instance.setRoute({
-                          path: route.path,
-                          params: hash.params,
-                          query: hash.query
-                      }, route);
-                  }
-                  else {
-                      instance.replace(instance.route404);
-                  }
+                  instance.replace(route404);
               }
           };
           {
@@ -501,7 +508,7 @@
               }
               history[cursor] = location;
               instance.cursor = cursor;
-          });
+          }, EMPTY_FUNCTION);
       };
       Router.prototype.replace = function (target) {
           var instance = this;
@@ -510,14 +517,14 @@
               if (history[cursor]) {
                   history[cursor] = location;
               }
-          });
+          }, EMPTY_FUNCTION);
       };
       Router.prototype.go = function (offset) {
           var instance = this, cursor = instance.cursor + offset, location = instance.history[cursor];
           if (location) {
               instance.setHash(location, function () {
                   instance.cursor = cursor;
-              });
+              }, EMPTY_FUNCTION);
           }
       };
       /**
@@ -541,7 +548,7 @@
           if (route.child) {
               return;
           }
-          var instance = this, location = instance.location, hooks = instance.hooks, to = hooks.to, from = hooks.from;
+          var instance = this, location = instance.location, hooks = instance.hooks, pending = instance.pending, to = hooks.to, from = hooks.from;
           if (!from || from.path !== to.path) {
               hooks
                   .setName(name)
@@ -555,14 +562,22 @@
                   if (value === UNDEFINED) {
                       hooks.next(next_1, isGuard, callback);
                   }
-                  else if (value === FALSE) {
-                      if (location) {
-                          instance.replace(location);
-                      }
-                  }
                   else {
-                      // 跳转到别的路由
-                      instance.push(value);
+                      // 只有前置守卫才有可能走进这里
+                      // 此时 instance.location 还是旧地址
+                      if (pending) {
+                          pending.abort();
+                          instance.pending = UNDEFINED;
+                      }
+                      if (value === FALSE) {
+                          if (location) {
+                              instance.replace(location);
+                          }
+                      }
+                      else {
+                          // 跳转到别的路由
+                          instance.push(value);
+                      }
                   }
               };
               next_1();
@@ -571,21 +586,27 @@
               callback();
           }
       };
-      Router.prototype.setHash = function (location, complete) {
-          var instance = this, route = instance.path2Route[location.path], hashStr;
+      Router.prototype.setHash = function (location, complete, abort) {
+          var instance = this, route = instance.path2Route[location.path], hash;
           if (route) {
-              hashStr = stringify$2(Yox, location.path, location.params, location.query);
+              hash = stringify$2(Yox, location.path, location.params, location.query);
           }
           else {
               route = instance.route404;
-              hashStr = route.path;
+              hash = route.path;
+          }
+          hash = PREFIX_HASH + hash;
+          if (hash === LOCATION.hash) {
+              return;
           }
           instance.pending = {
               location: location,
               route: route,
-              complete: complete
+              hash: hash,
+              complete: complete,
+              abort: abort
           };
-          window.location.hash = PREFIX_HASH + hashStr;
+          LOCATION.hash = hash;
       };
       Router.prototype.diffRoute = function (route, oldRoute, complete, startRoute, childRoute) {
           var instance = this;
@@ -630,7 +651,7 @@
                       context = context[ROUTE_VIEW];
                       if (context) {
                           var props = {};
-                          props[COMPONENT] = component;
+                          props[ROUTE_COMPONENT] = component;
                           context[ROUTE] = route;
                           context.component(component, options);
                           context.forceUpdate(props);
@@ -639,9 +660,6 @@
                   else {
                       if (context) {
                           context.destroy();
-                          var oldRoute = context[ROUTE];
-                          oldRoute.context = UNDEFINED;
-                          instance.guard(oldRoute, HOOK_AFTER_LEAVE, FALSE);
                       }
                       // 每层路由组件都有 $route 和 $router 属性
                       var extensions = {};
@@ -652,7 +670,6 @@
                           props: filterProps(route, location, options),
                           extensions: extensions
                       }, options));
-                      instance.guard(route, HOOK_AFTER_ENTER, FALSE);
                   }
               }
               else if (context) {
@@ -669,17 +686,13 @@
               break;
           }
       };
-      Router.prototype.setRoute = function (location, route, complete) {
+      Router.prototype.setRoute = function (location, route) {
           var instance = this, newRoute = Yox.object.copy(route), oldRoute = instance.route, enterRoute = function () {
-              // 先确保加载到组件 options，这样才能在 guard 方法中调用 options 的路由钩子
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
                   instance.guard(newRoute, HOOK_BEFORE_ENTER, TRUE, function () {
                       instance.route = newRoute;
                       instance.location = location;
                       instance.updateRoute(route, startRoute);
-                      if (complete) {
-                          complete(location);
-                      }
                   });
               });
           };
@@ -718,13 +731,13 @@
       }
   };
   var RouterView = {
-      template: '<$' + COMPONENT + '/>',
+      template: '<$' + ROUTE_COMPONENT + '/>',
       beforeCreate: function (options) {
           var $parent = options.parent, route = $parent[ROUTE].child;
           if (route) {
               $parent[ROUTE_VIEW] = this;
               var props = {}, components = {};
-              props[COMPONENT] = route.component;
+              props[ROUTE_COMPONENT] = route.component;
               components[route.component] = route.options;
               options.props = props;
               options.components = components;
@@ -732,29 +745,6 @@
       },
       beforeDestroy: function () {
           this.$parent[ROUTE_VIEW] = UNDEFINED;
-      },
-      beforeChildCreate: function (childOptions) {
-          var $parent = this.$parent, router = $parent[ROUTER], route = $parent[ROUTE].child, extensions = {};
-          extensions[ROUTE] = route;
-          extensions[ROUTER] = router;
-          if (router.location) {
-              childOptions.props = filterProps(route, router.location, childOptions);
-          }
-          childOptions.extensions = extensions;
-      },
-      afterChildCreate: function (child) {
-          var router = child[ROUTER], route = child[ROUTE];
-          if (route) {
-              route.context = child;
-              router.guard(route, HOOK_AFTER_ENTER, FALSE);
-          }
-      },
-      beforeChildDestroy: function (child) {
-          var router = child[ROUTER], route = child[ROUTE];
-          if (route) {
-              route.context = UNDEFINED;
-              router.guard(route, HOOK_AFTER_LEAVE, FALSE);
-          }
       }
   };
   /**
@@ -780,6 +770,56 @@
           RouterView: RouterView,
           'router-view': RouterView
       });
+      var beforeCreate = Yox.beforeCreate, afterMount = Yox.afterMount, afterDestroy = Yox.afterDestroy;
+      Yox.beforeCreate = function (options) {
+          if (beforeCreate) {
+              beforeCreate(options);
+          }
+          var parent = options.parent;
+          // 处理 <router-view> 嵌入的组件
+          if (parent && options.beforeCreate !== RouterView.beforeCreate) {
+              // parent 是 <router-view> 实例，得再上一层才是路由组件
+              parent = parent.$parent;
+              if (parent) {
+                  var router = parent[ROUTER], route = parent[ROUTE].child;
+                  if (router && route) {
+                      var extensions = options.extensions = {};
+                      extensions[ROUTER] = router;
+                      extensions[ROUTE] = route;
+                      if (router.location) {
+                          options.props = filterProps(route, router.location, options);
+                      }
+                  }
+              }
+          }
+      };
+      Yox.afterMount = function (instance) {
+          if (afterMount) {
+              afterMount(instance);
+          }
+          var route = instance[ROUTE];
+          if (route) {
+              var router = instance[ROUTER];
+              route.context = instance;
+              router.guard(route, HOOK_AFTER_ENTER);
+              var pending = router.pending;
+              if (pending) {
+                  pending.complete(pending.location);
+                  router.pending = UNDEFINED;
+              }
+          }
+      };
+      Yox.afterDestroy = function (instance) {
+          if (afterDestroy) {
+              afterDestroy(instance);
+          }
+          var route = instance[ROUTE];
+          if (route) {
+              var router = instance[ROUTER];
+              route.context = UNDEFINED;
+              router.guard(route, HOOK_AFTER_LEAVE);
+          }
+      };
   }
 
   exports.Router = Router;

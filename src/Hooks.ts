@@ -37,7 +37,7 @@ export default class Hooks {
     return this
   }
 
-  next(next: typeUtil.Next, isGuard: boolean, complete?: typeUtil.Callback) {
+  next(next: typeUtil.Next, isGuard?: boolean, complete?: typeUtil.Callback) {
     const task = this.list.shift()
     if (task) {
       if (isGuard) {

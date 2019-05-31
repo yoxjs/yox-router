@@ -1,5 +1,5 @@
 /**
- * yox.js v1.0.0-alpha.43
+ * yox.js v1.0.0-alpha.47
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -1342,10 +1342,6 @@
   var HOOK_AFTER_UPDATE = 'afterUpdate';
   var HOOK_BEFORE_DESTROY = 'beforeDestroy';
   var HOOK_AFTER_DESTROY = 'afterDestroy';
-  var HOOK_BEFORE_CHILD_CREATE = 'beforeChildCreate';
-  var HOOK_AFTER_CHILD_CREATE = 'afterChildCreate';
-  var HOOK_BEFORE_CHILD_DESTROY = 'beforeChildDestroy';
-  var HOOK_AFTER_CHILD_DESTROY = 'afterChildDestroy';
 
   var guid = 0;
   function guid$1 () {
@@ -1452,7 +1448,7 @@
                   }
                   props[node.$model] = model;
               }
-              var result = merge(props ? node.checkPropTypes(props) : UNDEFINED, slots);
+              var result = merge(props ? node.checkProps(props) : UNDEFINED, slots);
               if (result) {
                   node.forceUpdate(result);
               }
@@ -2153,39 +2149,7 @@
       '^': { prec: 8, exec: function (a, b) { return a ^ b; } },
       '|': { prec: 7, exec: function (a, b) { return a | b; } },
       '&&': { prec: 6, exec: function (a, b) { return a && b; } },
-      '||': { prec: 5, exec: function (a, b) { return a || b; } },
-      '->': {
-          prec: 0,
-          exec: function (a, b) {
-              return a > b
-                  ? function (callback) {
-                      for (var i = a, index = 0; i > b; i--) {
-                          callback(i, index++);
-                      }
-                  }
-                  : function (callback) {
-                      for (var i = a, index = 0; i < b; i++) {
-                          callback(i, index++);
-                      }
-                  };
-          }
-      },
-      '=>': {
-          prec: 0,
-          exec: function (a, b) {
-              return a > b
-                  ? function (callback) {
-                      for (var i = a, index = 0; i >= b; i--) {
-                          callback(i, index++);
-                      }
-                  }
-                  : function (callback) {
-                      for (var i = a, index = 0; i <= b; i++) {
-                          callback(i, index++);
-                      }
-                  };
-          }
-      }
+      '||': { prec: 5, exec: function (a, b) { return a || b; } }
   };
 
   function compile(content) {
@@ -2652,13 +2616,10 @@
                       }
                   }
                   break;
-              // -、->
+              // -
               case CODE_MINUS:
                   instance.go();
-                  if (instance.is(CODE_GREAT)) {
-                      instance.go();
-                  }
-                  else {
+                  {
                       // --
                       if (instance.is(CODE_MINUS)) {
                           instance.fatal(startIndex, "\u4E0D\u652F\u6301\u8BE5\u8BED\u6CD5");
@@ -2692,7 +2653,7 @@
                       instance.go();
                   }
                   break;
-              // ==、===、=>
+              // ==、===
               case CODE_EQUAL:
                   instance.go();
                   if (instance.is(CODE_EQUAL)) {
@@ -2700,9 +2661,6 @@
                       if (instance.is(CODE_EQUAL)) {
                           instance.go();
                       }
-                  }
-                  else if (instance.is(CODE_GREAT)) {
-                      instance.go();
                   }
                   // 一个等号要报错
                   else {
@@ -3033,10 +2991,12 @@
           children: children
       };
   }
-  function createEach(expr, index) {
+  function createEach(from, to, equal, index) {
       return {
           type: EACH,
-          expr: expr,
+          from: from,
+          to: to,
+          equal: equal,
           index: index,
           isComplex: TRUE
       };
@@ -3129,6 +3089,11 @@
   eventPattern = /^[_$a-z]([\w]+)?$/i,
   // 有命名空间的事件
   eventNamespacePattern = /^[_$a-z]([\w]+)?\.[_$a-z]([\w]+)?$/i,
+  // 换行符
+  // 换行符比较神奇，有时候你明明看不到换行符，却真的存在一个，那就是 \r
+  breaklinePattern = /^\s*[\n\r]\s*|\s*[\n\r]\s*$/g,
+  // 区间遍历
+  rangePattern = /\s*(=>|->)\s*/,
   // 标签
   tagPattern = /<(\/)?([$a-z][-a-z0-9]*)/i,
   // 注释
@@ -3172,15 +3137,6 @@
    */
   function slicePrefix(str, prefix) {
       return trim(slice(str, prefix.length));
-  }
-  /**
-   * trim 文本开始和结束位置的换行符
-   *
-   * 换行符比较神奇，有时候你明明看不到换行符，却真的存在一个，那就是 \r
-   *
-   */
-  function trimBreakline(content) {
-      return content.replace(/^\s*[\n\r]\s*|\s*[\n\r]\s*$/g, EMPTY_STRING);
   }
   function compile$1(content) {
       var nodeList = [], nodeStack = [],
@@ -3546,8 +3502,9 @@
               replaceChild(partial);
           }
       }, checkElement = function (element) {
+          var isTemplate = element.tag === RAW_TEMPLATE;
           {
-              if (element.tag === RAW_TEMPLATE) {
+              if (isTemplate) {
                   if (element.key) {
                       fatal$1("<template> \u4E0D\u652F\u6301 key");
                   }
@@ -3561,15 +3518,20 @@
                       fatal$1("<template> \u4E0D\u5199 slot \u5C5E\u6027\u662F\u51E0\u4E2A\u610F\u601D\uFF1F");
                   }
               }
-              else if (element.tag === RAW_SLOT && !element.name) {
-                  fatal$1("<slot> \u4E0D\u5199 name \u5C5E\u6027\u662F\u51E0\u4E2A\u610F\u601D\uFF1F");
-              }
+          }
+          // 没有子节点，则意味着这个插槽没任何意义
+          if (isTemplate && element.slot && !element.children) {
+              replaceChild(element);
+          }
+          // <slot /> 如果没写 name，自动加上默认名称
+          else if (element.tag === RAW_SLOT && !element.name) {
+              element.name = 'children';
           }
           // style 如果啥都没写，就默认加一个 type="text/css"
           // 因为低版本 IE 没这个属性，没法正常渲染样式
           // 如果 style 写了 attribute 那就自己保证吧
           // 因为 attrs 具有动态性，compiler 无法保证最终一定会输出 type 属性
-          if (element.isStyle && falsy(element.attrs)) {
+          else if (element.isStyle && falsy(element.attrs)) {
               element.attrs = [
                   createProperty('type', HINT_STRING, 'text/css')
               ];
@@ -3716,7 +3678,8 @@
           // </Component>
           // 按现在的逻辑，这样的组件是没有子节点的，因为在这里过滤掉了，因此该组件没有 slot
           // 如果这里放开了，组件就会有一个 slot
-          text = trimBreakline(text);
+          // trim 文本开始和结束位置的换行符
+          text = text.replace(breaklinePattern, EMPTY_STRING);
           if (text) {
               addChild(createText(text));
           }
@@ -3931,18 +3894,27 @@
           // {{#each xx:index}}
           function (source) {
               if (startsWith(source, SYNTAX_EACH)) {
+                  {
+                      if (currentElement) {
+                          fatal$1(currentAttribute
+                              ? "each \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u7684\u503C\u91CC"
+                              : "each \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u5C42\u7EA7");
+                      }
+                  }
                   source = slicePrefix(source, SYNTAX_EACH);
                   var terms = source.replace(/\s+/g, EMPTY_STRING).split(':');
                   if (terms[0]) {
-                      var expr = compile(trim(terms[0]));
-                      if (expr) {
-                          if (!currentElement) {
-                              return createEach(expr, trim(terms[1]));
+                      var literal = trim(terms[0]), index_1 = trim(terms[1]), match = literal.match(rangePattern);
+                      if (match) {
+                          var parts = literal.split(rangePattern), from = compile(parts[0]), to = compile(parts[2]);
+                          if (from && to) {
+                              return createEach(from, to, trim(match[1]) === '=>', index_1);
                           }
-                          else {
-                              fatal$1(currentAttribute
-                                  ? "each \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u7684\u503C\u91CC"
-                                  : "each \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u5C42\u7EA7");
+                      }
+                      else {
+                          var expr = compile(literal);
+                          if (expr) {
+                              return createEach(expr, UNDEFINED, FALSE, index_1);
                           }
                       }
                   }
@@ -4601,7 +4573,13 @@
   nodeStringify[EACH] = function (node) {
       // compiler 保证了 children 一定有值
       var generate = stringifyFunction(stringifyChildren(node.children, node.isComplex));
-      return stringifyCall(RENDER_EACH, join(trimArgs([generate, toJSON(node.expr), node.index ? toJSON(node.index) : UNDEFINED]), SEP_COMMA));
+      return stringifyCall(RENDER_EACH, join(trimArgs([
+          generate,
+          toJSON(node.from),
+          node.to ? toJSON(node.to) : UNDEFINED,
+          node.equal ? STRING_TRUE : UNDEFINED,
+          node.index ? toJSON(node.index) : UNDEFINED
+      ]), SEP_COMMA));
   };
   nodeStringify[PARTIAL] = function (node) {
       var name = toJSON(node.name),
@@ -4625,12 +4603,6 @@
   }
 
   var nodeExecutor = {};
-  nodeExecutor[LITERAL] = function (node) {
-      return node.value;
-  };
-  nodeExecutor[IDENTIFIER] = function (node, getter) {
-      return getter(node.name, node);
-  };
   nodeExecutor[MEMBER] = function (node, getter, context) {
       /**
        * 先说第一种奇葩情况：
@@ -4704,7 +4676,12 @@
       }));
   };
   function execute$1(node, getter, context) {
-      return nodeExecutor[node.type](node, getter, context);
+      // LITERAL 和 IDENTIFIER 避免再一次的函数调用
+      return node.type === LITERAL
+          ? node.value
+          : node.type === IDENTIFIER
+              ? getter(node.name, node)
+              : nodeExecutor[node.type](node, getter, context);
   }
 
   function setPair(target, name, key, value) {
@@ -4996,40 +4973,74 @@
                   fatal("partial [" + name + "] is not found.");
               }
           }
-      }, renderEach = function (handler, expr, index) {
-          var value = getValue(expr), exprKeypath = expr['ak'], eachKeypath = exprKeypath || join$1($keypath, expr.raw), callback = function (item, key, length) {
-              var lastKeypath = $keypath, lastScope = $scope, lastKeypathStack = $stack;
-              $keypath = join$1(eachKeypath, toString(key));
-              $scope = {};
-              $stack = copy($stack);
-              push($stack, $keypath);
-              push($stack, $scope);
-              // 从下面这几句赋值可以看出
-              // scope 至少会有 '$keypath' '$length' '$item' index 等几个值
-              $scope.$keypath = $keypath;
-              // 避免模板里频繁读取 list.length
+      }, eachHandler = function (lastLength, lastKeypath, lastScope, generate, item, key, keypath, index, length) {
+          $keypath = keypath;
+          $scope = {};
+          $stack.push($keypath, $scope);
+          // each 会改变 $keypath
+          $scope.$keypath = $keypath;
+          // 避免模板里频繁读取 list.length
+          if (isDef(length)) {
               $scope.$length = length;
-              // 类似 {{#each 1 -> 10}} 这样的临时循环，需要在 scope 上加上当前项
-              // 因为通过 context.get() 无法获取数据
-              if (!exprKeypath) {
-                  $scope.$item = item;
-              }
-              if (index) {
-                  $scope[index] = key;
-              }
-              handler();
-              $keypath = lastKeypath;
-              $scope = lastScope;
-              $stack = lastKeypathStack;
-          };
-          if (array(value)) {
-              each(value, callback);
           }
-          else if (object(value)) {
-              each$2(value, callback);
+          // 业务层是否写了 expr:index
+          if (index) {
+              $scope[index] = key;
           }
-          else if (func(value)) {
-              value(callback);
+          // 无法通过 context.get($keypath + key) 读取到数据的场景
+          // 必须把 item 写到 scope
+          if (!keypath) {
+              $scope.$item = item;
+          }
+          generate();
+          $stack.length = lastLength;
+          $keypath = lastKeypath;
+          $scope = lastScope;
+      }, renderEach = function (generate, from, to, equal, index) {
+          var fromValue = getValue(from), lastLength = $stack.length, lastKeypath = $keypath, lastScope = $scope;
+          if (to) {
+              var toValue = getValue(to), count = 0;
+              if (fromValue < toValue) {
+                  if (equal) {
+                      for (var i = fromValue; i <= toValue; i++) {
+                          eachHandler(lastLength, lastKeypath, lastScope, generate, i, count++, EMPTY_STRING, index);
+                      }
+                  }
+                  else {
+                      for (var i = fromValue; i < toValue; i++) {
+                          eachHandler(lastLength, lastKeypath, lastScope, generate, i, count++, EMPTY_STRING, index);
+                      }
+                  }
+              }
+              else {
+                  if (equal) {
+                      for (var i = fromValue; i >= toValue; i--) {
+                          eachHandler(lastLength, lastKeypath, lastScope, generate, i, count++, EMPTY_STRING, index);
+                      }
+                  }
+                  else {
+                      for (var i = fromValue; i > toValue; i--) {
+                          eachHandler(lastLength, lastKeypath, lastScope, generate, i, count++, EMPTY_STRING, index);
+                      }
+                  }
+              }
+          }
+          else {
+              var eachKeypath = from['ak'];
+              if (array(fromValue)) {
+                  for (var i = 0, length = fromValue.length; i < length; i++) {
+                      eachHandler(lastLength, lastKeypath, lastScope, generate, fromValue[i], i, eachKeypath
+                          ? join$1(eachKeypath, EMPTY_STRING + i)
+                          : EMPTY_STRING, index, length);
+                  }
+              }
+              else if (object(fromValue)) {
+                  for (var key in fromValue) {
+                      eachHandler(lastLength, lastKeypath, lastScope, generate, fromValue[key], key, eachKeypath
+                          ? join$1(eachKeypath, key)
+                          : EMPTY_STRING, index);
+                  }
+              }
           }
       };
       return template(renderExpression, renderExpressionArg, renderExpressionVnode, renderTextVnode, renderAttributeVnode, renderPropertyVnode, renderLazyVnode, renderTransitionVnode, renderModelVnode, renderEventMethodVnode, renderEventNameVnode, renderDirectiveVnode, renderSpreadVnode, renderElementVnode, renderSlot, renderPartial, renderImport, renderEach);
@@ -5769,22 +5780,24 @@
   }, createEvent = function (event, node) {
       return event;
   };
-  if (DOCUMENT) {
-      // 此时 document.body 不一定有值，比如 script 放在 head 里
-      if (!DOCUMENT.documentElement.classList) {
-          addClass = function (node, className) {
-              var classes = node.className.split(CHAR_WHITESPACE);
-              if (!has(classes, className)) {
-                  push(classes, className);
-                  node.className = join(classes, CHAR_WHITESPACE);
-              }
-          };
-          removeClass = function (node, className) {
-              var classes = node.className.split(CHAR_WHITESPACE);
-              if (remove(classes, className)) {
-                  node.className = join(classes, CHAR_WHITESPACE);
-              }
-          };
+  {
+      if (DOCUMENT) {
+          // 此时 document.body 不一定有值，比如 script 放在 head 里
+          if (!DOCUMENT.documentElement.classList) {
+              addClass = function (node, className) {
+                  var classes = node.className.split(CHAR_WHITESPACE);
+                  if (!has(classes, className)) {
+                      push(classes, className);
+                      node.className = join(classes, CHAR_WHITESPACE);
+                  }
+              };
+              removeClass = function (node, className) {
+                  var classes = node.className.split(CHAR_WHITESPACE);
+                  if (remove(classes, className)) {
+                      node.className = join(classes, CHAR_WHITESPACE);
+                  }
+              };
+          }
       }
   }
   var CHAR_WHITESPACE = ' ',
@@ -6234,6 +6247,7 @@
           var instance = this, $options = options || EMPTY_OBJECT;
           // 一进来就执行 before create
           execute($options[HOOK_BEFORE_CREATE], instance, $options);
+          execute(Yox[HOOK_BEFORE_CREATE], UNDEFINED, $options);
           instance.$options = $options;
           var data = $options.data, props = $options.props, computed = $options.computed, events = $options.events, methods = $options.methods, watchers = $options.watchers, extensions = $options.extensions;
           // 如果传了 props，则 data 应该是个 function
@@ -6433,66 +6447,62 @@
           }
       };
       Yox.checkProp = function (key, value, rule) {
-          // 类型
-          var type = rule.type,
-          // 默认值
-          defaultValue = rule.value;
-          // 传了数据
-          if (isDef(value)) {
-              {
-                  // 如果不写 type 或 type 不是 字符串 或 数组
-                  // 就当做此规则无效，和没写一样
-                  if (type) {
-                      // 自定义函数判断是否匹配类型
-                      // 自己打印警告信息吧
-                      if (func(type)) {
-                          type(key, value);
+          {
+              // 类型
+              var type_1 = rule.type,
+              // 默认值
+              defaultValue = rule.value;
+              // 传了数据
+              if (isDef(value)) {
+                  {
+                      // 如果不写 type 或 type 不是 字符串 或 数组
+                      // 就当做此规则无效，和没写一样
+                      if (type_1) {
+                          // 自定义函数判断是否匹配类型
+                          // 自己打印警告信息吧
+                          if (func(type_1)) {
+                              type_1(key, value);
+                          }
+                          else {
+                              var matched_1 = FALSE;
+                              // type: 'string'
+                              if (!falsy$1(type_1)) {
+                                  matched_1 = matchType(value, type_1);
+                              }
+                              // type: ['string', 'number']
+                              else if (!falsy(type_1)) {
+                                  each(type_1, function (item) {
+                                      if (matchType(value, item)) {
+                                          matched_1 = TRUE;
+                                          return FALSE;
+                                      }
+                                  });
+                              }
+                              if (!matched_1) {
+                                  warn("The type of prop \"" + key + "\" expected to be \"" + type_1 + "\", but is \"" + value + "\".");
+                              }
+                          }
                       }
                       else {
-                          var matched_1 = FALSE;
-                          // type: 'string'
-                          if (!falsy$1(type)) {
-                              matched_1 = matchType(value, type);
-                          }
-                          // type: ['string', 'number']
-                          else if (!falsy(type)) {
-                              each(type, function (item) {
-                                  if (matchType(value, item)) {
-                                      matched_1 = TRUE;
-                                      return FALSE;
-                                  }
-                              });
-                          }
-                          if (!matched_1) {
-                              warn("The type of prop \"" + key + "\" expected to be \"" + type + "\", but is \"" + value + "\".");
-                          }
+                          warn("The prop \"" + key + "\" in propTypes has no type.");
                       }
                   }
-                  else {
-                      warn("The prop \"" + key + "\" in propTypes has no type.");
-                  }
               }
-          }
-          else {
-              {
-                  // 是否必传
-                  var required = rule.required;
-                  // 动态化获取是否必填
-                  if (func(required)) {
-                      required = required(key, value);
+              else {
+                  {
+                      // 没传值但此项是必传项
+                      if (rule.required) {
+                          warn("The prop \"" + key + "\" is marked as required, but its value is not found.");
+                      }
                   }
-                  // 没传值但此项是必传项
-                  if (required) {
-                      warn("The prop \"" + key + "\" is marked as required, but its value is not found.");
+                  // 没传值但是配置了默认值
+                  if (isDef(defaultValue)) {
+                      value = type_1 === RAW_FUNCTION
+                          ? defaultValue
+                          : func(defaultValue)
+                              ? defaultValue()
+                              : defaultValue;
                   }
-              }
-              // 没传值但是配置了默认值
-              if (isDef(defaultValue)) {
-                  value = type === RAW_FUNCTION
-                      ? defaultValue
-                      : func(defaultValue)
-                          ? defaultValue(key, value)
-                          : defaultValue;
               }
           }
           return value;
@@ -6643,11 +6653,13 @@
        * @param callback 组件加载成功后的回调
        */
       Yox.prototype.loadComponent = function (name, callback) {
-          if (!loadComponent(this.$components, name, callback)) {
-              var hasComponent = loadComponent(globalComponents, name, callback);
-              {
-                  if (!hasComponent) {
-                      error("Component [" + name + "] is not found.");
+          {
+              if (!loadComponent(this.$components, name, callback)) {
+                  var hasComponent = loadComponent(globalComponents, name, callback);
+                  {
+                      if (!hasComponent) {
+                          error("Component [" + name + "] is not found.");
+                      }
                   }
               }
           }
@@ -6660,7 +6672,7 @@
        */
       Yox.prototype.createComponent = function (options, vnode) {
           {
-              var instance = this, $options = instance.$options;
+              var instance = this;
               options = copy(options);
               options.root = instance.$root || instance;
               options.parent = instance;
@@ -6680,7 +6692,6 @@
               if (slots) {
                   options.slots = slots;
               }
-              execute($options[HOOK_BEFORE_CHILD_CREATE], instance, options);
               var child = new Yox(options);
               push(instance.$children || (instance.$children = []), child);
               var node = child.$el;
@@ -6690,7 +6701,6 @@
               else {
                   fatal("The root element of [Component " + vnode.tag + "] is not found.");
               }
-              execute($options[HOOK_AFTER_CHILD_CREATE], instance, child);
               return child;
           }
       };
@@ -6777,32 +6787,33 @@
        */
       Yox.prototype.update = function (vnode, oldVnode) {
           {
-              var instance_1 = this, $vnode = instance_1.$vnode, $options = instance_1.$options, hook_1;
+              var instance_1 = this, $vnode = instance_1.$vnode, $options_1 = instance_1.$options, afterHook_1;
               // 每次渲染重置 refs
               // 在渲染过程中收集最新的 ref
               // 这样可避免更新时，新的 ref，在前面创建，老的 ref 却在后面删除的情况
               instance_1.$refs = {};
               if ($vnode) {
-                  execute($options[HOOK_BEFORE_UPDATE], instance_1);
+                  execute($options_1[HOOK_BEFORE_UPDATE], instance_1);
+                  execute(Yox[HOOK_BEFORE_UPDATE], UNDEFINED, instance_1);
                   patch(domApi, vnode, oldVnode);
-                  hook_1 = $options[HOOK_AFTER_UPDATE];
+                  afterHook_1 = HOOK_AFTER_UPDATE;
               }
               else {
-                  execute($options[HOOK_BEFORE_MOUNT], instance_1);
+                  execute($options_1[HOOK_BEFORE_MOUNT], instance_1);
+                  execute(Yox[HOOK_BEFORE_MOUNT], UNDEFINED, instance_1);
                   patch(domApi, vnode, oldVnode);
                   instance_1.$el = vnode.node;
-                  hook_1 = $options[HOOK_AFTER_MOUNT];
+                  afterHook_1 = HOOK_AFTER_MOUNT;
               }
               instance_1.$vnode = vnode;
               // 跟 nextTask 保持一个节奏
               // 这样可以预留一些优化的余地
-              if (hook_1) {
-                  Yox.nextTick(function () {
-                      if (instance_1.$vnode) {
-                          execute(hook_1, instance_1);
-                      }
-                  });
-              }
+              Yox.nextTick(function () {
+                  if (instance_1.$vnode) {
+                      execute($options_1[afterHook_1], instance_1);
+                      execute(Yox[afterHook_1], UNDEFINED, instance_1);
+                  }
+              });
           }
       };
       /**
@@ -6825,9 +6836,9 @@
       };
       Yox.prototype.checkProp = function (key, value) {
           {
-              var options = this.$options;
-              if (options && options.propTypes) {
-                  var rule = options.propTypes[key];
+              var propTypes = this.$options.propTypes;
+              if (propTypes) {
+                  var rule = propTypes[key];
                   if (rule) {
                       value = Yox.checkProp(key, value, rule);
                   }
@@ -6840,10 +6851,8 @@
        */
       Yox.prototype.destroy = function () {
           var instance = this, $parent = instance.$parent, $options = instance.$options, $emitter = instance.$emitter, $observer = instance.$observer;
-          if ($parent) {
-              execute($parent.$options[HOOK_BEFORE_CHILD_DESTROY], $parent, instance);
-          }
           execute($options[HOOK_BEFORE_DESTROY], instance);
+          execute(Yox[HOOK_BEFORE_DESTROY], UNDEFINED, instance);
           {
               var $vnode = instance.$vnode;
               if ($parent && $parent.$children) {
@@ -6857,11 +6866,9 @@
           }
           $emitter.off();
           $observer.destroy();
-          clear(instance);
           execute($options[HOOK_AFTER_DESTROY], instance);
-          if ($parent) {
-              execute($parent.$options[HOOK_AFTER_CHILD_DESTROY], $parent, instance);
-          }
+          execute(Yox[HOOK_AFTER_DESTROY], UNDEFINED, instance);
+          clear(instance);
       };
       /**
        * 因为组件采用的是异步更新机制，为了在更新之后进行一些操作，可使用 nextTick
@@ -6959,7 +6966,7 @@
       /**
        * core 版本
        */
-      Yox.version = "1.0.0-alpha.43";
+      Yox.version = "1.0.0-alpha.47";
       /**
        * 方便外部共用的通用逻辑，特别是写插件，减少重复代码
        */
@@ -6983,6 +6990,7 @@
           instance.watch(watchers);
       }
       execute(instance.$options[HOOK_AFTER_CREATE], instance);
+      execute(Yox[HOOK_AFTER_CREATE], UNDEFINED, instance);
   }
   function setFlexibleOptions(instance, key, value) {
       if (func(value)) {

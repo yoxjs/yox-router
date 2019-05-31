@@ -24,6 +24,8 @@ export type AfterHook = (to: Location, from: Location | void) => void
 
 export type RouteComplete = (location: Location) => void
 
+export type RouteAbort = () => void
+
 export type DiffComplete = (route: LinkedRoute, startRoute: LinkedRoute | void) => void
 
 export interface RouterOptions {
@@ -70,5 +72,7 @@ export interface Location {
 export interface Pending {
   location: Location
   route: LinkedRoute
+  hash: string
   complete: RouteComplete
+  abort: RouteAbort
 }
