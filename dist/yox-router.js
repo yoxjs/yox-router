@@ -68,7 +68,7 @@
           }
           return this;
       };
-      Hooks.prototype.next = function (next, isGuard, complete) {
+      Hooks.prototype.next = function (next, isGuard, callback) {
           var task = this.list.shift();
           if (task) {
               if (isGuard) {
@@ -79,8 +79,8 @@
                   next();
               }
           }
-          else if (complete) {
-              complete();
+          else if (callback) {
+              callback();
           }
       };
       return Hooks;
@@ -92,6 +92,7 @@
   var PREFIX_PARAM = ':';
   // path 分隔符
   var SEPARATOR_PATH = '/';
+  // path 和 search 的分隔符
   var SEPARATOR_SEARCH = '?';
   // 导航钩子 - 路由进入之前
   var HOOK_BEFORE_ENTER = 'beforeEnter';
