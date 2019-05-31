@@ -62,7 +62,7 @@ export interface Location {
   query?: type.data
 }
 
-export interface Pending {
+export interface Loading {
   location: Location
   route: LinkedRoute
   hash: string

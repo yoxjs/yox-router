@@ -151,7 +151,7 @@ export class Router {
 
   cursor: number
 
-  pending: typeUtil.Pending | void
+  loading: typeUtil.Loading | void
 
   hooks: Hooks
 
@@ -185,18 +185,18 @@ export class Router {
      */
     instance.onChange = function () {
 
-      let hashStr = LOCATION.hash, { pending, routes, route404 } = instance
+      let hashStr = LOCATION.hash, { loading, routes, route404 } = instance
 
       // 通过 push 或 replace 触发的
-      if (pending) {
-        if (pending.hash === hashStr) {
+      if (loading) {
+        if (loading.hash === hashStr) {
           instance.setRoute(
-            pending.location,
-            pending.route
+            loading.location,
+            loading.route
           )
           return
         }
-        instance.pending = env.UNDEFINED
+        instance.loading = env.UNDEFINED
       }
 
       // 如果不以 PREFIX_HASH 开头，表示不合法
@@ -431,7 +431,7 @@ export class Router {
       return
     }
 
-    const instance = this, { location, hooks, pending } = instance, { to, from } = hooks
+    const instance = this, { location, hooks, loading } = instance, { to, from } = hooks
 
     if (!from || from.path !== to.path) {
 
@@ -451,9 +451,9 @@ export class Router {
         else {
           // 只有前置守卫才有可能走进这里
           // 此时 instance.location 还是旧地址
-          if (pending) {
-            pending.onAbort()
-            instance.pending = env.UNDEFINED
+          if (loading) {
+            loading.onAbort()
+            instance.loading = env.UNDEFINED
           }
           if (value === env.FALSE) {
             if (location) {
@@ -502,7 +502,7 @@ export class Router {
       return
     }
 
-    instance.pending = {
+    instance.loading = {
       location,
       route,
       hash,
@@ -833,10 +833,10 @@ export function install(Class: YoxClass): void {
       route.context = instance
       router.guard(route, constant.HOOK_AFTER_ENTER)
 
-      const pending = router.pending
-      if (pending) {
-        pending.onComplete()
-        router.pending = env.UNDEFINED
+      const loading = router.loading
+      if (loading) {
+        loading.onComplete()
+        router.loading = env.UNDEFINED
       }
     }
   }

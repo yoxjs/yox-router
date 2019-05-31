@@ -381,14 +381,14 @@
            * 否则一旦解绑，所有实例都解绑了
            */
           instance.onChange = function () {
-              var hashStr = LOCATION.hash, pending = instance.pending, routes = instance.routes, route404 = instance.route404;
+              var hashStr = LOCATION.hash, loading = instance.loading, routes = instance.routes, route404 = instance.route404;
               // 通过 push 或 replace 触发的
-              if (pending) {
-                  if (pending.hash === hashStr) {
-                      instance.setRoute(pending.location, pending.route);
+              if (loading) {
+                  if (loading.hash === hashStr) {
+                      instance.setRoute(loading.location, loading.route);
                       return;
                   }
-                  instance.pending = UNDEFINED;
+                  instance.loading = UNDEFINED;
               }
               // 如果不以 PREFIX_HASH 开头，表示不合法
               hashStr = hashStr.indexOf(PREFIX_HASH) === 0
@@ -543,7 +543,7 @@
           if (route.child) {
               return;
           }
-          var instance = this, location = instance.location, hooks = instance.hooks, pending = instance.pending, to = hooks.to, from = hooks.from;
+          var instance = this, location = instance.location, hooks = instance.hooks, loading = instance.loading, to = hooks.to, from = hooks.from;
           if (!from || from.path !== to.path) {
               hooks
                   .setName(name)
@@ -560,9 +560,9 @@
                   else {
                       // 只有前置守卫才有可能走进这里
                       // 此时 instance.location 还是旧地址
-                      if (pending) {
-                          pending.onAbort();
-                          instance.pending = UNDEFINED;
+                      if (loading) {
+                          loading.onAbort();
+                          instance.loading = UNDEFINED;
                       }
                       if (value === FALSE) {
                           if (location) {
@@ -594,7 +594,7 @@
           if (hash === LOCATION.hash) {
               return;
           }
-          instance.pending = {
+          instance.loading = {
               location: location,
               route: route,
               hash: hash,
@@ -797,10 +797,10 @@
               var router = instance[ROUTER];
               route.context = instance;
               router.guard(route, HOOK_AFTER_ENTER);
-              var pending = router.pending;
-              if (pending) {
-                  pending.onComplete();
-                  router.pending = UNDEFINED;
+              var loading = router.loading;
+              if (loading) {
+                  loading.onComplete();
+                  router.loading = UNDEFINED;
               }
           }
       };
