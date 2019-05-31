@@ -30,7 +30,9 @@ ROUTE_VIEW = '$routeView',
 
 ROUTE_COMPONENT = 'RouteComponent',
 
-EVENT_CLICK = 'click'
+EVENT_CLICK = 'click',
+
+EVENT_HASH_CHANGE = 'hashchange'
 
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
@@ -408,7 +410,7 @@ export class Router {
    * 启动路由
    */
   start() {
-    domApi.on(window, 'hashchange', this.onChange as type.listener)
+    domApi.on(window, EVENT_HASH_CHANGE, this.onChange as type.listener)
     this.onChange()
   }
 
@@ -416,7 +418,7 @@ export class Router {
    * 停止路由
    */
   stop() {
-    domApi.off(window, 'hashchange', this.onChange as type.listener)
+    domApi.off(window, EVENT_HASH_CHANGE, this.onChange as type.listener)
   }
 
   /**
@@ -438,7 +440,7 @@ export class Router {
       hooks
         .setName(name)
         // 先调用组件的钩子
-        .add(route.options, route.context)
+        .add(route.options as YoxOptions, route.context)
         // 再调用路由配置的钩子
         .add(route.route, route.route)
         // 最后调用路由实例的钩子
@@ -517,7 +519,7 @@ export class Router {
   private diffRoute(
     route: typeUtil.LinkedRoute,
     oldRoute: typeUtil.LinkedRoute | void,
-    complete: typeUtil.DiffComplete,
+    onComplete: typeUtil.DiffComplete,
     startRoute: typeUtil.LinkedRoute | void,
     childRoute: typeUtil.LinkedRoute | void,
   ) {
@@ -553,7 +555,7 @@ export class Router {
           instance.diffRoute(
             Yox.object.copy(route.parent),
             oldRoute ? oldRoute.parent : env.UNDEFINED,
-            complete,
+            onComplete,
             startRoute,
             route,
           )
@@ -561,7 +563,7 @@ export class Router {
         }
 
         // 到达根组件，结束
-        complete(route, startRoute)
+        onComplete(route, startRoute)
 
       }
     )

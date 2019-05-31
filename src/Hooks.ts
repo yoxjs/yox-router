@@ -2,7 +2,7 @@ import Task from '../../yox-type/src/interface/Task'
 import YoxOptions from '../../yox-type/src/options/Yox'
 import { Router } from './index'
 
-import * as typeUtil from './type'
+import * as type from './type'
 
 export default class Hooks {
 
@@ -10,11 +10,11 @@ export default class Hooks {
 
   list: Task[]
 
-  to: typeUtil.Location
+  to: type.Location
 
-  from: typeUtil.Location | void
+  from: type.Location | void
 
-  setLocation(to: typeUtil.Location, from: typeUtil.Location | void) {
+  setLocation(to: type.Location, from: type.Location | void) {
     this.to = to
     this.from = from
     return this
@@ -26,9 +26,9 @@ export default class Hooks {
     return this
   }
 
-  add(target: YoxOptions | typeUtil.RouteOptions | Router | void, ctx: any) {
+  add(target: YoxOptions | type.RouteOptions | Router, ctx: any) {
     const { name, list } = this
-    if (target && target[name]) {
+    if (target[name]) {
       list.push({
         fn: target[name],
         ctx,
@@ -37,7 +37,7 @@ export default class Hooks {
     return this
   }
 
-  next(next: typeUtil.Next, isGuard?: boolean, callback?: typeUtil.Callback) {
+  next(next: type.Next, isGuard?: boolean, callback?: type.Callback) {
     const task = this.list.shift()
     if (task) {
       if (isGuard) {

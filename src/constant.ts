@@ -10,6 +10,15 @@ export const SEPARATOR_PATH = '/'
 // path 和 search 的分隔符
 export const SEPARATOR_SEARCH = '?'
 
+// query 分隔符
+export const SEPARATOR_QUERY = '&'
+
+// 键值对分隔符
+export const SEPARATOR_PAIR = '='
+
+// 参数中的数组标识
+export const FLAG_ARRAY = '[]'
+
 // 导航钩子 - 路由进入之前
 export const HOOK_BEFORE_ENTER = 'beforeEnter'
 

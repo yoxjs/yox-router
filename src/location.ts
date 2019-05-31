@@ -1,4 +1,3 @@
-import * as env from '../../yox-common/src/util/env'
 import YoxClass from '../../yox-type/src/interface/YoxClass'
 
 import * as type from './type'
@@ -9,7 +8,7 @@ import * as queryUtil from './query'
 /**
  * 解析 path 中的参数
  */
-function parseParams(Yox: YoxClass, realpath: string, path: string) {
+function parseParams(Yox: YoxClass, path: string, realpath: string) {
 
   let result: Object | undefined,
 
@@ -40,38 +39,33 @@ function parseParams(Yox: YoxClass, realpath: string, path: string) {
  */
 function getRouteByRealpath(Yox: YoxClass, routes: type.LinkedRoute[], realpath: string) {
 
-  let result: type.LinkedRoute | undefined,
+  let realpathTerms = realpath.split(constant.SEPARATOR_PATH),
 
-  realpathTerms = realpath.split(constant.SEPARATOR_PATH),
+  length = realpathTerms.length,
 
-  length = realpathTerms.length
+  i = 0,
 
-  Yox.array.each(
-    routes,
-    function (route) {
-      if (route.params) {
-        const pathTerms = route.path.split(constant.SEPARATOR_PATH)
-        if (length === pathTerms.length) {
-          for (let i = 0; i < length; i++) {
-            // 非参数段不相同
-            if (!Yox.string.startsWith(pathTerms[i], constant.PREFIX_PARAM)
-              && pathTerms[i] !== realpathTerms[i]
-            ) {
-              return
-            }
+  route: type.LinkedRoute | void
+
+  loop: while (route = routes[i++]) {
+    if (route.params) {
+      const pathTerms = route.path.split(constant.SEPARATOR_PATH)
+      if (length === pathTerms.length) {
+        for (let l = 0; l < length; l++) {
+          // 非参数段不相同
+          if (!Yox.string.startsWith(pathTerms[l], constant.PREFIX_PARAM)
+            && pathTerms[l] !== realpathTerms[l]
+          ) {
+            continue loop
           }
-          result = route
-          return env.FALSE
         }
-      }
-      else if (route.path === realpath) {
-        result = route
-        return env.FALSE
+        return route
       }
     }
-  )
-
-  return result
+    else if (route.path === realpath) {
+      return route
+    }
+  }
 
 }
 
@@ -94,7 +88,7 @@ export function parse(Yox: YoxClass, routes: type.LinkedRoute[], hash: string) {
       path: route.path
     }
     if (route.params) {
-      const params = parseParams(Yox, realpath, route.path)
+      const params = parseParams(Yox, route.path, realpath)
       if (params) {
         result.params = params
       }

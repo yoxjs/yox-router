@@ -1,16 +1,8 @@
 
 import YoxClass from '../../yox-type/src/interface/YoxClass'
 
+import * as constant from './constant'
 import * as valueUtil from './value'
-
-// query 分隔符
-const SEPARATOR_QUERY = '&',
-
-// 键值对分隔符
-SEPARATOR_PAIR = '=',
-
-// 参数中的数组标识
-FLAG_ARRAY = '[]'
 
 /**
  * 把 GET 参数解析成对象
@@ -18,10 +10,10 @@ FLAG_ARRAY = '[]'
 export function parse(Yox: YoxClass, query: string) {
   let result: Object | undefined
   Yox.array.each(
-    query.split(SEPARATOR_QUERY),
+    query.split(constant.SEPARATOR_QUERY),
     function (term) {
 
-      let terms = term.split(SEPARATOR_PAIR),
+      let terms = term.split(constant.SEPARATOR_PAIR),
 
       key = Yox.string.trim(terms[0]),
 
@@ -32,8 +24,8 @@ export function parse(Yox: YoxClass, query: string) {
           result = {}
         }
         value = valueUtil.parse(Yox, value)
-        if (Yox.string.endsWith(key, FLAG_ARRAY)) {
-          key = Yox.string.slice(key, 0, -FLAG_ARRAY.length)
+        if (Yox.string.endsWith(key, constant.FLAG_ARRAY)) {
+          key = Yox.string.slice(key, 0, -constant.FLAG_ARRAY.length)
           Yox.array.push(
             result[key] || (result[key] = []),
             value
@@ -61,16 +53,16 @@ export function stringify(Yox: YoxClass, query: Object) {
         value,
         function (value) {
           result.push(
-            key + FLAG_ARRAY + SEPARATOR_PAIR + valueUtil.stringify(Yox, value)
+            key + constant.FLAG_ARRAY + constant.SEPARATOR_PAIR + valueUtil.stringify(Yox, value)
           )
         }
       )
     }
     else {
       result.push(
-        key + SEPARATOR_PAIR + valueUtil.stringify(Yox, value)
+        key + constant.SEPARATOR_PAIR + valueUtil.stringify(Yox, value)
       )
     }
   }
-  return result.join(SEPARATOR_QUERY)
+  return result.join(constant.SEPARATOR_QUERY)
 }

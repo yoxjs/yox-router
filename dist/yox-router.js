@@ -60,7 +60,7 @@
       };
       Hooks.prototype.add = function (target, ctx) {
           var _a = this, name = _a.name, list = _a.list;
-          if (target && target[name]) {
+          if (target[name]) {
               list.push({
                   fn: target[name],
                   ctx: ctx
@@ -94,6 +94,12 @@
   var SEPARATOR_PATH = '/';
   // path 和 search 的分隔符
   var SEPARATOR_SEARCH = '?';
+  // query 分隔符
+  var SEPARATOR_QUERY = '&';
+  // 键值对分隔符
+  var SEPARATOR_PAIR = '=';
+  // 参数中的数组标识
+  var FLAG_ARRAY = '[]';
   // 导航钩子 - 路由进入之前
   var HOOK_BEFORE_ENTER = 'beforeEnter';
   // 导航钩子 - 路由进入之后
@@ -143,12 +149,6 @@
       return RAW_UNDEFINED;
   }
 
-  // query 分隔符
-  var SEPARATOR_QUERY = '&', 
-  // 键值对分隔符
-  SEPARATOR_PAIR = '=', 
-  // 参数中的数组标识
-  FLAG_ARRAY = '[]';
   /**
    * 把 GET 参数解析成对象
    */
@@ -197,7 +197,7 @@
   /**
    * 解析 path 中的参数
    */
-  function parseParams(Yox, realpath, path) {
+  function parseParams(Yox, path, realpath) {
       var result, realpathTerms = realpath.split(SEPARATOR_PATH), pathTerms = path.split(SEPARATOR_PATH);
       if (realpathTerms.length === pathTerms.length) {
           Yox.array.each(pathTerms, function (item, index) {
@@ -215,28 +215,25 @@
    * 通过 realpath 获取配置的路由
    */
   function getRouteByRealpath(Yox, routes, realpath) {
-      var result, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length;
-      Yox.array.each(routes, function (route) {
+      var realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, i = 0, route;
+      loop: while (route = routes[i++]) {
           if (route.params) {
               var pathTerms = route.path.split(SEPARATOR_PATH);
               if (length === pathTerms.length) {
-                  for (var i = 0; i < length; i++) {
+                  for (var l = 0; l < length; l++) {
                       // 非参数段不相同
-                      if (!Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)
-                          && pathTerms[i] !== realpathTerms[i]) {
-                          return;
+                      if (!Yox.string.startsWith(pathTerms[l], PREFIX_PARAM)
+                          && pathTerms[l] !== realpathTerms[l]) {
+                          continue loop;
                       }
                   }
-                  result = route;
-                  return FALSE;
+                  return route;
               }
           }
           else if (route.path === realpath) {
-              result = route;
-              return FALSE;
+              return route;
           }
-      });
-      return result;
+      }
   }
   function parse$2(Yox, routes, hash) {
       var realpath, search, index = hash.indexOf(SEPARATOR_SEARCH);
@@ -253,7 +250,7 @@
               path: route.path
           };
           if (route.params) {
-              var params = parseParams(Yox, realpath, route.path);
+              var params = parseParams(Yox, route.path, realpath);
               if (params) {
                   result.params = params;
               }
@@ -288,7 +285,7 @@
   }
 
   var Yox, registry, domApi;
-  var WINDOW = window, LOCATION = WINDOW.location, ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
+  var WINDOW = window, LOCATION = WINDOW.location, ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EVENT_HASH_CHANGE = 'hashchange';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -525,14 +522,14 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          domApi.on(window, 'hashchange', this.onChange);
+          domApi.on(window, EVENT_HASH_CHANGE, this.onChange);
           this.onChange();
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          domApi.off(window, 'hashchange', this.onChange);
+          domApi.off(window, EVENT_HASH_CHANGE, this.onChange);
       };
       /**
        * 路由守卫
@@ -604,7 +601,7 @@
           };
           LOCATION.hash = hash;
       };
-      Router.prototype.diffRoute = function (route, oldRoute, complete, startRoute, childRoute) {
+      Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute) {
           var instance = this;
           // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
           registry.loadComponent(route.component, function (options) {
@@ -628,11 +625,11 @@
                   startRoute = route;
               }
               if (route.parent) {
-                  instance.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, complete, startRoute, route);
+                  instance.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route);
                   return;
               }
               // 到达根组件，结束
-              complete(route, startRoute);
+              onComplete(route, startRoute);
           });
       };
       Router.prototype.updateRoute = function (route, startRoute) {
