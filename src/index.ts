@@ -14,7 +14,7 @@ import CustomEvent from '../../yox-type/src/event/CustomEvent'
 import Hooks from './Hooks'
 import * as constant from './constant'
 import * as typeUtil from './type'
-import * as hashUtil from './hash'
+import * as locationUtil from './location'
 
 let Yox: YoxClass, registry: Yox, domApi: API
 
@@ -65,38 +65,38 @@ function formatPath(path: string, parentPath: string | void) {
   return path
 }
 
-function toLocation(target: typeUtil.Target, name2Path: type.data, path2Route: type.data): typeUtil.Location {
-  let path: string, params: type.data | void, query: type.data | void
+function toLocation(target: typeUtil.Target, name2Path: type.data): typeUtil.Location {
+
+  const location: typeUtil.Location = {
+    path: env.EMPTY_STRING
+  }
 
   if (Yox.is.string(target)) {
-    path = target as string
+    location.path = formatPath(target as string)
   }
   else {
     const route = target as typeUtil.RouteTarget, name = route.name
     if (name) {
-      path = name2Path[name]
+      location.path = name2Path[name]
       if (process.env.NODE_ENV === 'dev') {
-        if (!Yox.is.string(path)) {
+        if (!Yox.is.string(location.path)) {
           Yox.logger.error(`The route of name[${name}] is not found.`)
         }
       }
     }
     else {
-      path = route.path as string
+      location.path = formatPath(route.path as string)
     }
-    params = route.params
-    query = route.query
-  }
-
-  path = formatPath(path)
-
-  if (process.env.NODE_ENV === 'dev') {
-    if (!path2Route[path]) {
-      Yox.logger.error(`The route of path[${path}] is not found.`)
+    if (route.params) {
+      location.params = route.params
+    }
+    if (route.query) {
+      location.query = route.query
     }
   }
 
-  return { path, params, query }
+  return location
+
 }
 
 /**
@@ -115,7 +115,7 @@ function filterProps(route: typeUtil.LinkedRoute, location: typeUtil.Location, o
 
     locationParams = location.params
 
-    // 从 location.params 挑出 route.params 参数
+    // 从 location.params 挑出 route.params 定义过的参数
     if (routeParams && locationParams) {
       if (!props) {
         props = {}
@@ -205,17 +205,9 @@ export class Router {
         : ''
 
       // 直接修改地址栏触发
-      const hash = hashUtil.parse(Yox, routes, hashStr), { route } = hash
-
-      if (route) {
-        instance.setRoute(
-          {
-            path: route.path,
-            params: hash.params,
-            query: hash.query,
-          },
-          route
-        )
+      const location = locationUtil.parse(Yox, routes, hashStr)
+      if (location) {
+        instance.setRoute(location, instance.path2Route[location.path])
       }
       else {
         instance.replace(route404)
@@ -358,11 +350,11 @@ export class Router {
    */
   push(target: typeUtil.Target) {
 
-    const instance = this
+    const instance = this, location = toLocation(target, instance.name2Path)
 
     instance.setHash(
-      toLocation(target, instance.name2Path, instance.path2Route),
-      function (location) {
+      location,
+      function () {
         const history = instance.history, cursor = instance.cursor + 1
         // 确保下一个为空
         // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
@@ -379,11 +371,11 @@ export class Router {
 
   replace(target: typeUtil.Target) {
 
-    const instance = this
+    const instance = this, location = toLocation(target, instance.name2Path)
 
     instance.setHash(
-      toLocation(target, instance.name2Path, instance.path2Route),
-      function (location) {
+      location,
+      function () {
         const history = instance.history, cursor = instance.cursor
         if (history[cursor]) {
           history[cursor] = location
@@ -460,7 +452,7 @@ export class Router {
           // 只有前置守卫才有可能走进这里
           // 此时 instance.location 还是旧地址
           if (pending) {
-            pending.abort()
+            pending.onAbort()
             instance.pending = env.UNDEFINED
           }
           if (value === env.FALSE) {
@@ -486,8 +478,8 @@ export class Router {
 
   private setHash(
     location: typeUtil.Location,
-    complete: typeUtil.RouteComplete,
-    abort: typeUtil.RouteAbort
+    onComplete: typeUtil.RouteComplete,
+    onAbort: typeUtil.RouteAbort
   ) {
 
     let instance = this,
@@ -497,7 +489,7 @@ export class Router {
     hash: string
 
     if (route) {
-      hash = hashUtil.stringify(Yox, location.path, location.params, location.query)
+      hash = locationUtil.stringify(Yox, location)
     }
     else {
       route = instance.route404
@@ -514,8 +506,8 @@ export class Router {
       location,
       route,
       hash,
-      complete,
-      abort,
+      onComplete,
+      onAbort,
     }
 
     LOCATION.hash = hash
@@ -843,7 +835,7 @@ export function install(Class: YoxClass): void {
 
       const pending = router.pending
       if (pending) {
-        pending.complete(pending.location)
+        pending.onComplete()
         router.pending = env.UNDEFINED
       }
     }

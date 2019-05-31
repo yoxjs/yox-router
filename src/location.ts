@@ -75,27 +75,24 @@ function getRouteByRealpath(Yox: YoxClass, routes: type.LinkedRoute[], realpath:
 
 }
 
-/**
- * 完整解析 hash 数据
- */
 export function parse(Yox: YoxClass, routes: type.LinkedRoute[], hash: string) {
 
   let realpath: string, search: string | void, index = hash.indexOf(constant.SEPARATOR_SEARCH)
 
   if (index >= 0) {
-    realpath = hash.substring(0, index)
-    search = hash.substring(index + 1)
+    realpath = hash.slice(0, index)
+    search = hash.slice(index + 1)
   }
   else {
     realpath = hash
   }
 
-  const result: type.Hash = { realpath },
-
-  route = getRouteByRealpath(Yox, routes, realpath)
+  const route = getRouteByRealpath(Yox, routes, realpath)
 
   if (route) {
-    result.route = route
+    const result: type.Location = {
+      path: route.path
+    }
     if (route.params) {
       const params = parseParams(Yox, realpath, route.path)
       if (params) {
@@ -108,38 +105,38 @@ export function parse(Yox: YoxClass, routes: type.LinkedRoute[], hash: string) {
         result.query = query
       }
     }
+    return result
   }
 
-  return result
 }
 
 /**
  * 把结构化数据序列化成 hash
  */
-export function stringify(Yox: YoxClass, path: string, params: Object | void, query: Object | void) {
+export function stringify(Yox: YoxClass, location: type.Location) {
 
-  let terms: string[] = [], realpath: string, search = env.EMPTY_STRING
+  const { path, params, query } = location, terms: string[] = []
 
   Yox.array.each(
     path.split(constant.SEPARATOR_PATH),
     function (item) {
       terms.push(
-        Yox.string.startsWith(item, constant.PREFIX_PARAM)
+        Yox.string.startsWith(item, constant.PREFIX_PARAM) && params
           ? params[item.substr(constant.PREFIX_PARAM.length)]
           : item
       )
     }
   )
 
-  realpath = terms.join(constant.SEPARATOR_PATH)
+  let realpath = terms.join(constant.SEPARATOR_PATH)
 
   if (query) {
     const queryStr = queryUtil.stringify(Yox, query)
     if (queryStr) {
-      search = constant.SEPARATOR_SEARCH + queryStr
+      realpath += constant.SEPARATOR_SEARCH + queryStr
     }
   }
 
-  return realpath + search
+  return realpath
 
 }

@@ -22,7 +22,7 @@ export type BeforeHook = (to: Location, from: Location | void, next: Next) => vo
 
 export type AfterHook = (to: Location, from: Location | void) => void
 
-export type RouteComplete = (location: Location) => void
+export type RouteComplete = () => void
 
 export type RouteAbort = () => void
 
@@ -56,13 +56,6 @@ export interface LinkedRoute {
   child?: LinkedRoute
 }
 
-export interface Hash {
-  realpath: string
-  route?: LinkedRoute
-  params?: type.data
-  query?: type.data
-}
-
 export interface Location {
   path: string
   params?: type.data
@@ -73,6 +66,6 @@ export interface Pending {
   location: Location
   route: LinkedRoute
   hash: string
-  complete: RouteComplete
-  abort: RouteAbort
+  onComplete: RouteComplete
+  onAbort: RouteAbort
 }
