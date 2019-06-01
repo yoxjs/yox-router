@@ -29,7 +29,7 @@ export type RouteAbort = () => void
 export type DiffComplete = (route: LinkedRoute, startRoute: LinkedRoute | void) => void
 
 export interface RouterOptions {
-  el: Element
+  el: Element | string
   routes: RouteOptions[]
   route404: RouteOptions
 }

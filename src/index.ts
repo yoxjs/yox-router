@@ -156,7 +156,7 @@ export class Router {
   hooks: Hooks
 
   // 路由或参数发生了变化会触发此函数
-  onChange: Function
+  onHashChange: Function
 
   // 当前渲染的路由
   route?: typeUtil.LinkedRoute
@@ -174,16 +174,29 @@ export class Router {
 
   constructor(options: typeUtil.RouterOptions) {
 
-    const instance = this, route404 = options.route404
+    const instance = this, { el, route404 } = options
 
-    instance.el = options.el
+    instance.el = Yox.is.string(el)
+      ? domApi.find(el as string) as Element
+      : el as Element
+
+    if (process.env.NODE_ENV === 'dev') {
+      if (!instance.el) {
+        Yox.logger.error(`router.el is not an element.`)
+        return
+      }
+      if (!route404) {
+        Yox.logger.error(`Route for 404 is required.`)
+        return
+      }
+    }
 
     /**
      * hashchange 事件处理函数
      * 此函数必须写在实例上，不能写在类上
      * 否则一旦解绑，所有实例都解绑了
      */
-    instance.onChange = function () {
+    instance.onHashChange = function () {
 
       let hashStr = LOCATION.hash, { loading, routes, route404 } = instance
 
@@ -213,13 +226,6 @@ export class Router {
         instance.replace(route404)
       }
 
-    }
-
-    if (process.env.NODE_ENV === 'dev') {
-      if (!route404) {
-        Yox.logger.error(`Route for 404 is required.`)
-        return
-      }
     }
 
     instance.routes = []
@@ -412,15 +418,15 @@ export class Router {
    * 启动路由
    */
   start() {
-    domApi.on(window, EVENT_HASH_CHANGE, this.onChange as type.listener)
-    this.onChange()
+    domApi.on(window, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
+    this.onHashChange()
   }
 
   /**
    * 停止路由
    */
   stop() {
-    domApi.off(window, EVENT_HASH_CHANGE, this.onChange as type.listener)
+    domApi.off(window, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
   }
 
   /**
@@ -823,7 +829,6 @@ export function install(Class: YoxClass): void {
       }
     }
   }
-
   Yox.afterDestroy = function (instance) {
 
     if (afterDestroy) {

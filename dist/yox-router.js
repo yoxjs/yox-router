@@ -369,14 +369,26 @@
   }
   var Router = /** @class */ (function () {
       function Router(options) {
-          var instance = this, route404 = options.route404;
-          instance.el = options.el;
+          var instance = this, el = options.el, route404 = options.route404;
+          instance.el = Yox.is.string(el)
+              ? domApi.find(el)
+              : el;
+          {
+              if (!instance.el) {
+                  Yox.logger.error("router.el is not an element.");
+                  return;
+              }
+              if (!route404) {
+                  Yox.logger.error("Route for 404 is required.");
+                  return;
+              }
+          }
           /**
            * hashchange 事件处理函数
            * 此函数必须写在实例上，不能写在类上
            * 否则一旦解绑，所有实例都解绑了
            */
-          instance.onChange = function () {
+          instance.onHashChange = function () {
               var hashStr = LOCATION.hash, loading = instance.loading, routes = instance.routes, route404 = instance.route404;
               // 通过 push 或 replace 触发的
               if (loading) {
@@ -399,12 +411,6 @@
                   instance.replace(route404);
               }
           };
-          {
-              if (!route404) {
-                  Yox.logger.error("Route for 404 is required.");
-                  return;
-              }
-          }
           instance.routes = [];
           instance.name2Path = {};
           instance.path2Route = {};
@@ -521,14 +527,14 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          domApi.on(window, EVENT_HASH_CHANGE, this.onChange);
-          this.onChange();
+          domApi.on(window, EVENT_HASH_CHANGE, this.onHashChange);
+          this.onHashChange();
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          domApi.off(window, EVENT_HASH_CHANGE, this.onChange);
+          domApi.off(window, EVENT_HASH_CHANGE, this.onHashChange);
       };
       /**
        * 钩子函数
