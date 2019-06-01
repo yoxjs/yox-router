@@ -420,7 +420,7 @@
        */
       Router.prototype.add = function (routes) {
           var instance = this, pathStack = [], routeStack = [], callback = function (routeOptions) {
-              var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children, parentPath = pathStack[pathStack.length - 1], parentRoute = routeStack[routeStack.length - 1];
+              var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack);
               path = formatPath(path, parentPath);
               var route = { path: path, component: component, route: routeOptions }, params = [];
               Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
@@ -462,7 +462,6 @@
               }
           };
           Yox.array.each(routes, callback);
-          pathStack = routeStack = UNDEFINED;
       };
       /**
        * 真正执行路由切换操作的函数
@@ -532,9 +531,9 @@
           domApi.off(window, EVENT_HASH_CHANGE, this.onChange);
       };
       /**
-       * 路由守卫
+       * 钩子函数
        */
-      Router.prototype.guard = function (route, name, isGuard, callback) {
+      Router.prototype.hook = function (route, name, isGuard, callback) {
           // 必须是叶子节点
           // 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
           var child = route.child;
@@ -589,17 +588,16 @@
               hash = route.path;
           }
           hash = PREFIX_HASH + hash;
-          if (hash === LOCATION.hash) {
-              return;
+          if (hash !== LOCATION.hash) {
+              instance.loading = {
+                  hash: hash,
+                  location: location,
+                  route: route,
+                  onComplete: onComplete,
+                  onAbort: onAbort
+              };
+              LOCATION.hash = hash;
           }
-          instance.loading = {
-              hash: hash,
-              location: location,
-              route: route,
-              onComplete: onComplete,
-              onAbort: onAbort
-          };
-          LOCATION.hash = hash;
       };
       Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute) {
           var instance = this;
@@ -679,7 +677,7 @@
       Router.prototype.setRoute = function (location, route) {
           var instance = this, newRoute = Yox.object.copy(route), oldRoute = instance.route, enterRoute = function () {
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
-                  instance.guard(newRoute, HOOK_BEFORE_ENTER, TRUE, function () {
+                  instance.hook(newRoute, HOOK_BEFORE_ENTER, TRUE, function () {
                       instance.route = newRoute;
                       instance.location = location;
                       instance.updateRoute(route, startRoute);
@@ -688,7 +686,7 @@
           };
           instance.hooks.setLocation(location, instance.location);
           if (oldRoute) {
-              instance.guard(oldRoute, HOOK_BEFORE_LEAVE, TRUE, enterRoute);
+              instance.hook(oldRoute, HOOK_BEFORE_LEAVE, TRUE, enterRoute);
           }
           else {
               enterRoute();
@@ -784,7 +782,7 @@
           if (route) {
               var router = instance[ROUTER];
               route.context = instance;
-              router.guard(route, HOOK_AFTER_ENTER);
+              router.hook(route, HOOK_AFTER_ENTER);
               var loading = router.loading;
               if (loading) {
                   loading.onComplete();
@@ -800,7 +798,7 @@
           if (route) {
               var router = instance[ROUTER];
               route.context = UNDEFINED;
-              router.guard(route, HOOK_AFTER_LEAVE);
+              router.hook(route, HOOK_AFTER_LEAVE);
           }
       };
   }
