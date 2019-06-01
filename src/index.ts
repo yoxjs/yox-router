@@ -16,7 +16,7 @@ import * as constant from './constant'
 import * as typeUtil from './type'
 import * as locationUtil from './location'
 
-let Yox: YoxClass, registry: Yox, domApi: API
+let Yox: YoxClass, domApi: API, guid = 0
 
 const WINDOW = window,
 
@@ -440,7 +440,7 @@ export class Router {
       hooks
         .setName(name)
         // 先调用组件的钩子
-        .add(route.options as YoxOptions, route.context)
+        .add(route.component, route.context)
         // 再调用路由配置的钩子
         .add(route.route, route.route)
         // 最后调用路由实例的钩子
@@ -505,9 +505,9 @@ export class Router {
     }
 
     instance.loading = {
+      hash,
       location,
       route,
-      hash,
       onComplete,
       onAbort,
     }
@@ -524,49 +524,41 @@ export class Router {
     childRoute: typeUtil.LinkedRoute | void,
   ) {
     const instance = this
-    // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
-    registry.loadComponent(
-      route.component,
-      function (options) {
 
-        route.options = options
+    // 更新链路
+    if (childRoute) {
+      route.child = childRoute
+      childRoute.parent = route
+    }
 
-        // 更新链路
-        if (childRoute) {
-          route.child = childRoute
-          childRoute.parent = route
-        }
-
-        if (oldRoute) {
-          // 同级的两个组件不同，疑似起始更新的路由
-          if (oldRoute.options !== options) {
-            startRoute = route
-          }
-          else {
-            // 把上次的组件实例搞过来
-            route.context = oldRoute.context
-          }
-        }
-        else {
-          startRoute = route
-        }
-
-        if (route.parent) {
-          instance.diffRoute(
-            Yox.object.copy(route.parent),
-            oldRoute ? oldRoute.parent : env.UNDEFINED,
-            onComplete,
-            startRoute,
-            route,
-          )
-          return
-        }
-
-        // 到达根组件，结束
-        onComplete(route, startRoute)
-
+    if (oldRoute) {
+      // 同级的两个组件不同，疑似起始更新的路由
+      if (oldRoute.component !== route.component) {
+        startRoute = route
       }
-    )
+      else {
+        // 把上次的组件实例搞过来
+        route.context = oldRoute.context
+      }
+    }
+    else {
+      startRoute = route
+    }
+
+    if (route.parent) {
+      instance.diffRoute(
+        Yox.object.copy(route.parent),
+        oldRoute ? oldRoute.parent : env.UNDEFINED,
+        onComplete,
+        startRoute,
+        route,
+      )
+      return
+    }
+
+    // 到达根组件，结束
+    onComplete(route, startRoute)
+
   }
 
   private updateRoute(
@@ -577,9 +569,9 @@ export class Router {
     const instance = this, location = instance.location as typeUtil.Location
 
     // 从上往下更新 props
-    while (env.TRUE) {
+    while (route) {
 
-      let { parent, context, component, options } = route
+      let { parent, context, component } = route
 
       if (route === startRoute) {
 
@@ -590,15 +582,15 @@ export class Router {
             filterProps(
               parent,
               location,
-              parent.options as YoxOptions
+              parent.component
             )
           )
 
           context = context[ROUTE_VIEW]
           if (context) {
-            const props = {}
-            props[ROUTE_COMPONENT] = component
-            context.component(component, options)
+            const props = {}, name = ROUTE_COMPONENT + (++guid)
+            props[ROUTE_COMPONENT] = name
+            context.component(name, component)
             context.forceUpdate(props)
           }
 
@@ -618,10 +610,10 @@ export class Router {
             Yox.object.extend(
               {
                 el: instance.el,
-                props: filterProps(route, location, options as YoxOptions),
+                props: filterProps(route, location, component),
                 extensions,
               },
-              options as YoxOptions
+              component
             )
           )
 
@@ -630,14 +622,16 @@ export class Router {
       }
 
       else if (context) {
-        context[ROUTE] = route
-        context.forceUpdate(
-          filterProps(route, location, options as YoxOptions)
-        )
-        // 如果 <router-view> 定义在 if 里
-        // 当 router-view 从无到有时，这里要读取最新的 child
-        // 当 router-view 从有到无时，这里要判断它是否存在
-        if (context[ROUTE_VIEW] && route.child) {
+        if (context.$vnode) {
+          context[ROUTE] = route
+          context.forceUpdate(
+            filterProps(route, location, component)
+          )
+        }
+        else {
+          route.context = env.UNDEFINED
+        }
+        if (route.child) {
           route = route.child as typeUtil.LinkedRoute
           continue
         }
@@ -741,10 +735,10 @@ const RouterView: YoxOptions = {
 
       $parent[ROUTE_VIEW] = this
 
-      const props = {}, components = {}
+      const props = {}, components = {}, name = ROUTE_COMPONENT + (++guid)
 
-      props[ROUTE_COMPONENT] = route.component
-      components[route.component] = route.options
+      props[ROUTE_COMPONENT] = name
+      components[name] = route.component
 
       options.props = props
       options.components = components
@@ -763,22 +757,11 @@ const RouterView: YoxOptions = {
 export const version = process.env.NODE_VERSION
 
 /**
- * 注册全局组件，路由实例可共享
- */
-export function register(
-  name: string | Record<string, type.component>,
-  component?: type.component
-): void {
-  registry.component(name, component)
-}
-
-/**
  * 安装插件
  */
 export function install(Class: YoxClass): void {
 
   Yox = Class
-  registry = new Class()
   domApi = Class.dom as API
 
   Yox.directive('href', directive)

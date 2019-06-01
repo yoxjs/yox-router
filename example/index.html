@@ -11,237 +11,240 @@
     <script>
         Yox.use(YoxRouter)
 
-        YoxRouter.register({
-          index: {
-            template: `
-              <div>
-                <h2>index</h2>
-                <span>{{userId}}</span>
-                <router-view />
-              </div>
-            `,
-            beforeMount() {
-              console.log('index', 'beforeMount')
-            },
-            afterMount() {
-              console.log('index', 'afterMount')
-            },
-            beforeUpdate() {
-              console.log('index', 'beforeUpdate')
-            },
-            afterUpdate() {
-              console.log('index', 'afterUpdate')
-            },
-            beforeDestroy() {
-              console.log('index', 'beforeDestroy')
-            },
-            afterDestroy() {
-              console.log('index', 'afterDestroy')
-            }
+        const Index = {
+          template: `
+            <div>
+              <h2>index</h2>
+              <span>{{userId}}</span>
+              <router-view />
+            </div>
+          `,
+          beforeMount() {
+            console.log('index', 'beforeMount')
           },
-          user: {
-            propTypes: {
-              userId: {
-                type: ['string', 'number'],
-                value: 'default value'
-              },
-              visible: {
-                type: 'boolean'
-              }
-            },
-            template: `
-              <div>
-                <h2>user</h2>
-                <span>{{userId}}</span>
-                {{#if visible}}
-                  <router-view />
-                {{/if}}
-              </div>
-            `,
-            beforeMount() {
-              console.log('user', 'beforeMount')
-            },
-            afterMount() {
-              console.log('user', 'afterMount')
-            },
-            beforeUpdate() {
-              console.log('user', 'beforeUpdate')
-            },
-            afterUpdate() {
-              console.log('user', 'afterUpdate')
-            },
-            beforeDestroy() {
-              console.log('user', 'beforeDestroy')
-            },
-            afterDestroy() {
-              console.log('user', 'afterDestroy')
-            }
+          afterMount() {
+            console.log('index', 'afterMount')
           },
-          userIndex: {
-            propTypes: {
-              userId: {
-                type: ['string', 'number']
-              }
-            },
-            template: `
-              <div>
-                <h3>user index</h3>
-                <span>{{userId}}</span>
-                <router-view />
-              </div>
-            `,
-            beforeMount() {
-              console.log('userIndex', 'beforeMount')
-            },
-            afterMount() {
-              console.log('userIndex', 'afterMount')
-            },
-            beforeUpdate() {
-              console.log('userIndex', 'beforeUpdate')
-            },
-            afterUpdate() {
-              console.log('userIndex', 'afterUpdate')
-            },
-            beforeDestroy() {
-              console.log('userIndex', 'beforeDestroy')
-            },
-            afterDestroy() {
-              console.log('userIndex', 'afterDestroy')
-            }
+          beforeUpdate() {
+            console.log('index', 'beforeUpdate')
           },
-          userDetail: {
-            propTypes: {
-              userId: {
-                type: ['string', 'number']
-              }
-            },
-            template: `
-              <div>
-                <h4>user detail</h4>
-                <span>{{userId}}</span>
-              </div>
-            `,
-            beforeMount() {
-              console.log('userDetail', 'beforeMount')
-            },
-            afterMount() {
-              console.log('userDetail', 'afterMount')
-            },
-            beforeUpdate() {
-              console.log('userDetail', 'beforeUpdate')
-            },
-            afterUpdate() {
-              console.log('userDetail', 'afterUpdate')
-            },
-            beforeDestroy() {
-              console.log('userDetail', 'beforeDestroy')
-            },
-            afterDestroy() {
-              console.log('userDetail', 'afterDestroy')
-            }
+          afterUpdate() {
+            console.log('index', 'afterUpdate')
           },
-          userProfile: {
-            propTypes: {
-              userId: {
-                type: ['string', 'number']
-              }
-            },
-            template: `
-              <div>
-                <h4>user profile</h4>
-                <span>{{userId}}</span>
-              </div>
-            `,
-            beforeMount() {
-              console.log('userProfile', 'beforeMount')
-            },
-            afterMount() {
-              console.log('userProfile', 'afterMount')
-            },
-            beforeUpdate() {
-              console.log('userProfile', 'beforeUpdate')
-            },
-            afterUpdate() {
-              console.log('userProfile', 'afterUpdate')
-            },
-            beforeDestroy() {
-              console.log('userProfile', 'beforeDestroy')
-            },
-            afterDestroy() {
-              console.log('userProfile', 'afterDestroy')
-            }
+          beforeDestroy() {
+            console.log('index', 'beforeDestroy')
           },
-          setting: {
-            template: `
-              <div>
-                <h1>setting</h1>
-                {{stringify(this)}}
-              </div>
-            `,
-            beforeMount() {
-              console.log('setting', 'beforeMount')
-            },
-            afterMount() {
-              console.log('setting', 'afterMount')
-            },
-            beforeUpdate() {
-              console.log('setting', 'beforeUpdate')
-            },
-            afterUpdate() {
-              console.log('setting', 'afterUpdate')
-            },
-            beforeDestroy() {
-              console.log('setting', 'beforeDestroy')
-            },
-            afterDestroy() {
-              console.log('setting', 'afterDestroy')
-            }
+          afterDestroy() {
+            console.log('index', 'afterDestroy')
           }
-        })
+        }
+
+        const User = {
+          propTypes: {
+            userId: {
+              type: ['string', 'number'],
+              value: 'default value'
+            },
+            visible: {
+              type: 'boolean'
+            }
+          },
+          template: `
+            <div>
+              <h2>user</h2>
+              <span>{{userId}}</span>
+              {{#if visible}}
+                <router-view />
+              {{/if}}
+            </div>
+          `,
+          beforeMount() {
+            console.log('user', 'beforeMount')
+          },
+          afterMount() {
+            console.log('user', 'afterMount')
+          },
+          beforeUpdate() {
+            console.log('user', 'beforeUpdate')
+          },
+          afterUpdate() {
+            console.log('user', 'afterUpdate')
+          },
+          beforeDestroy() {
+            console.log('user', 'beforeDestroy')
+          },
+          afterDestroy() {
+            console.log('user', 'afterDestroy')
+          }
+        }
+
+        const UserIndex = {
+          propTypes: {
+            userId: {
+              type: ['string', 'number']
+            }
+          },
+          template: `
+            <div>
+              <h3>user index</h3>
+              <span>{{userId}}</span>
+              <router-view />
+            </div>
+          `,
+          beforeMount() {
+            console.log('userIndex', 'beforeMount')
+          },
+          afterMount() {
+            console.log('userIndex', 'afterMount')
+          },
+          beforeUpdate() {
+            console.log('userIndex', 'beforeUpdate')
+          },
+          afterUpdate() {
+            console.log('userIndex', 'afterUpdate')
+          },
+          beforeDestroy() {
+            console.log('userIndex', 'beforeDestroy')
+          },
+          afterDestroy() {
+            console.log('userIndex', 'afterDestroy')
+          }
+        }
+
+        const UserDetail = {
+          propTypes: {
+            userId: {
+              type: ['string', 'number']
+            }
+          },
+          template: `
+            <div>
+              <h4>user detail</h4>
+              <span>{{userId}}</span>
+            </div>
+          `,
+          beforeMount() {
+            console.log('userDetail', 'beforeMount')
+          },
+          afterMount() {
+            console.log('userDetail', 'afterMount')
+          },
+          beforeUpdate() {
+            console.log('userDetail', 'beforeUpdate')
+          },
+          afterUpdate() {
+            console.log('userDetail', 'afterUpdate')
+          },
+          beforeDestroy() {
+            console.log('userDetail', 'beforeDestroy')
+          },
+          afterDestroy() {
+            console.log('userDetail', 'afterDestroy')
+          }
+        }
+
+        const UserProfile = {
+          propTypes: {
+            userId: {
+              type: ['string', 'number']
+            }
+          },
+          template: `
+            <div>
+              <h4>user profile</h4>
+              <span>{{userId}}</span>
+            </div>
+          `,
+          beforeMount() {
+            console.log('userProfile', 'beforeMount')
+          },
+          afterMount() {
+            console.log('userProfile', 'afterMount')
+          },
+          beforeUpdate() {
+            console.log('userProfile', 'beforeUpdate')
+          },
+          afterUpdate() {
+            console.log('userProfile', 'afterUpdate')
+          },
+          beforeDestroy() {
+            console.log('userProfile', 'beforeDestroy')
+          },
+          afterDestroy() {
+            console.log('userProfile', 'afterDestroy')
+          }
+        }
+
+        const Setting = {
+          template: `
+            <div>
+              <h1>setting</h1>
+              {{stringify(this)}}
+            </div>
+          `,
+          beforeMount() {
+            console.log('setting', 'beforeMount')
+          },
+          afterMount() {
+            console.log('setting', 'afterMount')
+          },
+          beforeUpdate() {
+            console.log('setting', 'beforeUpdate')
+          },
+          afterUpdate() {
+            console.log('setting', 'afterUpdate')
+          },
+          beforeDestroy() {
+            console.log('setting', 'beforeDestroy')
+          },
+          afterDestroy() {
+            console.log('setting', 'afterDestroy')
+          }
+        }
 
         var router = new YoxRouter.Router({
           el: Yox.dom.find('#app'),
           routes: [
             {
               path: '',
-              component: 'index',
+              component: Index,
               children: [
                 {
                   path: '',
-                  component: 'index'
+                  component: Index
                 },
                 {
                   path: 'user',
-                  component: 'user',
+                  component: User,
                   children: [
                     {
                       path: '',
-                      component: 'userIndex'
+                      component: UserIndex
                     },
                     {
                       path: 'detail/:userId',
-                      component: 'userDetail'
+                      component: UserDetail
                     },
                     {
                       path: 'profile/:userId',
-                      component: 'userProfile'
+                      component: UserProfile
                     },
                   ]
                 },
                 {
                   path: 'setting/',
-                  component: 'index',
+                  component: Index,
                 },
                 {
                   path: 'project',
-                  component: 'index',
+                  component: Index,
                 },
               ]
             }
           ],
           route404: {
             path: '404',
-            component: 'index',
+            component: Index,
           }
         })
         router.beforeEnter = function (to, from, next) {

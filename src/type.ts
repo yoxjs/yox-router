@@ -36,7 +36,7 @@ export interface RouterOptions {
 
 export interface RouteOptions {
   path: string
-  component: string
+  component: YoxOptions
   name?: string
   children?: RouteOptions[]
   [constant.HOOK_BEFORE_ENTER]?: BeforeHook
@@ -47,10 +47,9 @@ export interface RouteOptions {
 
 export interface LinkedRoute {
   path: string
-  component: string
+  component: YoxOptions
   route: RouteOptions
   params?: string[]
-  options?: YoxOptions
   context?: Yox
   parent?: LinkedRoute
   child?: LinkedRoute
@@ -63,9 +62,9 @@ export interface Location {
 }
 
 export interface Loading {
+  hash: string
   location: Location
   route: LinkedRoute
-  hash: string
   onComplete: RouteComplete
   onAbort: RouteAbort
 }

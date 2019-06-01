@@ -284,7 +284,7 @@
       return realpath;
   }
 
-  var Yox, registry, domApi;
+  var Yox, domApi, guid = 0;
   var WINDOW = window, LOCATION = WINDOW.location, ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EVENT_HASH_CHANGE = 'hashchange';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
@@ -546,7 +546,7 @@
               hooks
                   .setName(name)
                   // 先调用组件的钩子
-                  .add(route.options, route.context)
+                  .add(route.component, route.context)
                   // 再调用路由配置的钩子
                   .add(route.route, route.route)
                   // 最后调用路由实例的钩子
@@ -593,9 +593,9 @@
               return;
           }
           instance.loading = {
+              hash: hash,
               location: location,
               route: route,
-              hash: hash,
               onComplete: onComplete,
               onAbort: onAbort
           };
@@ -603,49 +603,45 @@
       };
       Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute) {
           var instance = this;
-          // 不论是同步还是异步组件，都可以通过 registry.loadComponent 取到 options
-          registry.loadComponent(route.component, function (options) {
-              route.options = options;
-              // 更新链路
-              if (childRoute) {
-                  route.child = childRoute;
-                  childRoute.parent = route;
-              }
-              if (oldRoute) {
-                  // 同级的两个组件不同，疑似起始更新的路由
-                  if (oldRoute.options !== options) {
-                      startRoute = route;
-                  }
-                  else {
-                      // 把上次的组件实例搞过来
-                      route.context = oldRoute.context;
-                  }
-              }
-              else {
+          // 更新链路
+          if (childRoute) {
+              route.child = childRoute;
+              childRoute.parent = route;
+          }
+          if (oldRoute) {
+              // 同级的两个组件不同，疑似起始更新的路由
+              if (oldRoute.component !== route.component) {
                   startRoute = route;
               }
-              if (route.parent) {
-                  instance.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route);
-                  return;
+              else {
+                  // 把上次的组件实例搞过来
+                  route.context = oldRoute.context;
               }
-              // 到达根组件，结束
-              onComplete(route, startRoute);
-          });
+          }
+          else {
+              startRoute = route;
+          }
+          if (route.parent) {
+              instance.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route);
+              return;
+          }
+          // 到达根组件，结束
+          onComplete(route, startRoute);
       };
       Router.prototype.updateRoute = function (route, startRoute) {
           var instance = this, location = instance.location;
           // 从上往下更新 props
-          while (TRUE) {
-              var parent = route.parent, context = route.context, component = route.component, options = route.options;
+          while (route) {
+              var parent = route.parent, context = route.context, component = route.component;
               if (route === startRoute) {
                   if (parent) {
                       context = parent.context;
-                      context.forceUpdate(filterProps(parent, location, parent.options));
+                      context.forceUpdate(filterProps(parent, location, parent.component));
                       context = context[ROUTE_VIEW];
                       if (context) {
-                          var props = {};
-                          props[ROUTE_COMPONENT] = component;
-                          context.component(component, options);
+                          var props = {}, name = ROUTE_COMPONENT + (++guid);
+                          props[ROUTE_COMPONENT] = name;
+                          context.component(name, component);
                           context.forceUpdate(props);
                       }
                   }
@@ -659,18 +655,20 @@
                       extensions[ROUTE] = route;
                       route.context = new Yox(Yox.object.extend({
                           el: instance.el,
-                          props: filterProps(route, location, options),
+                          props: filterProps(route, location, component),
                           extensions: extensions
-                      }, options));
+                      }, component));
                   }
               }
               else if (context) {
-                  context[ROUTE] = route;
-                  context.forceUpdate(filterProps(route, location, options));
-                  // 如果 <router-view> 定义在 if 里
-                  // 当 router-view 从无到有时，这里要读取最新的 child
-                  // 当 router-view 从有到无时，这里要判断它是否存在
-                  if (context[ROUTE_VIEW] && route.child) {
+                  if (context.$vnode) {
+                      context[ROUTE] = route;
+                      context.forceUpdate(filterProps(route, location, component));
+                  }
+                  else {
+                      route.context = UNDEFINED;
+                  }
+                  if (route.child) {
                       route = route.child;
                       continue;
                   }
@@ -728,9 +726,9 @@
           var $parent = options.parent, route = $parent[ROUTE].child;
           if (route) {
               $parent[ROUTE_VIEW] = this;
-              var props = {}, components = {};
-              props[ROUTE_COMPONENT] = route.component;
-              components[route.component] = route.options;
+              var props = {}, components = {}, name = ROUTE_COMPONENT + (++guid);
+              props[ROUTE_COMPONENT] = name;
+              components[name] = route.component;
               options.props = props;
               options.components = components;
           }
@@ -744,17 +742,10 @@
    */
   var version = "0.30.0";
   /**
-   * 注册全局组件，路由实例可共享
-   */
-  function register(name, component) {
-      registry.component(name, component);
-  }
-  /**
    * 安装插件
    */
   function install(Class) {
       Yox = Class;
-      registry = new Class();
       domApi = Class.dom;
       Yox.directive('href', directive);
       // 提供两种风格
@@ -816,7 +807,6 @@
 
   exports.Router = Router;
   exports.install = install;
-  exports.register = register;
   exports.version = version;
 
   Object.defineProperty(exports, '__esModule', { value: true });
