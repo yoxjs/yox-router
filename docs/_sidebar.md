@@ -1,0 +1,6 @@
+* [简介]()
+* [安装](install)
+* [起步](start)
+* [动态路由](dynamic)
+* [路由参数](location)
+* [嵌套路由](nested)
