@@ -243,15 +243,19 @@ export class Router {
    */
   add(routes: typeUtil.RouteOptions[]) {
 
-    let instance = this, pathStack: any = [], routeStack: any = [],
+    let instance = this,
+
+    pathStack: string[] = [],
+
+    routeStack: typeUtil.LinkedRoute[] = [],
 
     callback = function (routeOptions: typeUtil.RouteOptions) {
 
       let { name, path, component, children } = routeOptions,
 
-      parentPath: string | void = pathStack[pathStack.length - 1],
+      parentPath = Yox.array.last(pathStack),
 
-      parentRoute: typeUtil.LinkedRoute | void = routeStack[routeStack.length - 1]
+      parentRoute = Yox.array.last(routeStack)
 
       path = formatPath(path, parentPath)
 
@@ -319,8 +323,6 @@ export class Router {
       routes,
       callback
     )
-
-    pathStack = routeStack = env.UNDEFINED
 
   }
 
