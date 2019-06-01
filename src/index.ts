@@ -424,9 +424,9 @@ export class Router {
   }
 
   /**
-   * 路由守卫
+   * 钩子函数
    */
-  guard(route: typeUtil.LinkedRoute, name: string, isGuard?: boolean, callback?: typeUtil.Callback) {
+  hook(route: typeUtil.LinkedRoute, name: string, isGuard?: boolean, callback?: typeUtil.Callback) {
 
     // 必须是叶子节点
     // 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
@@ -502,19 +502,16 @@ export class Router {
 
     hash = constant.PREFIX_HASH + hash
 
-    if (hash === LOCATION.hash) {
-      return
+    if (hash !== LOCATION.hash) {
+      instance.loading = {
+        hash,
+        location,
+        route,
+        onComplete,
+        onAbort,
+      }
+      LOCATION.hash = hash
     }
-
-    instance.loading = {
-      hash,
-      location,
-      route,
-      onComplete,
-      onAbort,
-    }
-
-    LOCATION.hash = hash
 
   }
 
@@ -658,7 +655,7 @@ export class Router {
         newRoute,
         oldRoute,
         function (route, startRoute) {
-          instance.guard(
+          instance.hook(
             newRoute,
             constant.HOOK_BEFORE_ENTER,
             env.TRUE,
@@ -678,7 +675,7 @@ export class Router {
     instance.hooks.setLocation(location, instance.location)
 
     if (oldRoute) {
-      instance.guard(
+      instance.hook(
         oldRoute,
         constant.HOOK_BEFORE_LEAVE,
         env.TRUE,
@@ -817,7 +814,7 @@ export function install(Class: YoxClass): void {
     if (route) {
       const router = instance[ROUTER] as Router
       route.context = instance
-      router.guard(route, constant.HOOK_AFTER_ENTER)
+      router.hook(route, constant.HOOK_AFTER_ENTER)
 
       const loading = router.loading
       if (loading) {
@@ -837,7 +834,7 @@ export function install(Class: YoxClass): void {
     if (route) {
       const router = instance[ROUTER] as Router
       route.context = env.UNDEFINED
-      router.guard(route, constant.HOOK_AFTER_LEAVE)
+      router.hook(route, constant.HOOK_AFTER_LEAVE)
     }
 
   }
