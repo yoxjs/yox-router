@@ -41,7 +41,9 @@ function formatPath(path: string, parentPath: string | void) {
 
   // 如果 path 以 / 结尾，删掉它
   // 比如 { path: 'index/' }
-  if (Yox.string.endsWith(path, constant.SEPARATOR_PATH)) {
+  if (path !== constant.SEPARATOR_PATH
+    && Yox.string.endsWith(path, constant.SEPARATOR_PATH)
+  ) {
     path = Yox.string.slice(path, 0, -1)
   }
 
@@ -213,9 +215,10 @@ export class Router {
       }
 
       // 如果不以 PREFIX_HASH 开头，表示不合法
-      hashStr = hashStr.indexOf(constant.PREFIX_HASH) === 0
+      hashStr = hashStr !== constant.PREFIX_HASH
+        && Yox.string.startsWith(hashStr, constant.PREFIX_HASH)
         ? hashStr.substr(constant.PREFIX_HASH.length)
-        : ''
+        : constant.SEPARATOR_PATH
 
       // 直接修改地址栏触发
       const location = locationUtil.parse(Yox, routes, hashStr)
@@ -418,7 +421,7 @@ export class Router {
    * 启动路由
    */
   start() {
-    domApi.on(window, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
+    domApi.on(WINDOW, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
     this.onHashChange()
   }
 
@@ -426,7 +429,7 @@ export class Router {
    * 停止路由
    */
   stop() {
-    domApi.off(window, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
+    domApi.off(WINDOW, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
   }
 
   /**
@@ -527,8 +530,8 @@ export class Router {
     onComplete: typeUtil.DiffComplete,
     startRoute: typeUtil.LinkedRoute | void,
     childRoute: typeUtil.LinkedRoute | void,
+    oldTopRoute: typeUtil.LinkedRoute | void
   ) {
-    const instance = this
 
     // 更新链路
     if (childRoute) {
@@ -551,14 +554,34 @@ export class Router {
     }
 
     if (route.parent) {
-      instance.diffRoute(
+      this.diffRoute(
         Yox.object.copy(route.parent),
         oldRoute ? oldRoute.parent : env.UNDEFINED,
         onComplete,
         startRoute,
         route,
+        oldRoute || oldTopRoute
       )
       return
+    }
+
+    // 整个组件树全换掉
+    if (startRoute === route) {
+      let context: Yox | void
+      // 当层级较多的路由切换到层级较少的路由
+      if (oldRoute) {
+        while (oldRoute) {
+          context = oldRoute.context
+          oldRoute = oldRoute.parent
+        }
+      }
+      // 当层级较少的路由切换到层级较多的路由
+      else if (oldTopRoute) {
+        context = oldTopRoute.context
+      }
+      if (context) {
+        startRoute.context = context
+      }
     }
 
     // 到达根组件，结束
@@ -726,9 +749,9 @@ const directive = {
   unbind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
     vnode.data[directive.key]()
   },
-}
+},
 
-const RouterView: YoxOptions = {
+RouterView: YoxOptions = {
   template: '<$' + ROUTE_COMPONENT + '/>',
   beforeCreate(options) {
 
@@ -769,7 +792,7 @@ export function install(Class: YoxClass): void {
   Yox = Class
   domApi = Class.dom as API
 
-  Yox.directive('href', directive)
+  Yox.directive('to', directive)
 
   // 提供两种风格
   Yox.component({

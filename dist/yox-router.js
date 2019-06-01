@@ -292,7 +292,8 @@
   function formatPath(path, parentPath) {
       // 如果 path 以 / 结尾，删掉它
       // 比如 { path: 'index/' }
-      if (Yox.string.endsWith(path, SEPARATOR_PATH)) {
+      if (path !== SEPARATOR_PATH
+          && Yox.string.endsWith(path, SEPARATOR_PATH)) {
           path = Yox.string.slice(path, 0, -1);
       }
       // 如果 path 不是以 / 开头，有两种情况：
@@ -399,9 +400,10 @@
                   instance.loading = UNDEFINED;
               }
               // 如果不以 PREFIX_HASH 开头，表示不合法
-              hashStr = hashStr.indexOf(PREFIX_HASH) === 0
+              hashStr = hashStr !== PREFIX_HASH
+                  && Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
-                  : '';
+                  : SEPARATOR_PATH;
               // 直接修改地址栏触发
               var location = parse$2(Yox, routes, hashStr);
               if (location) {
@@ -527,14 +529,14 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          domApi.on(window, EVENT_HASH_CHANGE, this.onHashChange);
+          domApi.on(WINDOW, EVENT_HASH_CHANGE, this.onHashChange);
           this.onHashChange();
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          domApi.off(window, EVENT_HASH_CHANGE, this.onHashChange);
+          domApi.off(WINDOW, EVENT_HASH_CHANGE, this.onHashChange);
       };
       /**
        * 钩子函数
@@ -605,8 +607,7 @@
               LOCATION.hash = hash;
           }
       };
-      Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute) {
-          var instance = this;
+      Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute, oldTopRoute) {
           // 更新链路
           if (childRoute) {
               route.child = childRoute;
@@ -626,8 +627,26 @@
               startRoute = route;
           }
           if (route.parent) {
-              instance.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route);
+              this.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route, oldRoute || oldTopRoute);
               return;
+          }
+          // 整个组件树全换掉
+          if (startRoute === route) {
+              var context = void 0;
+              // 当层级较多的路由切换到层级较少的路由
+              if (oldRoute) {
+                  while (oldRoute) {
+                      context = oldRoute.context;
+                      oldRoute = oldRoute.parent;
+                  }
+              }
+              // 当层级较少的路由切换到层级较多的路由
+              else if (oldTopRoute) {
+                  context = oldTopRoute.context;
+              }
+              if (context) {
+                  startRoute.context = context;
+              }
           }
           // 到达根组件，结束
           onComplete(route, startRoute);
@@ -723,8 +742,7 @@
       unbind: function (node, directive, vnode) {
           vnode.data[directive.key]();
       }
-  };
-  var RouterView = {
+  }, RouterView = {
       template: '<$' + ROUTE_COMPONENT + '/>',
       beforeCreate: function (options) {
           var $parent = options.parent, route = $parent[ROUTE].child;
@@ -751,7 +769,7 @@
   function install(Class) {
       Yox = Class;
       domApi = Class.dom;
-      Yox.directive('href', directive);
+      Yox.directive('to', directive);
       // 提供两种风格
       Yox.component({
           RouterView: RouterView,
