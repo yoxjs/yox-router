@@ -2,6 +2,16 @@
 
 ## Install
 
+CDN
+
+```html
+<script src="https://unpkg.com/yox"></script>
+<script src="https://unpkg.com/yox-router"></script>
+<script>
+  Yox.use(YoxRouter)
+</script>
+```
+
 NPM
 
 ```shell
@@ -15,16 +25,16 @@ import YoxRouter from 'yox-router'
 Yox.use(YoxRouter)
 ```
 
-CDN
+YARN
 
-```html
-<script src="https://unpkg.com/yox@latest"></script>
-<script src="https://unpkg.com/yox-router@latest"></script>
-<script>
-  Yox.use(YoxRouter)
-</script>
+```shell
+yarn add yox
+yarn add yox-router
 ```
 
-## Document
+```js
+import Yox from 'yox'
+import YoxRouter from 'yox-router'
+Yox.use(YoxRouter)
+```
 
-[技术预览版](https://www.gitbook.com/book/musicode/yox-router/details)
