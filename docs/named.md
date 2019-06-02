@@ -14,21 +14,10 @@ new YoxRouter.Router({
 })
 ```
 
-当你需要跳转时，可以给 `o-to` 指令设置一个对象：
+当你需要导航到其他路由时，可以给 `o-push` 或 `o-replace` 指令设置一个对象：
 
 ```html
-<button o-to="{ name: 'user', params: { userId: 123 } }">
+<button o-push="{ name: 'user', params: { userId: 123 } }">
   User
 </button>
 ```
-
-这和手动调用 `router.push()` 是一回事：
-
-```js
-router.push({
-  name: 'user',
-  params: { userId: 123 }
-})
-```
-
-这两种方式都会跳转到 `/user/123`。
