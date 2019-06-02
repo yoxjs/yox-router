@@ -890,14 +890,11 @@ export function install(Class: YoxClass): void {
     }
 
     const route = instance[ROUTE] as typeUtil.LinkedRoute
-    if (route) {
-      const router = instance[ROUTER] as Router
-      if (isLeafRoute(route)) {
-        const loading = router.loading
-        if (loading) {
-          loading.onComplete()
-          router.loading = env.UNDEFINED
-        }
+    if (route && isLeafRoute(route)) {
+      const router = instance[ROUTER] as Router, loading = router.loading
+      if (loading) {
+        loading.onComplete()
+        router.loading = env.UNDEFINED
       }
     }
 

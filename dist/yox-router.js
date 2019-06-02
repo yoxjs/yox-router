@@ -843,14 +843,11 @@
               afterUpdate(instance);
           }
           var route = instance[ROUTE];
-          if (route) {
-              var router = instance[ROUTER];
-              if (isLeafRoute(route)) {
-                  var loading = router.loading;
-                  if (loading) {
-                      loading.onComplete();
-                      router.loading = UNDEFINED;
-                  }
+          if (route && isLeafRoute(route)) {
+              var router = instance[ROUTER], loading = router.loading;
+              if (loading) {
+                  loading.onComplete();
+                  router.loading = UNDEFINED;
               }
           }
       };
