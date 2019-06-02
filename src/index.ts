@@ -35,6 +35,15 @@ EVENT_CLICK = 'click',
 EVENT_HASH_CHANGE = 'hashchange'
 
 /**
+ * 是否是叶子节点
+ * 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
+ */
+function isLeafRoute(route: typeUtil.LinkedRoute) {
+  const child = route.child
+  return !child || !child.context
+}
+
+/**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
  */
 function formatPath(path: string, parentPath: string | void) {
@@ -210,8 +219,8 @@ export class Router {
         : constant.SEPARATOR_PATH
 
       if (loading) {
-        // 通过 push 或 replace 触发的
-        if (loading.hash === hashStr) {
+        // 通过 push 或 go 触发
+        if (loading.location.hash === hashStr) {
           instance.setRoute(loading.location)
           return
         }
@@ -446,10 +455,7 @@ export class Router {
    */
   hook(route: typeUtil.LinkedRoute, name: string, isGuard?: boolean, callback?: typeUtil.Callback) {
 
-    // 必须是叶子节点
-    // 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
-    const child = route.child
-    if (child && child.context) {
+    if (!isLeafRoute(route)) {
       return
     }
 
@@ -539,7 +545,6 @@ export class Router {
 
     if (hash !== oldHash) {
       instance.loading = {
-        hash,
         location,
         onComplete,
         onAbort,
@@ -824,7 +829,7 @@ export function install(Class: YoxClass): void {
 
   Yox.component('router-view', RouterView)
 
-  const { beforeCreate, afterMount, afterDestroy } = Yox
+  const { beforeCreate, afterMount, afterUpdate, afterDestroy } = Yox
 
   Yox.beforeCreate = function (options) {
 
@@ -868,13 +873,34 @@ export function install(Class: YoxClass): void {
       const router = instance[ROUTER] as Router
       route.context = instance
       router.hook(route, constant.HOOK_AFTER_ENTER)
-
-      const loading = router.loading
-      if (loading) {
-        loading.onComplete()
-        router.loading = env.UNDEFINED
+      if (isLeafRoute(route)) {
+        const loading = router.loading
+        if (loading) {
+          loading.onComplete()
+          router.loading = env.UNDEFINED
+        }
       }
     }
+
+  }
+  Yox.afterUpdate = function (instance) {
+
+    if (afterUpdate) {
+      afterUpdate(instance)
+    }
+
+    const route = instance[ROUTE] as typeUtil.LinkedRoute
+    if (route) {
+      const router = instance[ROUTER] as Router
+      if (isLeafRoute(route)) {
+        const loading = router.loading
+        if (loading) {
+          loading.onComplete()
+          router.loading = env.UNDEFINED
+        }
+      }
+    }
+
   }
   Yox.afterDestroy = function (instance) {
 

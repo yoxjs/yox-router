@@ -288,6 +288,14 @@
   var Yox, domApi, guid = 0;
   var WINDOW = window, LOCATION = WINDOW.location, ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EVENT_HASH_CHANGE = 'hashchange';
   /**
+   * 是否是叶子节点
+   * 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
+   */
+  function isLeafRoute(route) {
+      var child = route.child;
+      return !child || !child.context;
+  }
+  /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
   function formatPath(path, parentPath) {
@@ -399,8 +407,8 @@
                   ? hashStr.substr(PREFIX_HASH.length)
                   : SEPARATOR_PATH;
               if (loading) {
-                  // 通过 push 或 replace 触发的
-                  if (loading.hash === hashStr) {
+                  // 通过 push 或 go 触发
+                  if (loading.location.hash === hashStr) {
                       instance.setRoute(loading.location);
                       return;
                   }
@@ -548,10 +556,7 @@
        * 钩子函数
        */
       Router.prototype.hook = function (route, name, isGuard, callback) {
-          // 必须是叶子节点
-          // 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
-          var child = route.child;
-          if (child && child.context) {
+          if (!isLeafRoute(route)) {
               return;
           }
           var instance = this, location = instance.location, hooks = instance.hooks, loading = instance.loading, to = hooks.to, from = hooks.from;
@@ -615,7 +620,6 @@
           }
           if (hash !== oldHash) {
               instance.loading = {
-                  hash: hash,
                   location: location,
                   onComplete: onComplete,
                   onAbort: onAbort
@@ -793,7 +797,7 @@
           replace: directive
       });
       Yox.component('router-view', RouterView);
-      var beforeCreate = Yox.beforeCreate, afterMount = Yox.afterMount, afterDestroy = Yox.afterDestroy;
+      var beforeCreate = Yox.beforeCreate, afterMount = Yox.afterMount, afterUpdate = Yox.afterUpdate, afterDestroy = Yox.afterDestroy;
       Yox.beforeCreate = function (options) {
           if (beforeCreate) {
               beforeCreate(options);
@@ -825,10 +829,28 @@
               var router = instance[ROUTER];
               route.context = instance;
               router.hook(route, HOOK_AFTER_ENTER);
-              var loading = router.loading;
-              if (loading) {
-                  loading.onComplete();
-                  router.loading = UNDEFINED;
+              if (isLeafRoute(route)) {
+                  var loading = router.loading;
+                  if (loading) {
+                      loading.onComplete();
+                      router.loading = UNDEFINED;
+                  }
+              }
+          }
+      };
+      Yox.afterUpdate = function (instance) {
+          if (afterUpdate) {
+              afterUpdate(instance);
+          }
+          var route = instance[ROUTE];
+          if (route) {
+              var router = instance[ROUTER];
+              if (isLeafRoute(route)) {
+                  var loading = router.loading;
+                  if (loading) {
+                      loading.onComplete();
+                      router.loading = UNDEFINED;
+                  }
               }
           }
       };
