@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha1
+ * yox-router.js v1.0.0-alpha2
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -433,6 +433,7 @@
               // 直接修改地址栏触发
               var location = parse$2(Yox, routes, hashStr);
               if (location) {
+                  instance.pushHistory(location);
                   instance.setRoute(location);
                   return;
               }
@@ -520,14 +521,7 @@
        */
       Router.prototype.push = function (target) {
           var instance = this, location = instance.setLocation(toLocation(target, instance.name2Path), function () {
-              var history = instance.history, cursor = instance.cursor + 1;
-              // 确保下一个为空
-              // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
-              if (history[cursor]) {
-                  history.length = cursor;
-              }
-              history[cursor] = location;
-              instance.cursor = cursor;
+              instance.pushHistory(location);
           }, EMPTY_FUNCTION);
           if (location) {
               instance.setHash(location);
@@ -609,6 +603,17 @@
           else if (callback) {
               callback();
           }
+      };
+      Router.prototype.pushHistory = function (location) {
+          var _a = this, history = _a.history, cursor = _a.cursor;
+          cursor++;
+          // 确保下一个为空
+          // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
+          if (history[cursor]) {
+              history.length = cursor;
+          }
+          history[cursor] = location;
+          this.cursor = cursor;
       };
       Router.prototype.setHash = function (location) {
           var hash = PREFIX_HASH + location.hash;
@@ -755,7 +760,7 @@
   var directive = {
       bind: function (node, directive, vnode) {
           // 当前组件如果是根组件，则没有 $root 属性
-          var $root = vnode.context.$root || vnode.context, router = $root[ROUTER], listener = function (_) {
+          var $root = vnode.context.$root || vnode.context, router = $root[ROUTER], listener = vnode.data[directive.key] = function (_) {
               var value = directive.value, getter = directive.getter, target = value;
               if (value && getter && Yox.string.has(value, '{')) {
                   target = getter();
@@ -764,19 +769,19 @@
           };
           if (vnode.isComponent) {
               node.on(EVENT_CLICK, listener);
-              vnode.data[directive.key] = function () {
-                  node.off(EVENT_CLICK, listener);
-              };
           }
           else {
               domApi.on(node, EVENT_CLICK, listener);
-              vnode.data[directive.key] = function () {
-                  domApi.off(node, EVENT_CLICK, listener);
-              };
           }
       },
       unbind: function (node, directive, vnode) {
-          vnode.data[directive.key]();
+          var listener = vnode.data[directive.key];
+          if (vnode.isComponent) {
+              node.off(EVENT_CLICK, listener);
+          }
+          else {
+              domApi.off(node, EVENT_CLICK, listener);
+          }
       }
   }, RouterView = {
       template: '<$' + ROUTE_COMPONENT + '/>',
@@ -798,7 +803,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha1";
+  var version = "1.0.0-alpha2";
   /**
    * 安装插件
    */

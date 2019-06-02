@@ -247,6 +247,7 @@ export class Router {
       // 直接修改地址栏触发
       const location = locationUtil.parse(Yox, routes, hashStr)
       if (location) {
+        instance.pushHistory(location)
         instance.setRoute(location)
         return
       }
@@ -390,14 +391,7 @@ export class Router {
     location = instance.setLocation(
       toLocation(target, instance.name2Path),
       function () {
-        const history = instance.history, cursor = instance.cursor + 1
-        // 确保下一个为空
-        // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
-        if (history[cursor]) {
-          history.length = cursor
-        }
-        history[cursor] = location as typeUtil.Location
-        instance.cursor = cursor
+        instance.pushHistory(location as typeUtil.Location)
       },
       env.EMPTY_FUNCTION
     )
@@ -515,6 +509,18 @@ export class Router {
       callback()
     }
 
+  }
+
+  private pushHistory(location: typeUtil.Location) {
+    let { history, cursor } = this
+    cursor++
+    // 确保下一个为空
+    // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
+    if (history[cursor]) {
+      history.length = cursor
+    }
+    history[cursor] = location
+    this.cursor = cursor
   }
 
   private setHash(location: typeUtil.Location) {
