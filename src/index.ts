@@ -767,7 +767,7 @@ const directive = {
 
     router = $root[ROUTER] as Router,
 
-    listener = function (_: CustomEvent) {
+    listener = vnode.data[directive.key] = function (_: CustomEvent) {
       let { value, getter } = directive, target: any = value
       if (value && getter && Yox.string.has(value as string, '{')) {
         target = getter()
@@ -777,20 +777,20 @@ const directive = {
 
     if (vnode.isComponent) {
       (node as Yox).on(EVENT_CLICK, listener)
-      vnode.data[directive.key] = function () {
-        (node as Yox).off(EVENT_CLICK, listener)
-      }
     }
     else {
       domApi.on(node as HTMLElement, EVENT_CLICK, listener)
-      vnode.data[directive.key] = function () {
-        domApi.off(node as HTMLElement, EVENT_CLICK, listener)
-      }
     }
 
   },
   unbind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
-    vnode.data[directive.key]()
+    const listener = vnode.data[directive.key]
+    if (vnode.isComponent) {
+      (node as Yox).off(EVENT_CLICK, listener)
+    }
+    else {
+      domApi.off(node as HTMLElement, EVENT_CLICK, listener)
+    }
   },
 },
 
