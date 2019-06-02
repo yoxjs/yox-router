@@ -50,7 +50,7 @@ router.push('/user/123')
 
 ### router.replace(target)
 
-`replace()` 方法和 `push()` 方法类似，唯一的不同是，它不会向 history 添加新记录。
+`replace()` 方法和 `push()` 方法类似，唯一的不同是，它不会修改地址栏 URL。
 
 ### router.go(n)
 
