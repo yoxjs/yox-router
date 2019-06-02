@@ -1,11 +1,12 @@
 {
   "name": "yox-router",
-  "version": "0.30.0",
+  "version": "1.0.0-alpha1",
   "description": "Official Router for Yox.js",
   "main": "dist/yox-router.js",
   "keywords": [
     "router",
-    "mvvm"
+    "mvvm",
+    "yoxjs"
   ],
   "scripts": {
     "dev": "node_modules/.bin/rollup -c ./build/config.dev.js",
@@ -34,6 +35,6 @@
     "typescript": "^3.4.4"
   },
   "dependencies": {
-    "yox-type": "^0.0.67"
+
   }
 }

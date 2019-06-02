@@ -4,6 +4,9 @@
   "references": [
     {
       "path": "../yox-type"
+    },
+    {
+      "path": "../yox-common"
     }
   ],
   "include": [
