@@ -85,6 +85,7 @@ export function parse(Yox: YoxClass, routes: type.LinkedRoute[], hash: string) {
 
   if (route) {
     const result: type.Location = {
+      hash,
       path: route.path
     }
     if (route.params) {

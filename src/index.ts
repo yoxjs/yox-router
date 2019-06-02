@@ -72,6 +72,7 @@ function formatPath(path: string, parentPath: string | void) {
 function toLocation(target: typeUtil.Target, name2Path: type.data): typeUtil.Location {
 
   const location: typeUtil.Location = {
+    hash: env.EMPTY_STRING,
     path: env.EMPTY_STRING
   }
 
@@ -358,10 +359,10 @@ export class Router {
    */
   push(target: typeUtil.Target) {
 
-    const instance = this, location = toLocation(target, instance.name2Path)
+    const instance = this,
 
-    instance.setHash(
-      location,
+    location = instance.setLocation(
+      toLocation(target, instance.name2Path),
       function () {
         const history = instance.history, cursor = instance.cursor + 1
         // 确保下一个为空
@@ -369,47 +370,58 @@ export class Router {
         if (history[cursor]) {
           history.length = cursor
         }
-        history[cursor] = location
+        history[cursor] = location as typeUtil.Location
         instance.cursor = cursor
       },
       env.EMPTY_FUNCTION
     )
 
+    if (location) {
+      instance.setHash(location)
+    }
+
   }
 
   replace(target: typeUtil.Target) {
 
-    const instance = this, location = toLocation(target, instance.name2Path)
+    const instance = this,
 
-    instance.setHash(
-      location,
+    location = instance.setLocation(
+      toLocation(target, instance.name2Path),
       function () {
         const history = instance.history, cursor = instance.cursor
         if (history[cursor]) {
-          history[cursor] = location
+          history[cursor] = location as typeUtil.Location
         }
       },
       env.EMPTY_FUNCTION
     )
 
+    if (location) {
+      instance.setRoute(location)
+    }
+
   }
 
   go(offset: number) {
 
-    const instance = this,
+    let instance = this,
 
     cursor = instance.cursor + offset,
 
-    location = instance.history[cursor]
+    location: typeUtil.Location | void = instance.history[cursor]
 
     if (location) {
-      instance.setHash(
+      location = instance.setLocation(
         location,
         function () {
           instance.cursor = cursor
         },
         env.EMPTY_FUNCTION
       )
+      if (location) {
+        instance.setHash(location)
+      }
     }
 
   }
@@ -486,7 +498,19 @@ export class Router {
 
   }
 
-  private setHash(
+  private setHash(location: typeUtil.Location) {
+
+    const hash = constant.PREFIX_HASH + location.hash
+    if (LOCATION.hash !== hash) {
+      LOCATION.hash = hash
+    }
+    else {
+      this.setRoute(location)
+    }
+
+  }
+
+  private setLocation(
     location: typeUtil.Location,
     onComplete: typeUtil.RouteComplete,
     onAbort: typeUtil.RouteAbort
@@ -494,29 +518,33 @@ export class Router {
 
     let instance = this,
 
-    hash = locationUtil.stringify(Yox, location)
+    hash = locationUtil.stringify(Yox, location),
 
-    if (constant.PREFIX_HASH + hash !== LOCATION.hash) {
+    oldLocation = instance.location,
 
-      const checkExisted = locationUtil.parse(Yox, instance.routes, hash)
-      if (checkExisted) {
-        location = checkExisted
+    oldHash = oldLocation ? locationUtil.stringify(Yox, oldLocation) : env.UNDEFINED,
+
+    checkExisted = locationUtil.parse(Yox, instance.routes, hash)
+
+    if (checkExisted) {
+      location = checkExisted
+    }
+    else {
+      hash = instance.route404.path
+      location = {
+        hash,
+        path: hash
       }
-      else {
-        hash = instance.route404.path
-        location = {
-          path: hash
-        }
-      }
+    }
 
+    if (hash !== oldHash) {
       instance.loading = {
         hash,
         location,
         onComplete,
         onAbort,
       }
-      LOCATION.hash = constant.PREFIX_HASH + hash
-
+      return location
     }
 
   }

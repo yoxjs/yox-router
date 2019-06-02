@@ -27,18 +27,36 @@
                 <button o-push="/">
                   /
                 </button>
-                <button o-push="/user/123">
-                  /user/123
-                </button>
-                <button o-push="{ path: '/user/123' }">
-                  { path: '/user/123' }
-                </button>
-                <button o-push="{ path: '/user/:userId', params: { userId: 123 } }">
-                  { path: '/user/:userId', params: { userId: 123 } }
-                </button>
-                <button o-push="{ name: 'user', params: { userId: 123 } }">
-                  { name: 'user', params: { userId: 123 } }
-                </button>
+                <div>
+                  push:
+                  <button o-push="/user/1">
+                    /user/1
+                  </button>
+                  <button o-push="{ path: '/user/2' }">
+                    { path: '/user/2' }
+                  </button>
+                  <button o-push="{ path: '/user/:userId', params: { userId: 3 } }">
+                    { path: '/user/:userId', params: { userId: 3 } }
+                  </button>
+                  <button o-push="{ name: 'user', params: { userId: 4 } }">
+                    { name: 'user', params: { userId: 4 } }
+                  </button>
+                </div>
+                <div>
+                  replace:
+                  <button o-replace="/user/1">
+                    /user/1
+                  </button>
+                  <button o-replace="{ path: '/user/2' }">
+                    { path: '/user/2' }
+                  </button>
+                  <button o-replace="{ path: '/user/:userId', params: { userId: 3 } }">
+                    { path: '/user/:userId', params: { userId: 3 } }
+                  </button>
+                  <button o-replace="{ name: 'user', params: { userId: 4 } }">
+                    { name: 'user', params: { userId: 4 } }
+                  </button>
+                </div>
                 <router-view />
               </div>
             `

@@ -247,6 +247,7 @@
       var route = getRouteByRealpath(Yox, routes, realpath);
       if (route) {
           var result = {
+              hash: hash,
               path: route.path
           };
           if (route.params) {
@@ -316,6 +317,7 @@
   }
   function toLocation(target, name2Path) {
       var location = {
+          hash: EMPTY_STRING,
           path: EMPTY_STRING
       };
       if (Yox.is.string(target)) {
@@ -493,8 +495,7 @@
        *
        */
       Router.prototype.push = function (target) {
-          var instance = this, location = toLocation(target, instance.name2Path);
-          instance.setHash(location, function () {
+          var instance = this, location = instance.setLocation(toLocation(target, instance.name2Path), function () {
               var history = instance.history, cursor = instance.cursor + 1;
               // 确保下一个为空
               // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
@@ -504,22 +505,30 @@
               history[cursor] = location;
               instance.cursor = cursor;
           }, EMPTY_FUNCTION);
+          if (location) {
+              instance.setHash(location);
+          }
       };
       Router.prototype.replace = function (target) {
-          var instance = this, location = toLocation(target, instance.name2Path);
-          instance.setHash(location, function () {
+          var instance = this, location = instance.setLocation(toLocation(target, instance.name2Path), function () {
               var history = instance.history, cursor = instance.cursor;
               if (history[cursor]) {
                   history[cursor] = location;
               }
           }, EMPTY_FUNCTION);
+          if (location) {
+              instance.setRoute(location);
+          }
       };
       Router.prototype.go = function (offset) {
           var instance = this, cursor = instance.cursor + offset, location = instance.history[cursor];
           if (location) {
-              instance.setHash(location, function () {
+              location = instance.setLocation(location, function () {
                   instance.cursor = cursor;
               }, EMPTY_FUNCTION);
+              if (location) {
+                  instance.setHash(location);
+              }
           }
       };
       /**
@@ -583,26 +592,35 @@
               callback();
           }
       };
-      Router.prototype.setHash = function (location, onComplete, onAbort) {
-          var instance = this, hash = stringify$2(Yox, location);
-          if (PREFIX_HASH + hash !== LOCATION.hash) {
-              var checkExisted = parse$2(Yox, instance.routes, hash);
-              if (checkExisted) {
-                  location = checkExisted;
-              }
-              else {
-                  hash = instance.route404.path;
-                  location = {
-                      path: hash
-                  };
-              }
+      Router.prototype.setHash = function (location) {
+          var hash = PREFIX_HASH + location.hash;
+          if (LOCATION.hash !== hash) {
+              LOCATION.hash = hash;
+          }
+          else {
+              this.setRoute(location);
+          }
+      };
+      Router.prototype.setLocation = function (location, onComplete, onAbort) {
+          var instance = this, hash = stringify$2(Yox, location), oldLocation = instance.location, oldHash = oldLocation ? stringify$2(Yox, oldLocation) : UNDEFINED, checkExisted = parse$2(Yox, instance.routes, hash);
+          if (checkExisted) {
+              location = checkExisted;
+          }
+          else {
+              hash = instance.route404.path;
+              location = {
+                  hash: hash,
+                  path: hash
+              };
+          }
+          if (hash !== oldHash) {
               instance.loading = {
                   hash: hash,
                   location: location,
                   onComplete: onComplete,
                   onAbort: onAbort
               };
-              LOCATION.hash = PREFIX_HASH + hash;
+              return location;
           }
       };
       Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute, oldTopRoute) {

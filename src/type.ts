@@ -56,6 +56,7 @@ export interface LinkedRoute {
 }
 
 export interface Location {
+  hash: string,
   path: string
   params?: type.data
   query?: type.data
