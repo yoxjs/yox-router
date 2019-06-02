@@ -64,7 +64,6 @@ export interface Location {
 export interface Loading {
   hash: string
   location: Location
-  route: LinkedRoute
   onComplete: RouteComplete
   onAbort: RouteAbort
 }

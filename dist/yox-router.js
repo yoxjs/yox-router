@@ -391,27 +391,26 @@
            */
           instance.onHashChange = function () {
               var hashStr = LOCATION.hash, loading = instance.loading, routes = instance.routes, route404 = instance.route404;
-              // 通过 push 或 replace 触发的
-              if (loading) {
-                  if (loading.hash === hashStr) {
-                      instance.setRoute(loading.location, loading.route);
-                      return;
-                  }
-                  instance.loading = UNDEFINED;
-              }
               // 如果不以 PREFIX_HASH 开头，表示不合法
               hashStr = hashStr !== PREFIX_HASH
                   && Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : SEPARATOR_PATH;
+              if (loading) {
+                  // 通过 push 或 replace 触发的
+                  if (loading.hash === hashStr) {
+                      instance.setRoute(loading.location);
+                      return;
+                  }
+                  instance.loading = UNDEFINED;
+              }
               // 直接修改地址栏触发
               var location = parse$2(Yox, routes, hashStr);
               if (location) {
-                  instance.setRoute(location, instance.path2Route[location.path]);
+                  instance.setRoute(location);
+                  return;
               }
-              else {
-                  instance.replace(route404);
-              }
+              instance.push(route404);
           };
           instance.routes = [];
           instance.name2Path = {};
@@ -428,9 +427,7 @@
        */
       Router.prototype.add = function (routes) {
           var instance = this, pathStack = [], routeStack = [], callback = function (routeOptions) {
-              var name = routeOptions.name, path = routeOptions.path, component = routeOptions.component, children = routeOptions.children, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack);
-              path = formatPath(path, parentPath);
-              var route = { path: path, component: component, route: routeOptions }, params = [];
+              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, component: component, route: routeOptions }, params = [];
               Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
                   if (Yox.string.startsWith(item, PREFIX_PARAM)) {
                       params.push(item.substr(PREFIX_PARAM.length));
@@ -587,24 +584,25 @@
           }
       };
       Router.prototype.setHash = function (location, onComplete, onAbort) {
-          var instance = this, route = instance.path2Route[location.path], hash;
-          if (route) {
-              hash = stringify$2(Yox, location);
-          }
-          else {
-              route = instance.route404;
-              hash = route.path;
-          }
-          hash = PREFIX_HASH + hash;
-          if (hash !== LOCATION.hash) {
+          var instance = this, hash = stringify$2(Yox, location);
+          if (PREFIX_HASH + hash !== LOCATION.hash) {
+              var checkExisted = parse$2(Yox, instance.routes, hash);
+              if (checkExisted) {
+                  location = checkExisted;
+              }
+              else {
+                  hash = instance.route404.path;
+                  location = {
+                      path: hash
+                  };
+              }
               instance.loading = {
                   hash: hash,
                   location: location,
-                  route: route,
                   onComplete: onComplete,
                   onAbort: onAbort
               };
-              LOCATION.hash = hash;
+              LOCATION.hash = PREFIX_HASH + hash;
           }
       };
       Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute, oldTopRoute) {
@@ -699,8 +697,8 @@
               break;
           }
       };
-      Router.prototype.setRoute = function (location, route) {
-          var instance = this, newRoute = Yox.object.copy(route), oldRoute = instance.route, enterRoute = function () {
+      Router.prototype.setRoute = function (location) {
+          var instance = this, newRoute = Yox.object.copy(instance.path2Route[location.path]), oldRoute = instance.route, enterRoute = function () {
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
                   instance.hook(newRoute, HOOK_BEFORE_ENTER, TRUE, function () {
                       instance.route = newRoute;
@@ -723,8 +721,11 @@
       bind: function (node, directive, vnode) {
           // 当前组件如果是根组件，则没有 $root 属性
           var $root = vnode.context.$root || vnode.context, router = $root[ROUTER], listener = function (_) {
-              var value = directive.getter && directive.getter();
-              router.push(value != NULL ? value : directive.value);
+              var value = directive.value, getter = directive.getter, target = value;
+              if (value && getter && Yox.string.has(value, '{')) {
+                  target = getter();
+              }
+              router[directive.name](target);
           };
           if (vnode.isComponent) {
               node.on(EVENT_CLICK, listener);
@@ -769,12 +770,11 @@
   function install(Class) {
       Yox = Class;
       domApi = Class.dom;
-      Yox.directive('to', directive);
-      // 提供两种风格
-      Yox.component({
-          RouterView: RouterView,
-          'router-view': RouterView
+      Yox.directive({
+          push: directive,
+          replace: directive
       });
+      Yox.component('router-view', RouterView);
       var beforeCreate = Yox.beforeCreate, afterMount = Yox.afterMount, afterDestroy = Yox.afterDestroy;
       Yox.beforeCreate = function (options) {
           if (beforeCreate) {

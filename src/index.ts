@@ -202,32 +202,29 @@ export class Router {
 
       let hashStr = LOCATION.hash, { loading, routes, route404 } = instance
 
-      // 通过 push 或 replace 触发的
-      if (loading) {
-        if (loading.hash === hashStr) {
-          instance.setRoute(
-            loading.location,
-            loading.route
-          )
-          return
-        }
-        instance.loading = env.UNDEFINED
-      }
-
       // 如果不以 PREFIX_HASH 开头，表示不合法
       hashStr = hashStr !== constant.PREFIX_HASH
         && Yox.string.startsWith(hashStr, constant.PREFIX_HASH)
         ? hashStr.substr(constant.PREFIX_HASH.length)
         : constant.SEPARATOR_PATH
 
+      if (loading) {
+        // 通过 push 或 replace 触发的
+        if (loading.hash === hashStr) {
+          instance.setRoute(loading.location)
+          return
+        }
+        instance.loading = env.UNDEFINED
+      }
+
       // 直接修改地址栏触发
       const location = locationUtil.parse(Yox, routes, hashStr)
       if (location) {
-        instance.setRoute(location, instance.path2Route[location.path])
+        instance.setRoute(location)
+        return
       }
-      else {
-        instance.replace(route404)
-      }
+
+      instance.push(route404)
 
     }
 
@@ -260,15 +257,15 @@ export class Router {
 
     callback = function (routeOptions: typeUtil.RouteOptions) {
 
-      let { name, path, component, children } = routeOptions,
+      let { name, component, children } = routeOptions,
 
       parentPath = Yox.array.last(pathStack),
 
-      parentRoute = Yox.array.last(routeStack)
+      parentRoute = Yox.array.last(routeStack),
 
-      path = formatPath(path, parentPath)
+      path = formatPath(routeOptions.path, parentPath),
 
-      const route: typeUtil.LinkedRoute = { path, component, route: routeOptions },
+      route: typeUtil.LinkedRoute = { path, component, route: routeOptions },
 
       params: string[] = []
 
@@ -497,29 +494,29 @@ export class Router {
 
     let instance = this,
 
-    route = instance.path2Route[location.path],
+    hash = locationUtil.stringify(Yox, location)
 
-    hash: string
+    if (constant.PREFIX_HASH + hash !== LOCATION.hash) {
 
-    if (route) {
-      hash = locationUtil.stringify(Yox, location)
-    }
-    else {
-      route = instance.route404
-      hash = route.path
-    }
+      const checkExisted = locationUtil.parse(Yox, instance.routes, hash)
+      if (checkExisted) {
+        location = checkExisted
+      }
+      else {
+        hash = instance.route404.path
+        location = {
+          path: hash
+        }
+      }
 
-    hash = constant.PREFIX_HASH + hash
-
-    if (hash !== LOCATION.hash) {
       instance.loading = {
         hash,
         location,
-        route,
         onComplete,
         onAbort,
       }
-      LOCATION.hash = hash
+      LOCATION.hash = constant.PREFIX_HASH + hash
+
     }
 
   }
@@ -668,14 +665,11 @@ export class Router {
     }
   }
 
-  private setRoute(
-    location: typeUtil.Location,
-    route: typeUtil.LinkedRoute
-  ) {
+  private setRoute(location: typeUtil.Location) {
 
     const instance = this,
 
-    newRoute = Yox.object.copy(route),
+    newRoute = Yox.object.copy(instance.path2Route[location.path]),
 
     oldRoute = instance.route,
 
@@ -728,8 +722,11 @@ const directive = {
     router = $root[ROUTER] as Router,
 
     listener = function (_: CustomEvent) {
-      const value = directive.getter && directive.getter()
-      router.push(value != env.NULL ? value : directive.value)
+      let { value, getter } = directive, target: any = value
+      if (value && getter && Yox.string.has(value as string, '{')) {
+        target = getter()
+      }
+      router[directive.name](target)
     }
 
     if (vnode.isComponent) {
@@ -792,13 +789,12 @@ export function install(Class: YoxClass): void {
   Yox = Class
   domApi = Class.dom as API
 
-  Yox.directive('to', directive)
-
-  // 提供两种风格
-  Yox.component({
-    RouterView: RouterView,
-    'router-view': RouterView,
+  Yox.directive({
+    push: directive,
+    replace: directive,
   })
+
+  Yox.component('router-view', RouterView)
 
   const { beforeCreate, afterMount, afterDestroy } = Yox
 

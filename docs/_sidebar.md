@@ -4,3 +4,5 @@
 * [动态路由](dynamic)
 * [路由参数](location)
 * [嵌套路由](nested)
+* [路由导航](navigation)
+* [命名路由](named)

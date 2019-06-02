@@ -55,10 +55,10 @@ router.add([
     component: {
       template: `
         <div>
-          <button o-to="/foo">
+          <button o-push="/foo">
             Foo
           </button>
-          <button o-to="/bar">
+          <button o-push="/bar">
             Bar
           </button>
         </div>

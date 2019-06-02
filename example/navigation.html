@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Nested</title>
+  <title>Navigation</title>
 </head>
 
 <body>
@@ -19,64 +19,49 @@
       // 路由就是一个路径对应一个组件
       routes: [
         {
-          path: '/user/:userId',
+          path: '/',
+          name: 'home',
           component: {
-            propTypes: {
-              userId: {
-                type: 'string'
-              }
-            },
-            // 通过 <router-view /> 定义子路由组件的渲染出口
             template: `
               <div>
-                user id: {{userId}}
+                <button o-push="/">
+                  /
+                </button>
+                <button o-push="/user/123">
+                  /user/123
+                </button>
+                <button o-push="{ path: '/user/123' }">
+                  { path: '/user/123' }
+                </button>
+                <button o-push="{ path: '/user/:userId', params: { userId: 123 } }">
+                  { path: '/user/:userId', params: { userId: 123 } }
+                </button>
+                <button o-push="{ name: 'user', params: { userId: 123 } }">
+                  { name: 'user', params: { userId: 123 } }
+                </button>
                 <router-view />
               </div>
             `
           },
           children: [
             {
-              // 当 /user/:userId 匹配成功
-              // home 会被渲染在 User 的 <router-view> 中
               path: '',
               component: {
-                template: `
-                  <div>
-                    user home
-                  </div>
-                `
+                template: '<div>home</div>'
               }
             },
             {
-              // 当 /user/:userId/profile 匹配成功
-              // profile 会被渲染在 User 的 <router-view> 中
-              path: 'profile',
+              path: '/user/:userId',
+              name: 'user',
               component: {
                 propTypes: {
                   userId: {
-                    type: 'string'
+                    type: 'number',
                   }
                 },
                 template: `
                   <div>
-                    user profile: {{userId}}
-                  </div>
-                `
-              }
-            },
-            {
-              // 当 /user/:userId/posts 匹配成功
-              // posts 会被渲染在 User 的 <router-view> 中
-              path: 'posts',
-              component: {
-                propTypes: {
-                  userId: {
-                    type: 'string'
-                  }
-                },
-                template: `
-                  <div>
-                    user posts: {{userId}}
+                    userId: {{userId}}
                   </div>
                 `
               }
