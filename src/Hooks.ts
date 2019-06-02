@@ -6,8 +6,6 @@ import * as type from './type'
 
 export default class Hooks {
 
-  name: string
-
   list: Task[]
 
   to: type.Location
@@ -20,17 +18,16 @@ export default class Hooks {
     return this
   }
 
-  setName(name: string) {
-    this.name = name
+  clear() {
     this.list = []
     return this
   }
 
-  add(target: YoxOptions | type.RouteOptions | Router, ctx: any) {
-    const { name, list } = this
-    if (target[name]) {
+  add(hook: Function | void, ctx: any) {
+    const { list } = this
+    if (hook) {
       list.push({
-        fn: target[name],
+        fn: hook,
         ctx,
       })
     }

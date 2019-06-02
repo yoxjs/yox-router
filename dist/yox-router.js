@@ -53,16 +53,15 @@
           this.from = from;
           return this;
       };
-      Hooks.prototype.setName = function (name) {
-          this.name = name;
+      Hooks.prototype.clear = function () {
           this.list = [];
           return this;
       };
-      Hooks.prototype.add = function (target, ctx) {
-          var _a = this, name = _a.name, list = _a.list;
-          if (target[name]) {
+      Hooks.prototype.add = function (hook, ctx) {
+          var list = this.list;
+          if (hook) {
               list.push({
-                  fn: target[name],
+                  fn: hook,
                   ctx: ctx
               });
           }
@@ -102,12 +101,16 @@
   var FLAG_ARRAY = '[]';
   // 导航钩子 - 路由进入之前
   var HOOK_BEFORE_ENTER = 'beforeEnter';
+  var HOOK_BEFORE_ROUTE_ENTER = 'beforeRouteEnter';
   // 导航钩子 - 路由进入之后
   var HOOK_AFTER_ENTER = 'afterEnter';
+  var HOOK_AFTER_ROUTE_ENTER = 'afterRouteEnter';
   // 导航钩子 - 路由离开之前
   var HOOK_BEFORE_LEAVE = 'beforeLeave';
+  var HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave';
   // 导航钩子 - 路由离开之后
   var HOOK_AFTER_LEAVE = 'afterLeave';
+  var HOOK_AFTER_ROUTE_LEAVE = 'afterRouteLeave';
 
   /**
    * 把字符串 value 解析成最合适的类型
@@ -378,14 +381,14 @@
       var child = route.child;
       return !child || !child.context;
   }
-  function updateRoute(instance, hook, upsert) {
+  function updateRoute(instance, componentHook, hook, upsert) {
       var route = instance[ROUTE];
       if (route) {
           route.context = upsert ? instance : UNDEFINED;
           if (isLeafRoute(route)) {
               var router = instance[ROUTER];
-              if (hook) {
-                  router.hook(route, hook);
+              if (componentHook && hook) {
+                  router.hook(route, componentHook, hook);
               }
               if (upsert && router.loading) {
                   router.loading.onComplete();
@@ -565,17 +568,17 @@
       /**
        * 钩子函数
        */
-      Router.prototype.hook = function (route, name, isGuard, callback) {
+      Router.prototype.hook = function (route, componentHook, hook, isGuard, callback) {
           var instance = this, location = instance.location, hooks = instance.hooks, loading = instance.loading, to = hooks.to, from = hooks.from;
           if (!from || from.path !== to.path) {
               hooks
-                  .setName(name)
+                  .clear()
                   // 先调用组件的钩子
-                  .add(route.component, route.context)
+                  .add(route.component[componentHook], route.context)
                   // 再调用路由配置的钩子
-                  .add(route.route, route.route)
+                  .add(route.route[hook], route.route)
                   // 最后调用路由实例的钩子
-                  .add(instance, instance);
+                  .add(instance[hook], instance);
               var next_1 = function (value) {
                   if (value === UNDEFINED) {
                       hooks.next(next_1, isGuard, callback);
@@ -589,7 +592,7 @@
                       }
                       if (value === FALSE) {
                           if (location) {
-                              instance.replace(location);
+                              instance.push(location);
                           }
                       }
                       else {
@@ -740,7 +743,7 @@
       Router.prototype.setRoute = function (location) {
           var instance = this, newRoute = Yox.object.copy(instance.path2Route[location.path]), oldRoute = instance.route, enterRoute = function () {
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
-                  instance.hook(newRoute, HOOK_BEFORE_ENTER, TRUE, function () {
+                  instance.hook(newRoute, HOOK_BEFORE_ROUTE_ENTER, HOOK_BEFORE_ENTER, TRUE, function () {
                       instance.route = newRoute;
                       instance.location = location;
                       instance.updateRoute(route, startRoute);
@@ -749,7 +752,7 @@
           };
           instance.hooks.setLocation(location, instance.location);
           if (oldRoute) {
-              instance.hook(oldRoute, HOOK_BEFORE_LEAVE, TRUE, enterRoute);
+              instance.hook(oldRoute, HOOK_BEFORE_ROUTE_LEAVE, HOOK_BEFORE_LEAVE, TRUE, enterRoute);
           }
           else {
               enterRoute();
@@ -842,19 +845,19 @@
           if (afterMount) {
               afterMount(instance);
           }
-          updateRoute(instance, HOOK_AFTER_ENTER, TRUE);
+          updateRoute(instance, HOOK_AFTER_ROUTE_ENTER, HOOK_AFTER_ENTER, TRUE);
       };
       Yox.afterUpdate = function (instance) {
           if (afterUpdate) {
               afterUpdate(instance);
           }
-          updateRoute(instance, UNDEFINED, TRUE);
+          updateRoute(instance, UNDEFINED, UNDEFINED, TRUE);
       };
       Yox.afterDestroy = function (instance) {
           if (afterDestroy) {
               afterDestroy(instance);
           }
-          updateRoute(instance, HOOK_AFTER_LEAVE);
+          updateRoute(instance, HOOK_AFTER_ROUTE_LEAVE, HOOK_AFTER_LEAVE);
       };
   }
 

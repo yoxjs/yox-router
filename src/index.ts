@@ -147,14 +147,14 @@ function isLeafRoute(route: typeUtil.LinkedRoute) {
   return !child || !child.context
 }
 
-function updateRoute(instance: Yox, hook: string | undefined, upsert?: boolean) {
+function updateRoute(instance: Yox, componentHook: string | void, hook: string | undefined, upsert?: boolean) {
   const route = instance[ROUTE] as typeUtil.LinkedRoute
   if (route) {
     route.context = upsert ? instance : env.UNDEFINED
     if (isLeafRoute(route)) {
       const router = instance[ROUTER] as Router
-      if (hook) {
-        router.hook(route, hook)
+      if (componentHook && hook) {
+        router.hook(route, componentHook, hook)
       }
       if (upsert && router.loading) {
         router.loading.onComplete()
@@ -464,20 +464,20 @@ export class Router {
   /**
    * 钩子函数
    */
-  hook(route: typeUtil.LinkedRoute, name: string, isGuard?: boolean, callback?: typeUtil.Callback) {
+  hook(route: typeUtil.LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: typeUtil.Callback) {
 
     const instance = this, { location, hooks, loading } = instance, { to, from } = hooks
 
     if (!from || from.path !== to.path) {
 
       hooks
-        .setName(name)
+        .clear()
         // 先调用组件的钩子
-        .add(route.component, route.context)
+        .add(route.component[componentHook], route.context)
         // 再调用路由配置的钩子
-        .add(route.route, route.route)
+        .add(route.route[hook], route.route)
         // 最后调用路由实例的钩子
-        .add(instance, instance)
+        .add(instance[hook], instance)
 
       const next = function (value?: false | typeUtil.Target) {
         if (value === env.UNDEFINED) {
@@ -492,7 +492,7 @@ export class Router {
           }
           if (value === env.FALSE) {
             if (location) {
-              instance.replace(location)
+              instance.push(location)
             }
           }
           else {
@@ -732,6 +732,7 @@ export class Router {
         function (route, startRoute) {
           instance.hook(
             newRoute,
+            constant.HOOK_BEFORE_ROUTE_ENTER,
             constant.HOOK_BEFORE_ENTER,
             env.TRUE,
             function () {
@@ -752,6 +753,7 @@ export class Router {
     if (oldRoute) {
       instance.hook(
         oldRoute,
+        constant.HOOK_BEFORE_ROUTE_LEAVE,
         constant.HOOK_BEFORE_LEAVE,
         env.TRUE,
         enterRoute
@@ -888,7 +890,7 @@ export function install(Class: YoxClass): void {
       afterMount(instance)
     }
 
-    updateRoute(instance, constant.HOOK_AFTER_ENTER, env.TRUE)
+    updateRoute(instance, constant.HOOK_AFTER_ROUTE_ENTER, constant.HOOK_AFTER_ENTER, env.TRUE)
 
   }
   Yox.afterUpdate = function (instance) {
@@ -897,7 +899,7 @@ export function install(Class: YoxClass): void {
       afterUpdate(instance)
     }
 
-    updateRoute(instance, env.UNDEFINED, env.TRUE)
+    updateRoute(instance, env.UNDEFINED, env.UNDEFINED, env.TRUE)
 
   }
   Yox.afterDestroy = function (instance) {
@@ -906,7 +908,7 @@ export function install(Class: YoxClass): void {
       afterDestroy(instance)
     }
 
-    updateRoute(instance, constant.HOOK_AFTER_LEAVE)
+    updateRoute(instance, constant.HOOK_AFTER_ROUTE_LEAVE, constant.HOOK_AFTER_LEAVE)
 
   }
 
