@@ -1,3 +1,3 @@
 import create from './config.base'
 
-export default create('dev', false, 9090)
+export default create('development', false, 9090)
