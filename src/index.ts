@@ -1,4 +1,5 @@
 import * as type from '../../yox-type/src/type'
+import * as routerType from './type'
 
 import * as env from '../../yox-common/src/util/env'
 
@@ -13,7 +14,6 @@ import CustomEvent from '../../yox-type/src/event/CustomEvent'
 
 import Hooks from './Hooks'
 import * as constant from './constant'
-import * as typeUtil from './type'
 import * as locationUtil from './location'
 
 let Yox: YoxClass, domApi: API, guid = 0
@@ -69,9 +69,9 @@ function formatPath(path: string, parentPath: string | void) {
   return path
 }
 
-function toLocation(target: typeUtil.Target, name2Path: type.data): typeUtil.Location {
+function toLocation(target: routerType.Target, name2Path: type.data): routerType.Location {
 
-  const location: typeUtil.Location = {
+  const location: routerType.Location = {
     hash: env.EMPTY_STRING,
     path: env.EMPTY_STRING
   }
@@ -80,7 +80,7 @@ function toLocation(target: typeUtil.Target, name2Path: type.data): typeUtil.Loc
     location.path = formatPath(target as string)
   }
   else {
-    const route = target as typeUtil.RouteTarget, name = route.name
+    const route = target as routerType.RouteTarget, name = route.name
     if (name) {
       location.path = name2Path[name]
       if (process.env.NODE_ENV === 'development') {
@@ -110,7 +110,7 @@ function toLocation(target: typeUtil.Target, name2Path: type.data): typeUtil.Loc
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: typeUtil.LinkedRoute, location: typeUtil.Location, options: YoxOptions) {
+function filterProps(route: routerType.LinkedRoute, location: routerType.Location, options: YoxOptions) {
   const result: type.data = {}, propTypes = options.propTypes
   if (propTypes) {
 
@@ -142,13 +142,13 @@ function filterProps(route: typeUtil.LinkedRoute, location: typeUtil.Location, o
  * 是否是叶子节点
  * 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
  */
-function isLeafRoute(route: typeUtil.LinkedRoute) {
+function isLeafRoute(route: routerType.LinkedRoute) {
   const child = route.child
   return !child || !child.context
 }
 
 function updateRoute(instance: Yox, componentHook: string | void, hook: string | undefined, upsert?: boolean) {
-  const route = instance[ROUTE] as typeUtil.LinkedRoute
+  const route = instance[ROUTE] as routerType.LinkedRoute
   if (route) {
     route.context = upsert ? instance : env.UNDEFINED
     if (isLeafRoute(route)) {
@@ -168,19 +168,19 @@ export class Router {
 
   el: Element
 
-  routes: typeUtil.LinkedRoute[]
+  routes: routerType.LinkedRoute[]
 
-  route404: typeUtil.LinkedRoute
+  route404: routerType.LinkedRoute
 
   name2Path: Record<string, string>
 
-  path2Route: Record<string, typeUtil.LinkedRoute>
+  path2Route: Record<string, routerType.LinkedRoute>
 
-  history: typeUtil.Location[]
+  history: routerType.Location[]
 
   cursor: number
 
-  loading: typeUtil.Loading | void
+  loading: routerType.Loading | void
 
   hooks: Hooks
 
@@ -188,20 +188,20 @@ export class Router {
   onHashChange: Function
 
   // 当前渲染的路由
-  route?: typeUtil.LinkedRoute
+  route?: routerType.LinkedRoute
 
   // 当前地址栏的路径和参数
-  location?: typeUtil.Location
+  location?: routerType.Location
 
-  [constant.HOOK_BEFORE_LEAVE]?: typeUtil.BeforeHook
+  [constant.HOOK_BEFORE_LEAVE]?: routerType.BeforeHook
 
-  [constant.HOOK_BEFORE_ENTER]?: typeUtil.BeforeHook
+  [constant.HOOK_BEFORE_ENTER]?: routerType.BeforeHook
 
-  [constant.HOOK_AFTER_ENTER]?: typeUtil.AfterHook
+  [constant.HOOK_AFTER_ENTER]?: routerType.AfterHook
 
-  [constant.HOOK_AFTER_LEAVE]?: typeUtil.AfterHook
+  [constant.HOOK_AFTER_LEAVE]?: routerType.AfterHook
 
-  constructor(options: typeUtil.RouterOptions) {
+  constructor(options: routerType.RouterOptions) {
 
     const instance = this, { el, route404 } = options
 
@@ -268,22 +268,22 @@ export class Router {
     instance.add(options.routes)
     instance.add([route404])
 
-    instance.route404 = Yox.array.last(instance.routes) as typeUtil.LinkedRoute
+    instance.route404 = Yox.array.last(instance.routes) as routerType.LinkedRoute
 
   }
 
   /**
    * 添加新的路由
    */
-  add(routes: typeUtil.RouteOptions[]) {
+  add(routes: routerType.RouteOptions[]) {
 
     let instance = this,
 
     pathStack: string[] = [],
 
-    routeStack: typeUtil.LinkedRoute[] = [],
+    routeStack: routerType.LinkedRoute[] = [],
 
-    callback = function (routeOptions: typeUtil.RouteOptions) {
+    callback = function (routeOptions: routerType.RouteOptions) {
 
       let { name, component, children } = routeOptions,
 
@@ -293,7 +293,7 @@ export class Router {
 
       path = formatPath(routeOptions.path, parentPath),
 
-      route: typeUtil.LinkedRoute = { path, component, route: routeOptions },
+      route: routerType.LinkedRoute = { path, component, route: routeOptions },
 
       params: string[] = []
 
@@ -384,14 +384,14 @@ export class Router {
    * })
    *
    */
-  push(target: typeUtil.Target) {
+  push(target: routerType.Target) {
 
     const instance = this,
 
     location = instance.setLocation(
       toLocation(target, instance.name2Path),
       function () {
-        instance.pushHistory(location as typeUtil.Location)
+        instance.pushHistory(location as routerType.Location)
       },
       env.EMPTY_FUNCTION
     )
@@ -402,17 +402,14 @@ export class Router {
 
   }
 
-  replace(target: typeUtil.Target) {
+  replace(target: routerType.Target) {
 
     const instance = this,
 
     location = instance.setLocation(
       toLocation(target, instance.name2Path),
       function () {
-        const history = instance.history, cursor = instance.cursor
-        if (history[cursor]) {
-          history[cursor] = location as typeUtil.Location
-        }
+        instance.replaceHistory(location as routerType.Location)
       },
       env.EMPTY_FUNCTION
     )
@@ -429,7 +426,7 @@ export class Router {
 
     cursor = instance.cursor + offset,
 
-    location: typeUtil.Location | void = instance.history[cursor]
+    location: routerType.Location | void = instance.history[cursor]
 
     if (location) {
       location = instance.setLocation(
@@ -464,7 +461,7 @@ export class Router {
   /**
    * 钩子函数
    */
-  hook(route: typeUtil.LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: typeUtil.Callback) {
+  hook(route: routerType.LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: routerType.Callback) {
 
     const instance = this, { location, hooks, loading } = instance
 
@@ -477,7 +474,7 @@ export class Router {
       // 最后调用路由实例的钩子
       .add(instance[hook], instance)
 
-    const next = function (value?: false | typeUtil.Target) {
+    const next = function (value?: false | routerType.Target) {
       if (value === env.UNDEFINED) {
         hooks.next(next, isGuard, callback)
       }
@@ -504,7 +501,7 @@ export class Router {
 
   }
 
-  private pushHistory(location: typeUtil.Location) {
+  private pushHistory(location: routerType.Location) {
     let { history, cursor } = this
     cursor++
     // 确保下一个为空
@@ -516,7 +513,14 @@ export class Router {
     this.cursor = cursor
   }
 
-  private setHash(location: typeUtil.Location) {
+  private replaceHistory(location: routerType.Location) {
+    const { history, cursor } = this
+    if (history[cursor]) {
+      history[cursor] = location
+    }
+  }
+
+  private setHash(location: routerType.Location) {
 
     const hash = constant.PREFIX_HASH + location.hash
     if (LOCATION.hash !== hash) {
@@ -529,9 +533,9 @@ export class Router {
   }
 
   private setLocation(
-    location: typeUtil.Location,
-    onComplete: typeUtil.RouteComplete,
-    onAbort: typeUtil.RouteAbort
+    location: routerType.Location,
+    onComplete: routerType.RouteComplete,
+    onAbort: routerType.RouteAbort
   ) {
 
     let instance = this,
@@ -567,12 +571,12 @@ export class Router {
   }
 
   private diffRoute(
-    route: typeUtil.LinkedRoute,
-    oldRoute: typeUtil.LinkedRoute | void,
-    onComplete: typeUtil.DiffComplete,
-    startRoute: typeUtil.LinkedRoute | void,
-    childRoute: typeUtil.LinkedRoute | void,
-    oldTopRoute: typeUtil.LinkedRoute | void
+    route: routerType.LinkedRoute,
+    oldRoute: routerType.LinkedRoute | void,
+    onComplete: routerType.DiffComplete,
+    startRoute: routerType.LinkedRoute | void,
+    childRoute: routerType.LinkedRoute | void,
+    oldTopRoute: routerType.LinkedRoute | void
   ) {
 
     // 更新链路
@@ -632,11 +636,11 @@ export class Router {
   }
 
   private patchRoute(
-    route: typeUtil.LinkedRoute,
-    startRoute: typeUtil.LinkedRoute | void
+    route: routerType.LinkedRoute,
+    startRoute: routerType.LinkedRoute | void
   ) {
 
-    const instance = this, location = instance.location as typeUtil.Location
+    const instance = this, location = instance.location as routerType.Location
 
     // 从上往下更新 props
     while (route) {
@@ -702,7 +706,7 @@ export class Router {
           route.context = env.UNDEFINED
         }
         if (route.child) {
-          route = route.child as typeUtil.LinkedRoute
+          route = route.child as routerType.LinkedRoute
           continue
         }
       }
@@ -710,7 +714,7 @@ export class Router {
     }
   }
 
-  private setRoute(location: typeUtil.Location) {
+  private setRoute(location: routerType.Location) {
 
     const instance = this,
 
@@ -803,7 +807,7 @@ RouterView: YoxOptions = {
 
     const $parent = options.parent as Yox,
 
-    route = $parent[ROUTE].child as typeUtil.LinkedRoute
+    route = $parent[ROUTE].child as routerType.LinkedRoute
 
     if (route) {
 
@@ -863,7 +867,7 @@ export function install(Class: YoxClass): void {
       parent = parent.$parent
       if (parent) {
         const router = parent[ROUTER] as Router,
-        route = parent[ROUTE].child as typeUtil.LinkedRoute
+        route = parent[ROUTE].child as routerType.LinkedRoute
 
         if (router && route) {
           const extensions = options.extensions = {}
