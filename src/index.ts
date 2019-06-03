@@ -809,13 +809,14 @@ RouterView: YoxOptions = {
 
       $parent[ROUTE_VIEW] = this
 
-      const props = {}, components = {}, name = ROUTE_COMPONENT + (++guid)
+      const props = options.props = {},
+
+      components = options.components = {},
+
+      name = ROUTE_COMPONENT + (++guid)
 
       props[ROUTE_COMPONENT] = name
       components[name] = route.component
-
-      options.props = props
-      options.components = components
 
     }
 

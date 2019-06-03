@@ -792,11 +792,9 @@
           var $parent = options.parent, route = $parent[ROUTE].child;
           if (route) {
               $parent[ROUTE_VIEW] = this;
-              var props = {}, components = {}, name = ROUTE_COMPONENT + (++guid);
+              var props = options.props = {}, components = options.components = {}, name = ROUTE_COMPONENT + (++guid);
               props[ROUTE_COMPONENT] = name;
               components[name] = route.component;
-              options.props = props;
-              options.components = components;
           }
       },
       beforeDestroy: function () {
