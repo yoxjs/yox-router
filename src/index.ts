@@ -542,10 +542,10 @@ export class Router {
 
     oldHash = oldLocation ? locationUtil.stringify(Yox, oldLocation) : env.UNDEFINED,
 
-    checkExisted = locationUtil.parse(Yox, instance.routes, hash)
+    existed = locationUtil.parse(Yox, instance.routes, hash)
 
-    if (checkExisted) {
-      location = checkExisted
+    if (existed) {
+      location = existed
     }
     else {
       hash = instance.route404.path
