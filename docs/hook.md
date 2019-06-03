@@ -26,7 +26,6 @@ function (to, from, next) {
 
 ```js
 function (to, from, next) {
-  // balabala
   next()
 }
 ```
@@ -37,18 +36,16 @@ function (to, from, next) {
 
 ```js
 function (to, from, next) {
-  // balabala
   next(false)
 }
 ```
 
 ### 导航到别的路由
 
-如果你不想去 `to`，而是想导航到别的路由，直接调用 `next(target)` 即可：
+如果你不想去 `to`，而是想导航到别的路由，可以把 `next` 当做 `push` 方法来用，如下：
 
 ```js
 function (to, from, next) {
-  // balabala
   next({
     path: '/user/foo'
   })
