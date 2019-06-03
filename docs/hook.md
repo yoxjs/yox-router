@@ -90,13 +90,13 @@ function (to, from) {
 * `oldLeafRoute` 路由的 `beforeLeave`
 * `router` 的 `beforeLeave`
 
-如果 Leave `前置路由钩子` 没有进行拦截，则会继续触发以下 `前置路由钩子`：
+如果 Leave `前置路由钩子` 没有进行拦截，则会继续依次触发以下 `前置路由钩子`：
 
 * `newLeafRoute` 的路由组件的 `beforeRouteEnter`
 * `newLeafRoute` 路由的 `beforeEnter`
 * `router` 的 `beforeEnter`
 
-如果 Enter `前置路由钩子` 没有进行拦截，则会销毁旧的路由组件，并创建新的路由组件，然后触发以下 `后置路由钩子`：
+如果 Enter `前置路由钩子` 没有进行拦截，则会销毁旧的路由组件，并创建新的路由组件，然后依次触发以下 `后置路由钩子`：
 
 * `oldLeafRoute` 路由组件的 `afterRouteLeave`
 * `oldLeafRoute` 路由的 `afterLeave`
@@ -113,7 +113,7 @@ function (to, from) {
 * `oldLeafRoute` 路由的 `beforeUpdate`
 * `router` 的 `beforeUpdate`
 
-如果 Update `前置路由钩子` 没有进行拦截，则会开始更新路由组件，然后触发以下 `后置路由钩子`：
+如果 Update `前置路由钩子` 没有进行拦截，则会开始更新路由组件，然后依次触发以下 `后置路由钩子`：
 
 * `oldLeafRoute` 路由组件的 `afterRouteUpdate`
 * `oldLeafRoute` 路由的 `afterUpdate`
