@@ -105,6 +105,12 @@
   // 导航钩子 - 路由进入之后
   var HOOK_AFTER_ENTER = 'afterEnter';
   var HOOK_AFTER_ROUTE_ENTER = 'afterRouteEnter';
+  // 导航钩子 - 路由更新之前
+  var HOOK_BEFORE_UPDATE = 'beforeUpdate';
+  var HOOK_BEFORE_ROUTE_UPDATE = 'beforeRouteUpdate';
+  // 导航钩子 - 路由更新之后
+  var HOOK_AFTER_UPDATE = 'afterUpdate';
+  var HOOK_AFTER_ROUTE_UPDATE = 'afterRouteUpdate';
   // 导航钩子 - 路由离开之前
   var HOOK_BEFORE_LEAVE = 'beforeLeave';
   var HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave';
@@ -569,43 +575,38 @@
        * 钩子函数
        */
       Router.prototype.hook = function (route, componentHook, hook, isGuard, callback) {
-          var instance = this, location = instance.location, hooks = instance.hooks, loading = instance.loading, to = hooks.to, from = hooks.from;
-          if (!from || from.path !== to.path) {
-              hooks
-                  .clear()
-                  // 先调用组件的钩子
-                  .add(route.component[componentHook], route.context)
-                  // 再调用路由配置的钩子
-                  .add(route.route[hook], route.route)
-                  // 最后调用路由实例的钩子
-                  .add(instance[hook], instance);
-              var next_1 = function (value) {
-                  if (value === UNDEFINED) {
-                      hooks.next(next_1, isGuard, callback);
+          var instance = this, location = instance.location, hooks = instance.hooks, loading = instance.loading;
+          hooks
+              .clear()
+              // 先调用组件的钩子
+              .add(route.component[componentHook], route.context)
+              // 再调用路由配置的钩子
+              .add(route.route[hook], route.route)
+              // 最后调用路由实例的钩子
+              .add(instance[hook], instance);
+          var next = function (value) {
+              if (value === UNDEFINED) {
+                  hooks.next(next, isGuard, callback);
+              }
+              else {
+                  // 只有前置守卫才有可能走进这里
+                  // 此时 instance.location 还是旧地址
+                  if (loading) {
+                      loading.onAbort();
+                      instance.loading = UNDEFINED;
+                  }
+                  if (value === FALSE) {
+                      if (location) {
+                          instance.push(location);
+                      }
                   }
                   else {
-                      // 只有前置守卫才有可能走进这里
-                      // 此时 instance.location 还是旧地址
-                      if (loading) {
-                          loading.onAbort();
-                          instance.loading = UNDEFINED;
-                      }
-                      if (value === FALSE) {
-                          if (location) {
-                              instance.push(location);
-                          }
-                      }
-                      else {
-                          // 跳转到别的路由
-                          instance.push(value);
-                      }
+                      // 跳转到别的路由
+                      instance.push(value);
                   }
-              };
-              next_1();
-          }
-          else if (callback) {
-              callback();
-          }
+              }
+          };
+          next();
       };
       Router.prototype.pushHistory = function (location) {
           var _a = this, history = _a.history, cursor = _a.cursor;
@@ -692,7 +693,7 @@
           // 到达根组件，结束
           onComplete(route, startRoute);
       };
-      Router.prototype.updateRoute = function (route, startRoute) {
+      Router.prototype.patchRoute = function (route, startRoute) {
           var instance = this, location = instance.location;
           // 从上往下更新 props
           while (route) {
@@ -741,22 +742,21 @@
           }
       };
       Router.prototype.setRoute = function (location) {
-          var instance = this, newRoute = Yox.object.copy(instance.path2Route[location.path]), oldRoute = instance.route, enterRoute = function () {
+          var instance = this, newRoute = Yox.object.copy(instance.path2Route[location.path]), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
-                  instance.hook(newRoute, HOOK_BEFORE_ROUTE_ENTER, HOOK_BEFORE_ENTER, TRUE, function () {
+                  instance.hook(newRoute, startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE, startRoute ? HOOK_BEFORE_ENTER : HOOK_BEFORE_UPDATE, TRUE, function () {
                       instance.route = newRoute;
                       instance.location = location;
-                      instance.updateRoute(route, startRoute);
+                      instance.patchRoute(route, startRoute);
                   });
               });
           };
-          instance.hooks.setLocation(location, instance.location);
-          if (oldRoute) {
+          instance.hooks.setLocation(location, oldLocation);
+          if (oldRoute && oldLocation && location.path !== oldLocation.path) {
               instance.hook(oldRoute, HOOK_BEFORE_ROUTE_LEAVE, HOOK_BEFORE_LEAVE, TRUE, enterRoute);
+              return;
           }
-          else {
-              enterRoute();
-          }
+          enterRoute();
       };
       return Router;
   }());
@@ -851,7 +851,7 @@
           if (afterUpdate) {
               afterUpdate(instance);
           }
-          updateRoute(instance, UNDEFINED, UNDEFINED, TRUE);
+          updateRoute(instance, HOOK_AFTER_ROUTE_UPDATE, HOOK_AFTER_UPDATE, TRUE);
       };
       Yox.afterDestroy = function (instance) {
           if (afterDestroy) {

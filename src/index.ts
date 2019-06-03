@@ -466,48 +466,41 @@ export class Router {
    */
   hook(route: typeUtil.LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: typeUtil.Callback) {
 
-    const instance = this, { location, hooks, loading } = instance, { to, from } = hooks
+    const instance = this, { location, hooks, loading } = instance
 
-    if (!from || from.path !== to.path) {
+    hooks
+      .clear()
+      // 先调用组件的钩子
+      .add(route.component[componentHook], route.context)
+      // 再调用路由配置的钩子
+      .add(route.route[hook], route.route)
+      // 最后调用路由实例的钩子
+      .add(instance[hook], instance)
 
-      hooks
-        .clear()
-        // 先调用组件的钩子
-        .add(route.component[componentHook], route.context)
-        // 再调用路由配置的钩子
-        .add(route.route[hook], route.route)
-        // 最后调用路由实例的钩子
-        .add(instance[hook], instance)
-
-      const next = function (value?: false | typeUtil.Target) {
-        if (value === env.UNDEFINED) {
-          hooks.next(next, isGuard, callback)
+    const next = function (value?: false | typeUtil.Target) {
+      if (value === env.UNDEFINED) {
+        hooks.next(next, isGuard, callback)
+      }
+      else {
+        // 只有前置守卫才有可能走进这里
+        // 此时 instance.location 还是旧地址
+        if (loading) {
+          loading.onAbort()
+          instance.loading = env.UNDEFINED
+        }
+        if (value === env.FALSE) {
+          if (location) {
+            instance.push(location)
+          }
         }
         else {
-          // 只有前置守卫才有可能走进这里
-          // 此时 instance.location 还是旧地址
-          if (loading) {
-            loading.onAbort()
-            instance.loading = env.UNDEFINED
-          }
-          if (value === env.FALSE) {
-            if (location) {
-              instance.push(location)
-            }
-          }
-          else {
-            // 跳转到别的路由
-            instance.push(value)
-          }
+          // 跳转到别的路由
+          instance.push(value)
         }
       }
-
-      next()
-
     }
-    else if (callback) {
-      callback()
-    }
+
+    next()
 
   }
 
@@ -638,7 +631,7 @@ export class Router {
 
   }
 
-  private updateRoute(
+  private patchRoute(
     route: typeUtil.LinkedRoute,
     startRoute: typeUtil.LinkedRoute | void
   ) {
@@ -725,6 +718,8 @@ export class Router {
 
     oldRoute = instance.route,
 
+    oldLocation = instance.location,
+
     enterRoute = function () {
       instance.diffRoute(
         newRoute,
@@ -732,15 +727,15 @@ export class Router {
         function (route, startRoute) {
           instance.hook(
             newRoute,
-            constant.HOOK_BEFORE_ROUTE_ENTER,
-            constant.HOOK_BEFORE_ENTER,
+            startRoute ? constant.HOOK_BEFORE_ROUTE_ENTER : constant.HOOK_BEFORE_ROUTE_UPDATE,
+            startRoute ? constant.HOOK_BEFORE_ENTER : constant.HOOK_BEFORE_UPDATE,
             env.TRUE,
             function () {
 
               instance.route = newRoute
               instance.location = location
 
-              instance.updateRoute(route, startRoute)
+              instance.patchRoute(route, startRoute)
 
             }
           )
@@ -748,9 +743,9 @@ export class Router {
       )
     }
 
-    instance.hooks.setLocation(location, instance.location)
+    instance.hooks.setLocation(location, oldLocation)
 
-    if (oldRoute) {
+    if (oldRoute && oldLocation && location.path !== oldLocation.path) {
       instance.hook(
         oldRoute,
         constant.HOOK_BEFORE_ROUTE_LEAVE,
@@ -758,10 +753,10 @@ export class Router {
         env.TRUE,
         enterRoute
       )
+      return
     }
-    else {
-      enterRoute()
-    }
+
+    enterRoute()
 
   }
 
@@ -899,7 +894,7 @@ export function install(Class: YoxClass): void {
       afterUpdate(instance)
     }
 
-    updateRoute(instance, env.UNDEFINED, env.UNDEFINED, env.TRUE)
+    updateRoute(instance, constant.HOOK_AFTER_ROUTE_UPDATE, constant.HOOK_AFTER_UPDATE, env.TRUE)
 
   }
   Yox.afterDestroy = function (instance) {

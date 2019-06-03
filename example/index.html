@@ -36,7 +36,29 @@
           },
           afterDestroy() {
             console.log('index', 'afterDestroy')
-          }
+          },
+
+          beforeRouteEnter(to, from, next) {
+            console.log('index', 'beforeRouteEnter')
+            next()
+          },
+          afterRouteEnter() {
+            console.log('index', 'afterRouteEnter')
+          },
+          beforeRouteUpdate(to, from, next) {
+            console.log('index', 'beforeRouteUpdate')
+            next()
+          },
+          afterRouteUpdate() {
+            console.log('index', 'afterRouteUpdate')
+          },
+          beforeRouteLeave(to, from, next) {
+            console.log('index', 'beforeRouteLeave')
+            next()
+          },
+          afterRouteLeave() {
+            console.log('index', 'afterRouteLeave')
+          },
         }
 
         const User = {
@@ -75,7 +97,29 @@
           },
           afterDestroy() {
             console.log('user', 'afterDestroy')
-          }
+          },
+
+          beforeRouteEnter(to, from, next) {
+            console.log('user', 'beforeRouteEnter')
+            next()
+          },
+          afterRouteEnter() {
+            console.log('user', 'afterRouteEnter')
+          },
+          beforeRouteUpdate(to, from, next) {
+            console.log('user', 'beforeRouteUpdate')
+            next()
+          },
+          afterRouteUpdate() {
+            console.log('user', 'afterRouteUpdate')
+          },
+          beforeRouteLeave(to, from, next) {
+            console.log('user', 'beforeRouteLeave')
+            next()
+          },
+          afterRouteLeave() {
+            console.log('user', 'afterRouteLeave')
+          },
         }
 
         const UserIndex = {
@@ -108,7 +152,29 @@
           },
           afterDestroy() {
             console.log('userIndex', 'afterDestroy')
-          }
+          },
+
+          beforeRouteEnter(to, from, next) {
+            console.log('userIndex', 'beforeRouteEnter')
+            next()
+          },
+          afterRouteEnter() {
+            console.log('userIndex', 'afterRouteEnter')
+          },
+          beforeRouteUpdate(to, from, next) {
+            console.log('userIndex', 'beforeRouteUpdate')
+            next()
+          },
+          afterRouteUpdate() {
+            console.log('userIndex', 'afterRouteUpdate')
+          },
+          beforeRouteLeave(to, from, next) {
+            console.log('userIndex', 'beforeRouteLeave')
+            next()
+          },
+          afterRouteLeave() {
+            console.log('userIndex', 'afterRouteLeave')
+          },
         }
 
         const UserDetail = {
@@ -140,7 +206,29 @@
           },
           afterDestroy() {
             console.log('userDetail', 'afterDestroy')
-          }
+          },
+
+          beforeRouteEnter(to, from, next) {
+            console.log('userDetail', 'beforeRouteEnter')
+            next()
+          },
+          afterRouteEnter() {
+            console.log('userDetail', 'afterRouteEnter')
+          },
+          beforeRouteUpdate(to, from, next) {
+            console.log('userDetail', 'beforeRouteUpdate')
+            next()
+          },
+          afterRouteUpdate() {
+            console.log('userDetail', 'afterRouteUpdate')
+          },
+          beforeRouteLeave(to, from, next) {
+            console.log('userDetail', 'beforeRouteLeave')
+            next()
+          },
+          afterRouteLeave() {
+            console.log('userDetail', 'afterRouteLeave')
+          },
         }
 
         const UserProfile = {
@@ -172,7 +260,29 @@
           },
           afterDestroy() {
             console.log('userProfile', 'afterDestroy')
-          }
+          },
+
+          beforeRouteEnter(to, from, next) {
+            console.log('userProfile', 'beforeRouteEnter')
+            next()
+          },
+          afterRouteEnter() {
+            console.log('userProfile', 'afterRouteEnter')
+          },
+          beforeRouteUpdate(to, from, next) {
+            console.log('userProfile', 'beforeRouteUpdate')
+            next()
+          },
+          afterRouteUpdate() {
+            console.log('userProfile', 'afterRouteUpdate')
+          },
+          beforeRouteLeave(to, from, next) {
+            console.log('userProfile', 'beforeRouteLeave')
+            next()
+          },
+          afterRouteLeave() {
+            console.log('userProfile', 'afterRouteLeave')
+          },
         }
 
         const Setting = {
@@ -199,7 +309,29 @@
           },
           afterDestroy() {
             console.log('setting', 'afterDestroy')
-          }
+          },
+
+          beforeRouteEnter(to, from, next) {
+            console.log('setting', 'beforeRouteEnter')
+            next()
+          },
+          afterRouteEnter() {
+            console.log('setting', 'afterRouteEnter')
+          },
+          beforeRouteUpdate(to, from, next) {
+            console.log('setting', 'beforeRouteUpdate')
+            next()
+          },
+          afterRouteUpdate() {
+            console.log('setting', 'afterRouteUpdate')
+          },
+          beforeRouteLeave(to, from, next) {
+            console.log('setting', 'beforeRouteLeave')
+            next()
+          },
+          afterRouteLeave() {
+            console.log('setting', 'afterRouteLeave')
+          },
         }
 
         var router = new YoxRouter.Router({
@@ -253,6 +385,13 @@
         }
         router.afterEnter = function (to, from) {
           console.log('router afterEnter', to, from)
+        }
+        router.beforeUpdate = function (to, from, next) {
+          console.log('router beforeUpdate', to, from)
+          next()
+        }
+        router.afterUpdate = function (to, from) {
+          console.log('router afterUpdate', to, from)
         }
         router.beforeLeave = function (to, from, next) {
           console.log('router beforeLeave', to, from)

@@ -1,6 +1,4 @@
 import Task from '../../yox-type/src/interface/Task'
-import YoxOptions from '../../yox-type/src/options/Yox'
-import { Router } from './index'
 
 import * as type from './type'
 

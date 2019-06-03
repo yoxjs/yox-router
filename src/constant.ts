@@ -27,6 +27,14 @@ export const HOOK_BEFORE_ROUTE_ENTER = 'beforeRouteEnter'
 export const HOOK_AFTER_ENTER = 'afterEnter'
 export const HOOK_AFTER_ROUTE_ENTER = 'afterRouteEnter'
 
+// 导航钩子 - 路由更新之前
+export const HOOK_BEFORE_UPDATE = 'beforeUpdate'
+export const HOOK_BEFORE_ROUTE_UPDATE = 'beforeRouteUpdate'
+
+// 导航钩子 - 路由更新之后
+export const HOOK_AFTER_UPDATE = 'afterUpdate'
+export const HOOK_AFTER_ROUTE_UPDATE = 'afterRouteUpdate'
+
 // 导航钩子 - 路由离开之前
 export const HOOK_BEFORE_LEAVE = 'beforeLeave'
 export const HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave'
