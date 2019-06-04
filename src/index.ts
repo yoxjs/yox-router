@@ -853,6 +853,7 @@ export function install(Class: YoxClass): void {
   Yox.directive({
     push: directive,
     replace: directive,
+    go: directive,
   })
 
   Yox.component('router-view', RouterView)

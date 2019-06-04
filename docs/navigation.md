@@ -83,6 +83,9 @@ router.go(100)
   <button o-replace="{ path: '/user/bar' }">
     User Bar
   </button>
+  <button o-go="-1">
+    Back
+  </button>
 </div>
 ```
 

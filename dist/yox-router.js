@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha3
+ * yox-router.js v1.0.0-alpha4
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -812,7 +812,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha3";
+  var version = "1.0.0-alpha4";
   /**
    * 安装插件
    */
@@ -821,7 +821,8 @@
       domApi = Class.dom;
       Yox.directive({
           push: directive,
-          replace: directive
+          replace: directive,
+          go: directive
       });
       Yox.component('router-view', RouterView);
       var beforeCreate = Yox.beforeCreate, afterMount = Yox.afterMount, afterUpdate = Yox.afterUpdate, afterDestroy = Yox.afterDestroy;
