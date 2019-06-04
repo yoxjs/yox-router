@@ -265,7 +265,7 @@
    * 2. 避免覆盖 data 定义的数据
    */
   function filterProps(route, location, options) {
-      var result = {}, propTypes = options.propTypes;
+      var result = {}, propTypes = options && options.propTypes;
       if (propTypes) {
           var props = location.query, routeParams = route.params, locationParams = location.params;
           // 从 location.params 挑出 route.params 定义过的参数
@@ -365,15 +365,17 @@
           instance.history = [];
           instance.cursor = -1;
           instance.hooks = new Hooks();
-          instance.add(options.routes);
-          instance.route404 = instance.add([route404])[0];
+          Yox.array.each(options.routes, function (route) {
+              instance.add(route);
+          });
+          instance.route404 = instance.add(route404)[0];
       }
       /**
        * 添加新的路由
        */
-      Router.prototype.add = function (routes) {
-          var instance = this, newRoutes = [], pathStack = [], routeStack = [], callback = function (routeOptions) {
-              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, component: component, route: routeOptions }, params = [];
+      Router.prototype.add = function (routeOptions) {
+          var instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
+              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, load = routeOptions.load, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
               Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
                   if (Yox.string.startsWith(item, PREFIX_PARAM)) {
                       params.push(item.substr(PREFIX_PARAM.length));
@@ -382,13 +384,23 @@
               if (params.length) {
                   route.params = params;
               }
+              if (name) {
+                  route.name = name;
+              }
+              // component 和 load 二选一
+              if (component) {
+                  route.component = component;
+              }
+              else if (load) {
+                  route.load = load;
+              }
               if (parentRoute) {
                   route.parent = parentRoute;
               }
               if (children) {
                   pathStack.push(path);
                   routeStack.push(route);
-                  Yox.array.each(children, callback);
+                  Yox.array.each(children, addRoute);
                   routeStack.pop();
                   pathStack.pop();
               }
@@ -413,8 +425,16 @@
                   instance.path2Route[path] = route;
               }
           };
-          Yox.array.each(routes, callback);
+          addRoute(routeOptions);
           return newRoutes;
+      };
+      Router.prototype.remove = function (route) {
+          var instance = this;
+          Yox.array.remove(instance.routes, route);
+          if (route.name) {
+              delete instance.name2Path[route.name];
+          }
+          delete instance.path2Route[route.path];
       };
       /**
        * 真正执行路由切换操作的函数
@@ -599,8 +619,9 @@
                   }
                   // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
                   else if (route.load && Yox.string.startsWith(realpath, path)) {
-                      route.load(function (route) {
-                          searchRoute(instance.add([route]), callback);
+                      route.load(function (lazyRoute) {
+                          instance.remove(route);
+                          searchRoute(instance.add(lazyRoute), callback);
                       });
                       return;
                   }

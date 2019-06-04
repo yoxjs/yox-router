@@ -105,8 +105,8 @@ function toLocation(target: routerType.Target, name2Path: type.data): routerType
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: routerType.LinkedRoute, location: routerType.Location, options: YoxOptions) {
-  const result: type.data = {}, propTypes = options.propTypes
+function filterProps(route: routerType.LinkedRoute, location: routerType.Location, options: YoxOptions | void) {
+  const result: type.data = {}, propTypes = options && options.propTypes
   if (propTypes) {
 
     let props = location.query,
@@ -269,16 +269,21 @@ export class Router {
 
     instance.hooks = new Hooks()
 
-    instance.add(options.routes)
+    Yox.array.each(
+      options.routes,
+      function (route) {
+        instance.add(route)
+      }
+    )
 
-    instance.route404 = instance.add([route404])[0]
+    instance.route404 = instance.add(route404)[0]
 
   }
 
   /**
    * 添加新的路由
    */
-  add(routes: routerType.RouteOptions[]) {
+  add(routeOptions: routerType.RouteOptions) {
 
     const instance = this,
 
@@ -288,9 +293,9 @@ export class Router {
 
     routeStack: routerType.LinkedRoute[] = [],
 
-    callback = function (routeOptions: routerType.RouteOptions) {
+    addRoute = function (routeOptions: routerType.RouteOptions) {
 
-      let { name, component, children } = routeOptions,
+      let { name, component, children, load } = routeOptions,
 
       parentPath = Yox.array.last(pathStack),
 
@@ -298,7 +303,7 @@ export class Router {
 
       path = formatPath(routeOptions.path, parentPath),
 
-      route: routerType.LinkedRoute = { path, component, route: routeOptions },
+      route: routerType.LinkedRoute = { path, route: routeOptions },
 
       params: string[] = []
 
@@ -317,6 +322,18 @@ export class Router {
         route.params = params
       }
 
+      if (name) {
+        route.name = name
+      }
+
+      // component 和 load 二选一
+      if (component) {
+        route.component = component
+      }
+      else if (load) {
+        route.load = load
+      }
+
       if (parentRoute) {
         route.parent = parentRoute
       }
@@ -326,7 +343,7 @@ export class Router {
         routeStack.push(route)
         Yox.array.each(
           children,
-          callback
+          addRoute
         )
         routeStack.pop()
         pathStack.pop()
@@ -359,12 +376,23 @@ export class Router {
 
     }
 
-    Yox.array.each(
-      routes,
-      callback
-    )
+    addRoute(routeOptions)
 
     return newRoutes
+
+  }
+
+  remove(route: routerType.LinkedRoute) {
+
+    const instance = this
+
+    Yox.array.remove(instance.routes, route)
+
+    if (route.name) {
+      delete instance.name2Path[route.name]
+    }
+
+    delete instance.path2Route[route.path]
 
   }
 
@@ -473,7 +501,7 @@ export class Router {
     hooks
       .clear()
       // 先调用组件的钩子
-      .add(route.component[componentHook], route.context)
+      .add((route.component as YoxOptions)[componentHook], route.context)
       // 再调用路由配置的钩子
       .add(route.route[hook], route.route)
       // 最后调用路由实例的钩子
@@ -644,9 +672,10 @@ export class Router {
         // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
         else if (route.load && Yox.string.startsWith(realpath, path)) {
           route.load(
-            function (route: routerType.RouteOptions) {
+            function (lazyRoute: routerType.RouteOptions) {
+              instance.remove(route as routerType.LinkedRoute)
               searchRoute(
-                instance.add([route]),
+                instance.add(lazyRoute),
                 callback
               )
             }
@@ -838,7 +867,7 @@ export class Router {
                 props: filterProps(route, location, component),
                 extensions,
               },
-              component
+              component as YoxOptions
             )
           )
 

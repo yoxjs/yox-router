@@ -49,23 +49,21 @@
 打开这个页面，显示的是 `not found`，我们还没有给 `router` 配置首页，因此自动跳到了 404 路由，我们尝试加一个首页，如下：
 
 ```js
-router.add([
-  {
-    path: '/',
-    component: {
-      template: `
-        <div>
-          <button o-push="/foo">
-            Foo
-          </button>
-          <button o-push="/bar">
-            Bar
-          </button>
-        </div>
-      `
-    }
+router.add({
+  path: '/',
+  component: {
+    template: `
+      <div>
+        <button o-push="/foo">
+          Foo
+        </button>
+        <button o-push="/bar">
+          Bar
+        </button>
+      </div>
+    `
   }
-])
+})
 ```
 
 此时打开这个页面，默认会显示首页，点击 `Foo` 和 `Bar` 按钮，则会跳转到对应的路由。

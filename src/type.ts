@@ -55,13 +55,14 @@ export interface RouteOptions {
 
 export interface LinkedRoute {
   path: string
-  component: YoxOptions
   route: RouteOptions
+  name?: string
+  load?: RouteLoader
+  component?: YoxOptions
   params?: string[]
   context?: Yox
   parent?: LinkedRoute
   child?: LinkedRoute
-  load?: RouteLoader
 }
 
 export interface Location {
