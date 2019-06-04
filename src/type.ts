@@ -16,6 +16,8 @@ export type Target = string | RouteTarget
 
 export type Next = (value?: false | Target) => void
 
+export type Redirect = (to: Location) => Target
+
 export type Callback = () => void
 
 export type BeforeHook = (to: Location, from: Location | void, next: Next) => void
@@ -38,6 +40,7 @@ export interface RouteOptions {
   path: string
   component: YoxOptions
   name?: string
+  redirect?: Target | Redirect
   children?: RouteOptions[]
   [constant.HOOK_BEFORE_ENTER]?: BeforeHook
   [constant.HOOK_AFTER_ENTER]?: AfterHook

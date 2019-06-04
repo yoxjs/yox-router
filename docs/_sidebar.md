@@ -7,3 +7,4 @@
 * [路由导航](navigation)
 * [命名路由](named)
 * [路由钩子](hook)
+* [重定向](redirect)

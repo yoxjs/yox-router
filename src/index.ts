@@ -39,31 +39,24 @@ EVENT_HASH_CHANGE = 'hashchange'
  */
 function formatPath(path: string, parentPath: string | void) {
 
+  if (!Yox.string.startsWith(path, constant.SEPARATOR_PATH)) {
+    // 确保 parentPath 以 / 结尾
+    if (parentPath) {
+      if (!Yox.string.endsWith(parentPath, constant.SEPARATOR_PATH)) {
+        parentPath += constant.SEPARATOR_PATH
+      }
+    }
+    else {
+      parentPath = constant.SEPARATOR_PATH
+    }
+    path = parentPath + path
+  }
+
   // 如果 path 以 / 结尾，删掉它
-  // 比如 { path: 'index/' }
   if (path !== constant.SEPARATOR_PATH
     && Yox.string.endsWith(path, constant.SEPARATOR_PATH)
   ) {
-    path = Yox.string.slice(path, 0, -1)
-  }
-
-  // 如果 path 不是以 / 开头，有两种情况：
-  // 1. 没有上级或上级是 ''，需要自动加 / 前缀
-  // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
-  if (!Yox.string.startsWith(path, constant.SEPARATOR_PATH)) {
-
-    if (path) {
-      if (Yox.string.falsy(parentPath)) {
-        path = constant.SEPARATOR_PATH + path
-      }
-      else {
-        path = parentPath + constant.SEPARATOR_PATH + path
-      }
-    }
-    else if (parentPath) {
-      path = parentPath
-    }
-
+    path = Yox.string.slice(path, 0, -constant.SEPARATOR_PATH.length)
   }
 
   return path
@@ -716,9 +709,23 @@ export class Router {
 
   private setRoute(location: routerType.Location) {
 
-    const instance = this,
+    let instance = this,
 
-    newRoute = Yox.object.copy(instance.path2Route[location.path]),
+    linkedRoute = instance.path2Route[location.path],
+
+    redirect = linkedRoute.route.redirect
+
+    if (redirect) {
+      if (Yox.is.func(redirect)) {
+        redirect = (redirect as routerType.Redirect)(location)
+      }
+      if (redirect) {
+        instance.push(redirect as routerType.Target)
+        return
+      }
+    }
+
+    const newRoute = Yox.object.copy(linkedRoute),
 
     oldRoute = instance.route,
 

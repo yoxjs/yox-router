@@ -300,27 +300,22 @@
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
   function formatPath(path, parentPath) {
+      if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
+          // 确保 parentPath 以 / 结尾
+          if (parentPath) {
+              if (!Yox.string.endsWith(parentPath, SEPARATOR_PATH)) {
+                  parentPath += SEPARATOR_PATH;
+              }
+          }
+          else {
+              parentPath = SEPARATOR_PATH;
+          }
+          path = parentPath + path;
+      }
       // 如果 path 以 / 结尾，删掉它
-      // 比如 { path: 'index/' }
       if (path !== SEPARATOR_PATH
           && Yox.string.endsWith(path, SEPARATOR_PATH)) {
-          path = Yox.string.slice(path, 0, -1);
-      }
-      // 如果 path 不是以 / 开头，有两种情况：
-      // 1. 没有上级或上级是 ''，需要自动加 / 前缀
-      // 2. 相对上级的路径，自动替换最后一个 / 后面的路径
-      if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
-          if (path) {
-              if (Yox.string.falsy(parentPath)) {
-                  path = SEPARATOR_PATH + path;
-              }
-              else {
-                  path = parentPath + SEPARATOR_PATH + path;
-              }
-          }
-          else if (parentPath) {
-              path = parentPath;
-          }
+          path = Yox.string.slice(path, 0, -SEPARATOR_PATH.length);
       }
       return path;
   }
@@ -538,10 +533,7 @@
       };
       Router.prototype.replace = function (target) {
           var instance = this, location = instance.setLocation(toLocation(target, instance.name2Path), function () {
-              var history = instance.history, cursor = instance.cursor;
-              if (history[cursor]) {
-                  history[cursor] = location;
-              }
+              instance.replaceHistory(location);
           }, EMPTY_FUNCTION);
           if (location) {
               instance.setRoute(location);
@@ -619,6 +611,12 @@
           history[cursor] = location;
           this.cursor = cursor;
       };
+      Router.prototype.replaceHistory = function (location) {
+          var _a = this, history = _a.history, cursor = _a.cursor;
+          if (history[cursor]) {
+              history[cursor] = location;
+          }
+      };
       Router.prototype.setHash = function (location) {
           var hash = PREFIX_HASH + location.hash;
           if (LOCATION.hash !== hash) {
@@ -629,9 +627,9 @@
           }
       };
       Router.prototype.setLocation = function (location, onComplete, onAbort) {
-          var instance = this, hash = stringify$2(Yox, location), oldLocation = instance.location, oldHash = oldLocation ? stringify$2(Yox, oldLocation) : UNDEFINED, checkExisted = parse$2(Yox, instance.routes, hash);
-          if (checkExisted) {
-              location = checkExisted;
+          var instance = this, hash = stringify$2(Yox, location), oldLocation = instance.location, oldHash = oldLocation ? stringify$2(Yox, oldLocation) : UNDEFINED, existed = parse$2(Yox, instance.routes, hash);
+          if (existed) {
+              location = existed;
           }
           else {
               hash = instance.route404.path;
@@ -742,7 +740,17 @@
           }
       };
       Router.prototype.setRoute = function (location) {
-          var instance = this, newRoute = Yox.object.copy(instance.path2Route[location.path]), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
+          var instance = this, linkedRoute = instance.path2Route[location.path], redirect = linkedRoute.route.redirect;
+          if (redirect) {
+              if (Yox.is.func(redirect)) {
+                  redirect = redirect(location);
+              }
+              if (redirect) {
+                  instance.push(redirect);
+                  return;
+              }
+          }
+          var newRoute = Yox.object.copy(linkedRoute), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
                   instance.hook(newRoute, startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE, startRoute ? HOOK_BEFORE_ENTER : HOOK_BEFORE_UPDATE, TRUE, function () {
                       instance.route = newRoute;
