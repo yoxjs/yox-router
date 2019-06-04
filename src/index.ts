@@ -14,7 +14,8 @@ import CustomEvent from '../../yox-type/src/event/CustomEvent'
 
 import Hooks from './Hooks'
 import * as constant from './constant'
-import * as locationUtil from './location'
+import * as queryUtil from './query'
+import * as valueUtil from './value'
 
 let Yox: YoxClass, domApi: API, guid = 0
 
@@ -60,6 +61,7 @@ function formatPath(path: string, parentPath: string | void) {
   }
 
   return path
+
 }
 
 function toLocation(target: routerType.Target, name2Path: type.data): routerType.Location {
@@ -149,9 +151,12 @@ function updateRoute(instance: Yox, componentHook: string | void, hook: string |
       if (componentHook && hook) {
         router.hook(route, componentHook, hook)
       }
-      if (upsert && router.loading) {
-        router.loading.onComplete()
-        router.loading = env.UNDEFINED
+      if (upsert) {
+        const { pending } = router
+        if (pending) {
+          pending.onComplete()
+          router.pending = env.UNDEFINED
+        }
       }
     }
   }
@@ -173,7 +178,7 @@ export class Router {
 
   cursor: number
 
-  loading: routerType.Loading | void
+  pending: routerType.Pending | void
 
   hooks: Hooks
 
@@ -220,7 +225,7 @@ export class Router {
      */
     instance.onHashChange = function () {
 
-      let hashStr = LOCATION.hash, { loading, routes, route404 } = instance
+      let hashStr = LOCATION.hash, { pending, route404 } = instance
 
       // 如果不以 PREFIX_HASH 开头，表示不合法
       hashStr = hashStr !== constant.PREFIX_HASH
@@ -228,24 +233,30 @@ export class Router {
         ? hashStr.substr(constant.PREFIX_HASH.length)
         : constant.SEPARATOR_PATH
 
-      if (loading) {
+      if (pending) {
+        const { location } = pending
         // 通过 push 或 go 触发
-        if (loading.location.hash === hashStr) {
-          instance.setRoute(loading.location)
+        if (location.hash === hashStr) {
+          instance.setHistory(location, pending.cursor)
+          instance.setRoute(location)
           return
         }
-        instance.loading = env.UNDEFINED
+        instance.pending = env.UNDEFINED
       }
 
       // 直接修改地址栏触发
-      const location = locationUtil.parse(Yox, routes, hashStr)
-      if (location) {
-        instance.pushHistory(location)
-        instance.setRoute(location)
-        return
-      }
-
-      instance.push(route404)
+      instance.parseLocation(
+        hashStr,
+        function (location) {
+          if (location) {
+            instance.setHistory(location)
+            instance.setRoute(location)
+          }
+          else {
+            instance.push(route404)
+          }
+        }
+      )
 
     }
 
@@ -259,9 +270,8 @@ export class Router {
     instance.hooks = new Hooks()
 
     instance.add(options.routes)
-    instance.add([route404])
 
-    instance.route404 = Yox.array.last(instance.routes) as routerType.LinkedRoute
+    instance.route404 = instance.add([route404])[0]
 
   }
 
@@ -270,7 +280,9 @@ export class Router {
    */
   add(routes: routerType.RouteOptions[]) {
 
-    let instance = this,
+    const instance = this,
+
+    newRoutes: routerType.LinkedRoute[] = [],
 
     pathStack: string[] = [],
 
@@ -321,6 +333,7 @@ export class Router {
       }
       else {
 
+        newRoutes.push(route)
         instance.routes.push(route)
 
         if (name) {
@@ -351,6 +364,8 @@ export class Router {
       callback
     )
 
+    return newRoutes
+
   }
 
   /**
@@ -379,59 +394,56 @@ export class Router {
    */
   push(target: routerType.Target) {
 
-    const instance = this,
+    const instance = this
 
-    location = instance.setLocation(
+    instance.setLocation(
       toLocation(target, instance.name2Path),
-      function () {
-        instance.pushHistory(location as routerType.Location)
-      },
-      env.EMPTY_FUNCTION
+      env.UNDEFINED,
+      env.EMPTY_FUNCTION,
+      env.EMPTY_FUNCTION,
+      function (location) {
+        instance.setHash(location)
+      }
     )
-
-    if (location) {
-      instance.setHash(location)
-    }
 
   }
 
   replace(target: routerType.Target) {
 
-    const instance = this,
+    const instance = this
 
-    location = instance.setLocation(
+    instance.setLocation(
       toLocation(target, instance.name2Path),
+      env.UNDEFINED,
       function () {
-        instance.replaceHistory(location as routerType.Location)
+        instance.replaceHistory(instance.location as routerType.Location)
       },
-      env.EMPTY_FUNCTION
+      env.EMPTY_FUNCTION,
+      function (location) {
+        instance.setRoute(location)
+      }
     )
-
-    if (location) {
-      instance.setRoute(location)
-    }
 
   }
 
   go(offset: number) {
 
-    let instance = this,
+    const instance = this,
 
     cursor = instance.cursor + offset,
 
     location: routerType.Location | void = instance.history[cursor]
 
     if (location) {
-      location = instance.setLocation(
+      instance.setLocation(
         location,
-        function () {
-          instance.cursor = cursor
-        },
-        env.EMPTY_FUNCTION
+        cursor,
+        env.EMPTY_FUNCTION,
+        env.EMPTY_FUNCTION,
+        function (location) {
+          instance.setHash(location)
+        }
       )
-      if (location) {
-        instance.setHash(location)
-      }
     }
 
   }
@@ -456,7 +468,7 @@ export class Router {
    */
   hook(route: routerType.LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: routerType.Callback) {
 
-    const instance = this, { location, hooks, loading } = instance
+    const instance = this, { location, hooks, pending } = instance
 
     hooks
       .clear()
@@ -474,9 +486,9 @@ export class Router {
       else {
         // 只有前置守卫才有可能走进这里
         // 此时 instance.location 还是旧地址
-        if (loading) {
-          loading.onAbort()
-          instance.loading = env.UNDEFINED
+        if (pending) {
+          pending.onAbort()
+          instance.pending = env.UNDEFINED
         }
         if (value === env.FALSE) {
           if (location) {
@@ -494,16 +506,24 @@ export class Router {
 
   }
 
-  private pushHistory(location: routerType.Location) {
-    let { history, cursor } = this
-    cursor++
-    // 确保下一个为空
-    // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
-    if (history[cursor]) {
-      history.length = cursor
+  private setHistory(location: routerType.Location, index: number | void) {
+
+    const { history, cursor } = this
+
+    // 如果没传 cursor，表示 push
+    if (!Yox.is.number(index)) {
+      index = cursor + 1
+      // 确保下一个为空
+      // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
+      if (history[index]) {
+        history.length = index
+      }
     }
-    history[cursor] = location
-    this.cursor = cursor
+
+    history[index as number] = location
+
+    this.cursor = index as number
+
   }
 
   private replaceHistory(location: routerType.Location) {
@@ -516,6 +536,7 @@ export class Router {
   private setHash(location: routerType.Location) {
 
     const hash = constant.PREFIX_HASH + location.hash
+
     if (LOCATION.hash !== hash) {
       LOCATION.hash = hash
     }
@@ -527,39 +548,176 @@ export class Router {
 
   private setLocation(
     location: routerType.Location,
+    cursor: number | void,
     onComplete: routerType.RouteComplete,
-    onAbort: routerType.RouteAbort
+    onAbort: routerType.RouteAbort,
+    callback: (locaiton: routerType.Location) => void
   ) {
 
     let instance = this,
 
-    hash = locationUtil.stringify(Yox, location),
+    hash = instance.stringifyLocation(location),
 
     oldLocation = instance.location,
 
-    oldHash = oldLocation ? locationUtil.stringify(Yox, oldLocation) : env.UNDEFINED,
+    oldHash = oldLocation ? instance.stringifyLocation(oldLocation) : env.UNDEFINED
 
-    existed = locationUtil.parse(Yox, instance.routes, hash)
+    instance.parseLocation(
+      hash,
+      function (location) {
 
-    if (existed) {
-      location = existed
+        if (!location) {
+          hash = instance.route404.path
+          location = {
+            hash,
+            path: hash
+          }
+        }
+
+        if (hash !== oldHash) {
+          instance.pending = {
+            cursor,
+            location,
+            onComplete,
+            onAbort,
+          }
+          callback(location)
+        }
+
+      }
+    )
+
+  }
+
+  private parseLocation(hash: string, callback: (location: routerType.Location | void) => void) {
+
+    let realpath: string, search: string | void, index = hash.indexOf(constant.SEPARATOR_SEARCH)
+
+    if (index >= 0) {
+      realpath = hash.slice(0, index)
+      search = hash.slice(index + 1)
     }
     else {
-      hash = instance.route404.path
-      location = {
-        hash,
-        path: hash
+      realpath = hash
+    }
+
+    // 重置为 0，方便 while 循环
+    index = 0
+
+
+    // 匹配已注册的 route
+    const instance = this,
+
+    realpathTerms = realpath.split(constant.SEPARATOR_PATH),
+
+    length = realpathTerms.length,
+
+    searchRoute = function (
+      routes: routerType.LinkedRoute[],
+      callback: (route?: routerType.LinkedRoute, params?: type.data) => void
+    ) {
+
+      let route: routerType.LinkedRoute | void
+
+      loop: while (route = routes[index++]) {
+        const path = route.path
+
+        // 动态路由
+        if (route.params) {
+          const pathTerms = path.split(constant.SEPARATOR_PATH)
+          // path 段数量必须一致，否则没有比较的意义
+          if (length === pathTerms.length) {
+            const params: type.data = {}
+            for (let i = 0; i < length; i++) {
+              if (Yox.string.startsWith(pathTerms[i], constant.PREFIX_PARAM)) {
+                params[pathTerms[i].substr(constant.PREFIX_PARAM.length)] = valueUtil.parse(Yox, realpathTerms[i])
+              }
+              // 非参数段不相同
+              else if (pathTerms[i] !== realpathTerms[i]) {
+                continue loop
+              }
+            }
+            callback(route, params)
+            return
+          }
+        }
+        // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
+        else if (route.load && Yox.string.startsWith(realpath, path)) {
+          route.load(
+            function (route: routerType.RouteOptions) {
+              searchRoute(
+                instance.add([route]),
+                callback
+              )
+            }
+          )
+          return
+        }
+        else if (path === realpath) {
+          callback(route)
+          return
+        }
+      }
+
+      callback()
+
+    }
+
+    searchRoute(
+      instance.routes,
+      function (route, params) {
+        if (route) {
+          const location: routerType.Location = {
+            hash,
+            path: route.path
+          }
+          if (params) {
+            location.params = params
+          }
+          if (search) {
+            const query = queryUtil.parse(Yox, search)
+            if (query) {
+              location.query = query
+            }
+          }
+          callback(location)
+        }
+        else {
+          callback()
+        }
+      }
+    )
+
+  }
+
+  /**
+   * 把结构化数据序列化成 hash
+   */
+  private stringifyLocation(location: routerType.Location) {
+
+    const { path, params, query } = location, terms: string[] = []
+
+    Yox.array.each(
+      path.split(constant.SEPARATOR_PATH),
+      function (item) {
+        terms.push(
+          Yox.string.startsWith(item, constant.PREFIX_PARAM) && params
+            ? params[item.substr(constant.PREFIX_PARAM.length)]
+            : item
+        )
+      }
+    )
+
+    let realpath = terms.join(constant.SEPARATOR_PATH)
+
+    if (query) {
+      const queryStr = queryUtil.stringify(Yox, query)
+      if (queryStr) {
+        realpath += constant.SEPARATOR_SEARCH + queryStr
       }
     }
 
-    if (hash !== oldHash) {
-      instance.loading = {
-        location,
-        onComplete,
-        onAbort,
-      }
-      return location
-    }
+    return realpath
 
   }
 

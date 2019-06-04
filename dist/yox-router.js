@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha4
+ * yox-router.js v1.0.0-alpha5
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -203,97 +203,6 @@
       return result.join(SEPARATOR_QUERY);
   }
 
-  /**
-   * 解析 path 中的参数
-   */
-  function parseParams(Yox, path, realpath) {
-      var result, realpathTerms = realpath.split(SEPARATOR_PATH), pathTerms = path.split(SEPARATOR_PATH);
-      if (realpathTerms.length === pathTerms.length) {
-          Yox.array.each(pathTerms, function (item, index) {
-              if (Yox.string.startsWith(item, PREFIX_PARAM)) {
-                  if (!result) {
-                      result = {};
-                  }
-                  result[item.substr(PREFIX_PARAM.length)] = parse(Yox, realpathTerms[index]);
-              }
-          });
-      }
-      return result;
-  }
-  /**
-   * 通过 realpath 获取配置的路由
-   */
-  function getRouteByRealpath(Yox, routes, realpath) {
-      var realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, i = 0, route;
-      loop: while (route = routes[i++]) {
-          if (route.params) {
-              var pathTerms = route.path.split(SEPARATOR_PATH);
-              if (length === pathTerms.length) {
-                  for (var l = 0; l < length; l++) {
-                      // 非参数段不相同
-                      if (!Yox.string.startsWith(pathTerms[l], PREFIX_PARAM)
-                          && pathTerms[l] !== realpathTerms[l]) {
-                          continue loop;
-                      }
-                  }
-                  return route;
-              }
-          }
-          else if (route.path === realpath) {
-              return route;
-          }
-      }
-  }
-  function parse$2(Yox, routes, hash) {
-      var realpath, search, index = hash.indexOf(SEPARATOR_SEARCH);
-      if (index >= 0) {
-          realpath = hash.slice(0, index);
-          search = hash.slice(index + 1);
-      }
-      else {
-          realpath = hash;
-      }
-      var route = getRouteByRealpath(Yox, routes, realpath);
-      if (route) {
-          var result = {
-              hash: hash,
-              path: route.path
-          };
-          if (route.params) {
-              var params = parseParams(Yox, route.path, realpath);
-              if (params) {
-                  result.params = params;
-              }
-          }
-          if (search) {
-              var query = parse$1(Yox, search);
-              if (query) {
-                  result.query = query;
-              }
-          }
-          return result;
-      }
-  }
-  /**
-   * 把结构化数据序列化成 hash
-   */
-  function stringify$2(Yox, location) {
-      var path = location.path, params = location.params, query = location.query, terms = [];
-      Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
-          terms.push(Yox.string.startsWith(item, PREFIX_PARAM) && params
-              ? params[item.substr(PREFIX_PARAM.length)]
-              : item);
-      });
-      var realpath = terms.join(SEPARATOR_PATH);
-      if (query) {
-          var queryStr = stringify$1(Yox, query);
-          if (queryStr) {
-              realpath += SEPARATOR_SEARCH + queryStr;
-          }
-      }
-      return realpath;
-  }
-
   var Yox, domApi, guid = 0;
   var WINDOW = window, LOCATION = WINDOW.location, ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EVENT_HASH_CHANGE = 'hashchange';
   /**
@@ -391,9 +300,12 @@
               if (componentHook && hook) {
                   router.hook(route, componentHook, hook);
               }
-              if (upsert && router.loading) {
-                  router.loading.onComplete();
-                  router.loading = UNDEFINED;
+              if (upsert) {
+                  var pending = router.pending;
+                  if (pending) {
+                      pending.onComplete();
+                      router.pending = UNDEFINED;
+                  }
               }
           }
       }
@@ -420,28 +332,32 @@
            * 否则一旦解绑，所有实例都解绑了
            */
           instance.onHashChange = function () {
-              var hashStr = LOCATION.hash, loading = instance.loading, routes = instance.routes, route404 = instance.route404;
+              var hashStr = LOCATION.hash, pending = instance.pending, route404 = instance.route404;
               // 如果不以 PREFIX_HASH 开头，表示不合法
               hashStr = hashStr !== PREFIX_HASH
                   && Yox.string.startsWith(hashStr, PREFIX_HASH)
                   ? hashStr.substr(PREFIX_HASH.length)
                   : SEPARATOR_PATH;
-              if (loading) {
+              if (pending) {
+                  var location = pending.location;
                   // 通过 push 或 go 触发
-                  if (loading.location.hash === hashStr) {
-                      instance.setRoute(loading.location);
+                  if (location.hash === hashStr) {
+                      instance.setHistory(location, pending.cursor);
+                      instance.setRoute(location);
                       return;
                   }
-                  instance.loading = UNDEFINED;
+                  instance.pending = UNDEFINED;
               }
               // 直接修改地址栏触发
-              var location = parse$2(Yox, routes, hashStr);
-              if (location) {
-                  instance.pushHistory(location);
-                  instance.setRoute(location);
-                  return;
-              }
-              instance.push(route404);
+              instance.parseLocation(hashStr, function (location) {
+                  if (location) {
+                      instance.setHistory(location);
+                      instance.setRoute(location);
+                  }
+                  else {
+                      instance.push(route404);
+                  }
+              });
           };
           instance.routes = [];
           instance.name2Path = {};
@@ -450,14 +366,13 @@
           instance.cursor = -1;
           instance.hooks = new Hooks();
           instance.add(options.routes);
-          instance.add([route404]);
-          instance.route404 = Yox.array.last(instance.routes);
+          instance.route404 = instance.add([route404])[0];
       }
       /**
        * 添加新的路由
        */
       Router.prototype.add = function (routes) {
-          var instance = this, pathStack = [], routeStack = [], callback = function (routeOptions) {
+          var instance = this, newRoutes = [], pathStack = [], routeStack = [], callback = function (routeOptions) {
               var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, component: component, route: routeOptions }, params = [];
               Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
                   if (Yox.string.startsWith(item, PREFIX_PARAM)) {
@@ -478,6 +393,7 @@
                   pathStack.pop();
               }
               else {
+                  newRoutes.push(route);
                   instance.routes.push(route);
                   if (name) {
                       {
@@ -498,6 +414,7 @@
               }
           };
           Yox.array.each(routes, callback);
+          return newRoutes;
       };
       /**
        * 真正执行路由切换操作的函数
@@ -524,30 +441,25 @@
        *
        */
       Router.prototype.push = function (target) {
-          var instance = this, location = instance.setLocation(toLocation(target, instance.name2Path), function () {
-              instance.pushHistory(location);
-          }, EMPTY_FUNCTION);
-          if (location) {
+          var instance = this;
+          instance.setLocation(toLocation(target, instance.name2Path), UNDEFINED, EMPTY_FUNCTION, EMPTY_FUNCTION, function (location) {
               instance.setHash(location);
-          }
+          });
       };
       Router.prototype.replace = function (target) {
-          var instance = this, location = instance.setLocation(toLocation(target, instance.name2Path), function () {
-              instance.replaceHistory(location);
-          }, EMPTY_FUNCTION);
-          if (location) {
+          var instance = this;
+          instance.setLocation(toLocation(target, instance.name2Path), UNDEFINED, function () {
+              instance.replaceHistory(instance.location);
+          }, EMPTY_FUNCTION, function (location) {
               instance.setRoute(location);
-          }
+          });
       };
       Router.prototype.go = function (offset) {
           var instance = this, cursor = instance.cursor + offset, location = instance.history[cursor];
           if (location) {
-              location = instance.setLocation(location, function () {
-                  instance.cursor = cursor;
-              }, EMPTY_FUNCTION);
-              if (location) {
+              instance.setLocation(location, cursor, EMPTY_FUNCTION, EMPTY_FUNCTION, function (location) {
                   instance.setHash(location);
-              }
+              });
           }
       };
       /**
@@ -567,7 +479,7 @@
        * 钩子函数
        */
       Router.prototype.hook = function (route, componentHook, hook, isGuard, callback) {
-          var instance = this, location = instance.location, hooks = instance.hooks, loading = instance.loading;
+          var instance = this, location = instance.location, hooks = instance.hooks, pending = instance.pending;
           hooks
               .clear()
               // 先调用组件的钩子
@@ -583,9 +495,9 @@
               else {
                   // 只有前置守卫才有可能走进这里
                   // 此时 instance.location 还是旧地址
-                  if (loading) {
-                      loading.onAbort();
-                      instance.loading = UNDEFINED;
+                  if (pending) {
+                      pending.onAbort();
+                      instance.pending = UNDEFINED;
                   }
                   if (value === FALSE) {
                       if (location) {
@@ -600,16 +512,19 @@
           };
           next();
       };
-      Router.prototype.pushHistory = function (location) {
+      Router.prototype.setHistory = function (location, index) {
           var _a = this, history = _a.history, cursor = _a.cursor;
-          cursor++;
-          // 确保下一个为空
-          // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
-          if (history[cursor]) {
-              history.length = cursor;
+          // 如果没传 cursor，表示 push
+          if (!Yox.is.number(index)) {
+              index = cursor + 1;
+              // 确保下一个为空
+              // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
+              if (history[index]) {
+                  history.length = index;
+              }
           }
-          history[cursor] = location;
-          this.cursor = cursor;
+          history[index] = location;
+          this.cursor = index;
       };
       Router.prototype.replaceHistory = function (location) {
           var _a = this, history = _a.history, cursor = _a.cursor;
@@ -626,26 +541,116 @@
               this.setRoute(location);
           }
       };
-      Router.prototype.setLocation = function (location, onComplete, onAbort) {
-          var instance = this, hash = stringify$2(Yox, location), oldLocation = instance.location, oldHash = oldLocation ? stringify$2(Yox, oldLocation) : UNDEFINED, existed = parse$2(Yox, instance.routes, hash);
-          if (existed) {
-              location = existed;
+      Router.prototype.setLocation = function (location, cursor, onComplete, onAbort, callback) {
+          var instance = this, hash = instance.stringifyLocation(location), oldLocation = instance.location, oldHash = oldLocation ? instance.stringifyLocation(oldLocation) : UNDEFINED;
+          instance.parseLocation(hash, function (location) {
+              if (!location) {
+                  hash = instance.route404.path;
+                  location = {
+                      hash: hash,
+                      path: hash
+                  };
+              }
+              if (hash !== oldHash) {
+                  instance.pending = {
+                      cursor: cursor,
+                      location: location,
+                      onComplete: onComplete,
+                      onAbort: onAbort
+                  };
+                  callback(location);
+              }
+          });
+      };
+      Router.prototype.parseLocation = function (hash, callback) {
+          var realpath, search, index = hash.indexOf(SEPARATOR_SEARCH);
+          if (index >= 0) {
+              realpath = hash.slice(0, index);
+              search = hash.slice(index + 1);
           }
           else {
-              hash = instance.route404.path;
-              location = {
-                  hash: hash,
-                  path: hash
-              };
+              realpath = hash;
           }
-          if (hash !== oldHash) {
-              instance.loading = {
-                  location: location,
-                  onComplete: onComplete,
-                  onAbort: onAbort
-              };
-              return location;
+          // 重置为 0，方便 while 循环
+          index = 0;
+          // 匹配已注册的 route
+          var instance = this, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, searchRoute = function (routes, callback) {
+              var route;
+              loop: while (route = routes[index++]) {
+                  var path = route.path;
+                  // 动态路由
+                  if (route.params) {
+                      var pathTerms = path.split(SEPARATOR_PATH);
+                      // path 段数量必须一致，否则没有比较的意义
+                      if (length === pathTerms.length) {
+                          var params = {};
+                          for (var i = 0; i < length; i++) {
+                              if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
+                                  params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse(Yox, realpathTerms[i]);
+                              }
+                              // 非参数段不相同
+                              else if (pathTerms[i] !== realpathTerms[i]) {
+                                  continue loop;
+                              }
+                          }
+                          callback(route, params);
+                          return;
+                      }
+                  }
+                  // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
+                  else if (route.load && Yox.string.startsWith(realpath, path)) {
+                      route.load(function (route) {
+                          searchRoute(instance.add([route]), callback);
+                      });
+                      return;
+                  }
+                  else if (path === realpath) {
+                      callback(route);
+                      return;
+                  }
+              }
+              callback();
+          };
+          searchRoute(instance.routes, function (route, params) {
+              if (route) {
+                  var location = {
+                      hash: hash,
+                      path: route.path
+                  };
+                  if (params) {
+                      location.params = params;
+                  }
+                  if (search) {
+                      var query = parse$1(Yox, search);
+                      if (query) {
+                          location.query = query;
+                      }
+                  }
+                  callback(location);
+              }
+              else {
+                  callback();
+              }
+          });
+      };
+      /**
+       * 把结构化数据序列化成 hash
+       */
+      Router.prototype.stringifyLocation = function (location) {
+          var path = location.path, params = location.params, query = location.query, terms = [];
+          Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
+              terms.push(Yox.string.startsWith(item, PREFIX_PARAM) && params
+                  ? params[item.substr(PREFIX_PARAM.length)]
+                  : item);
+          });
+          var realpath = terms.join(SEPARATOR_PATH);
+          if (query) {
+              var queryStr = stringify$1(Yox, query);
+              if (queryStr) {
+                  realpath += SEPARATOR_SEARCH + queryStr;
+              }
           }
+          return realpath;
       };
       Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute, oldTopRoute) {
           // 更新链路
@@ -812,7 +817,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha4";
+  var version = "1.0.0-alpha5";
   /**
    * 安装插件
    */

@@ -20,6 +20,10 @@ export type Redirect = (to: Location) => Target
 
 export type Callback = () => void
 
+export type RouteCallback = (route: RouteOptions) => void
+
+export type RouteLoader = (callback: RouteCallback) => void
+
 export type BeforeHook = (to: Location, from: Location | void, next: Next) => void
 
 export type AfterHook = (to: Location, from: Location | void) => void
@@ -40,6 +44,7 @@ export interface RouteOptions {
   path: string
   component: YoxOptions
   name?: string
+  load?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
   [constant.HOOK_BEFORE_ENTER]?: BeforeHook
@@ -56,6 +61,7 @@ export interface LinkedRoute {
   context?: Yox
   parent?: LinkedRoute
   child?: LinkedRoute
+  load?: RouteLoader
 }
 
 export interface Location {
@@ -65,7 +71,8 @@ export interface Location {
   query?: type.data
 }
 
-export interface Loading {
+export interface Pending {
+  cursor: number | void
   location: Location
   onComplete: RouteComplete
   onAbort: RouteAbort
