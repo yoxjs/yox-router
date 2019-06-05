@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha10
+ * yox-router.js v1.0.0-alpha11
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -213,17 +213,16 @@
   function push(location, handler) {
       LOCATION.hash = HASH_PREFIX + location.url;
   }
-  function go(n, handler) {
+  function go(n) {
       HISTORY.go(n);
   }
   function current() {
       // 不能直接读取 window.location.hash
       // 因为 Firefox 会做 pre-decode
-      var href = LOCATION.href, index = href.indexOf(HASH_PREFIX), url = SEPARATOR_PATH;
-      if (index > 0) {
-          url = href.substr(index + HASH_PREFIX.length);
-      }
-      return url;
+      var href = LOCATION.href, index = href.indexOf(HASH_PREFIX);
+      return index > 0
+          ? href.substr(index + HASH_PREFIX.length)
+          : SEPARATOR_PATH;
   }
 
   var hashMode = /*#__PURE__*/Object.freeze({
@@ -244,12 +243,13 @@
       domApi.off(WINDOW, POP_STATE, handler);
   }
   function push$1(location, handler) {
+      // 调用 pushState 不会触发 popstate 事件
+      // 因此这里需要手动调用一次 handler
       HISTORY.pushState({}, '', location.url);
       handler();
   }
-  function go$1(n, handler) {
+  function go$1(n) {
       HISTORY.go(n);
-      handler();
   }
   function current$1() {
       return LOCATION.pathname + LOCATION.search;
@@ -561,7 +561,7 @@
                   pending.cursor = cursor;
                   instance.pending = pending;
                   if (mode.current() !== location.url) {
-                      mode.go(n, instance.handler);
+                      mode.go(n);
                   }
                   else {
                       instance.setHistory(location, cursor);
@@ -890,7 +890,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha10";
+  var version = "1.0.0-alpha11";
   /**
    * 安装插件
    */

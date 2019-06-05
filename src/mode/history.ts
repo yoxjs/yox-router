@@ -19,13 +19,14 @@ export function stop(domApi: API, handler: Function) {
 }
 
 export function push(location: Location, handler: Function) {
+  // 调用 pushState 不会触发 popstate 事件
+  // 因此这里需要手动调用一次 handler
   constant.HISTORY.pushState({}, '', location.url)
   handler()
 }
 
-export function go(n: number, handler: Function) {
+export function go(n: number) {
   constant.HISTORY.go(n)
-  handler()
 }
 
 export function current() {

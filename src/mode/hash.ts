@@ -23,16 +23,18 @@ export function push(location: Location, handler: Function) {
   constant.LOCATION.hash = HASH_PREFIX + location.url
 }
 
-export function go(n: number, handler: Function) {
+export function go(n: number) {
   constant.HISTORY.go(n)
 }
 
 export function current() {
+
   // 不能直接读取 window.location.hash
   // 因为 Firefox 会做 pre-decode
-  let href = constant.LOCATION.href, index = href.indexOf(HASH_PREFIX), url = constant.SEPARATOR_PATH
-  if (index > 0) {
-    url = href.substr(index + HASH_PREFIX.length)
-  }
-  return url
+  const href = constant.LOCATION.href, index = href.indexOf(HASH_PREFIX),
+
+  return index > 0
+    ? href.substr(index + HASH_PREFIX.length)
+    : constant.SEPARATOR_PATH
+
 }

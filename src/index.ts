@@ -503,7 +503,7 @@ export class Router {
           instance.pending = pending
 
           if (mode.current() !== location.url) {
-            mode.go(n, instance.handler)
+            mode.go(n)
           }
           else {
             instance.setHistory(location, cursor)
