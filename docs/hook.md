@@ -167,10 +167,11 @@ new YoxRouter.Router({
 
 ## 流程
 
-当浏览器地址栏发生变化时，Yox Router 会根据 URL 创建一个 `Location` 对象，它的格式如下：
+当 URL 发生变化时，Yox Router 会自动创建一个 `Location` 对象，它的格式如下：
 
 ```js
 {
+  url: '',
   path: '',
   params: {},
   query: {}
@@ -192,15 +193,17 @@ new YoxRouter.Router({
 * `newLeafRoute` 的路由组件的 `beforeRouteEnter`
 * `newLeafRoute` 路由的 `beforeEnter`
 * `router` 的 `beforeEnter`
-Update `前置路由钩子` 没有进行拦截，则会销毁旧的路由组件，并创建新的路由组件，然后依次触发以下 `后置路由钩子`：
 
-* `oldLeafRoute` 路由组件的 `afterRouteLeave`UpdateldLeafRoute` 路由的 `afterLeave`
+如果 Enter `前置路由钩子` 没有进行拦截，则会销毁旧的路由组件，并创建新的路由组件，然后依次触发以下 `后置路由钩子`：
+
+* `oldLeafRoute` 路由组件的 `afterRouteLeave`
+* `oldLeafRoute` 路由的 `afterLeave`
 * `router` 的 `afterLeave`
-* `newLeafRoute` 的路由组件的 `afterRouteEnter`
-* `newLeafRoute` 路由的 `afterELeave
+* `newLeafRoute` 路由组件的 `afterRouteEnter`
+* `newLeafRoute` 路由的 `afterEnter`
 * `router` 的 `afterEnter`
 
-### 新旧 PLeave同
+### 新旧 Path 相同
 
 如果 `newLocation` 和 `oldLocation` 的 `path` 相同，则会依次触发以下 `前置路由钩子`：
 
