@@ -1,4 +1,5 @@
 import * as type from '../../../yox-type/src/type'
+import * as env from '../../../yox-common/src/util/env'
 
 import API from '../../../yox-type/src/interface/API'
 import Location from '../../../yox-type/src/router/Location'
@@ -21,10 +22,12 @@ export function stop(domApi: API, handler: Function) {
 
 export function push(location: Location) {
   constant.LOCATION.hash = HASH_PREFIX + location.url
+  return env.TRUE
 }
 
 export function go(n: number) {
   constant.HISTORY.go(n)
+  return env.TRUE
 }
 
 export function current() {

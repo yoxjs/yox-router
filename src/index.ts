@@ -450,7 +450,9 @@ export class Router {
       function (location, pending) {
         instance.pending = pending
         if (mode.current() !== location.url) {
-          mode.push(location)
+          if (!mode.push(location)) {
+            instance.handler()
+          }
         }
         else {
           instance.setRoute(location)
@@ -504,7 +506,9 @@ export class Router {
           instance.pending = pending
 
           if (mode.current() !== location.url) {
-            mode.go(n)
+            if (!mode.go(n)) {
+              instance.handler()
+            }
           }
           else {
             instance.setHistory(location, cursor)

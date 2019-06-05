@@ -212,9 +212,11 @@
   }
   function push(location) {
       LOCATION.hash = HASH_PREFIX + location.url;
+      return TRUE;
   }
   function go(n) {
       HISTORY.go(n);
+      return TRUE;
   }
   function current() {
       // 不能直接读取 window.location.hash
@@ -542,7 +544,9 @@
           instance.setUrl(toUrl(target, instance.name2Path), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
               instance.pending = pending;
               if (mode.current() !== location.url) {
-                  mode.push(location);
+                  if (!mode.push(location)) {
+                      instance.handler();
+                  }
               }
               else {
                   instance.setRoute(location);
@@ -571,7 +575,9 @@
                   pending.cursor = cursor;
                   instance.pending = pending;
                   if (mode.current() !== location.url) {
-                      mode.go(n);
+                      if (!mode.go(n)) {
+                          instance.handler();
+                      }
                   }
                   else {
                       instance.setHistory(location, cursor);

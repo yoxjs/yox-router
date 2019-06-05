@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <base href="http://localhost:9090/example/" />
+  <base href="/example/">
   <title>history mode</title>
 </head>
 
@@ -52,7 +52,17 @@
       route404: {
         path: '/404',
         component: {
-          template: '<div>not found</div>'
+          template: `
+            <div>
+              not found
+              <button o-push="/foo">
+                Foo
+              </button>
+              <button o-push="/bar">
+                Bar
+              </button>
+            </div>
+          `
         }
       }
     })
