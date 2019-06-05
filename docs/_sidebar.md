@@ -8,4 +8,5 @@
 * [命名路由](named)
 * [路由钩子](hook)
 * [重定向](redirect)
+* [路由模式](mode)
 * [路由懒加载](lazyload)

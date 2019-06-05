@@ -1,6 +1,6 @@
-当地址栏的 `hash` 发生变化时，Yox Router 会读取 `location.hash` 并进行参数格式化，下面我们通过一个例子演示整个流程。
+当 URL 发生变化时，Yox Router 会读取 URL 并进行参数格式化，下面我们通过一个例子演示整个流程。
 
-我们先定义一个动态路由，如下：
+首先，我们定义一个动态路由，如下：
 
 ```js
 new YoxRouter.Router({
@@ -15,15 +15,20 @@ new YoxRouter.Router({
 })
 ```
 
-我们为 `path` 设置了两个 `动态路径参数`：`userId`、`postId`，当 `hash` 为 `#!/user/foo/post/123?test=true`，格式化参数如下：
+我们为 `path` 设置了两个 `动态路径参数`：`userId`、`postId`，当 URL 为 `/user/foo/post/123?test=true`，格式化参数如下：
 
 ```js
 {
+  // 源 URL
+  url: '/user/foo/post/123?test=true',
+  // 匹配到的路由 path
   path: '/user/:userId/post/:postId',
+  // 动态路由的参数
   params: {
     userId: 'foo',
     postId: 123
   },
+  // 查询参数
   query: {
     test: true
   }
@@ -32,18 +37,19 @@ new YoxRouter.Router({
 
 我们发现，`postId` 和 `test` 不是 `string` 类型，而是 `number` 和 `boolean` 类型。
 
-Yox Router 可以识别以下参数类型，如果识别成功，则会自动转型。
+Yox Router 支持识别以下参数类型，如果识别成功，则会自动转型。
 
 * `number`
 * `boolean`
 * `undefined`
 * `null`
 
-路由参数还支持数组，当 `hash` 为 `#!/post?test1=null&test2=undefined&tags[]=1&tags[]=2&tags[]=3`，格式化参数如下：
+路由参数还支持数组，当 URL 为 `/user/profile?test1=null&test2=undefined&tags[]=1&tags[]=2&tags[]=3`，格式化参数如下：
 
 ```js
 {
-  path: '/post',
+  url: '/user/profile?test1=null&test2=undefined&tags[]=1&tags[]=2&tags[]=3',
+  path: '/user/profile',
   query: {
     test1: null,
     test2: undefined,
@@ -54,7 +60,14 @@ Yox Router 可以识别以下参数类型，如果识别成功，则会自动转
 
 我们发现，如果不是动态路由，则没有 `params` 字段。同理，如果没有 `?key=value` 部分，则没有 `query` 字段。
 
-当我们获取到路由参数后，会根据路由的 `path`（动态路由） 和 `component` 对应的组件的 `propTypes`，选择将哪些参数传给组件，如下：
+综上，我们可以得出以下结论：
+
+* 对于动态路由来说，路由参数来自 `params` 和 `query`
+* 对于非动态路由来说，路由参数只来自 `query`
+
+路由参数确定下来之后，我们怎么把它传给路由组件呢？这完全取决于路由组件的 `propTypes`。
+
+我们知道，`propTypes` 用于组件的[数据校验](https://yoxjs.github.io/yox/#/component?id=%e6%95%b0%e6%8d%ae%e6%a0%a1%e9%aa%8c)，在 Yox Router 中，它又多了一个角色，就是定义路由组件需要哪些路由参数，如下：
 
 ```js
 const User = {
@@ -83,7 +96,7 @@ new YoxRouter.Router({
 })
 ```
 
-通过 `propTypes` 可以知道，`User` 组件只接收 `userId` 和 `postId` 两个参数，就算 `params` 或 `query` 中还有其他参数，`User` 组件也毫不关心。
+通过 `propTypes` 可以知道，`User` 组件需要 `userId` 和 `postId` 两个路由参数，就算 `params` 或 `query` 中还有其他参数，`User` 组件也毫不关心。
 
 如果你对 `query` 中的参数同样感兴趣，也可以把它加入到 `propTypes` 中，如下：
 

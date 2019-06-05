@@ -14,6 +14,20 @@ new YoxRouter.Router({
 
 `redirect` 配置和 `push` 方法的参数值相同。
 
+```js
+new YoxRouter.Router({
+  routes: [
+    {
+      path: '/a',
+      component: Component,
+      redirect: {
+        path: '/b'
+      }
+    }
+  ]
+})
+```
+
 此外，你还可以设置一个函数，动态返回重定向目标：
 
 ```js
