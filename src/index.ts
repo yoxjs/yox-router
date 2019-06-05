@@ -40,6 +40,7 @@ EVENT_HASH_CHANGE = 'hashchange'
  */
 function formatPath(path: string, parentPath: string | void) {
 
+  // 如果不是 / 开头，表示是相对路径
   if (!Yox.string.startsWith(path, constant.SEPARATOR_PATH)) {
     // 确保 parentPath 以 / 结尾
     if (parentPath) {
@@ -67,7 +68,6 @@ function formatPath(path: string, parentPath: string | void) {
 function toLocation(target: routerType.Target, name2Path: type.data): routerType.Location {
 
   const location: routerType.Location = {
-    hash: env.EMPTY_STRING,
     path: env.EMPTY_STRING
   }
 
@@ -105,8 +105,8 @@ function toLocation(target: routerType.Target, name2Path: type.data): routerType
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: routerType.LinkedRoute, location: routerType.Location, options: YoxOptions | void) {
-  const result: type.data = {}, propTypes = options && options.propTypes
+function filterProps(route: routerType.LinkedRoute, location: routerType.Location, options: YoxOptions) {
+  const result: type.data = {}, propTypes = options.propTypes
   if (propTypes) {
 
     let props = location.query,
@@ -118,8 +118,8 @@ function filterProps(route: routerType.LinkedRoute, location: routerType.Locatio
     // 从 location.params 挑出 route.params 定义过的参数
     if (routeParams && locationParams) {
       props = props ? Yox.object.copy(props) : {}
-      for (let i = 0, key: string; key = routeParams[i]; i++) {
-        (props as type.data)[key] = locationParams[key]
+      for (let i = 0, length = routeParams.length; i < length; i++) {
+        (props as type.data)[routeParams[i]] = locationParams[routeParams[i]]
       }
     }
 
@@ -142,14 +142,17 @@ function isLeafRoute(route: routerType.LinkedRoute) {
   return !child || !child.context
 }
 
-function updateRoute(instance: Yox, componentHook: string | void, hook: string | undefined, upsert?: boolean) {
+function updateRoute(instance: Yox, hook: Function | void, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
+  if (hook) {
+    hook(instance)
+  }
   const route = instance[ROUTE] as routerType.LinkedRoute
   if (route) {
     route.context = upsert ? instance : env.UNDEFINED
     if (isLeafRoute(route)) {
       const router = instance[ROUTER] as Router
-      if (componentHook && hook) {
-        router.hook(route, componentHook, hook)
+      if (componentHookName && hookName) {
+        router.hook(route, componentHookName, hookName)
       }
       if (upsert) {
         const { pending } = router
@@ -178,8 +181,9 @@ export class Router {
 
   cursor: number
 
-  pending: routerType.Pending | void
+  pending?: routerType.Pending
 
+  // 路由钩子
   hooks: Hooks
 
   // 路由或参数发生了变化会触发此函数
@@ -225,7 +229,7 @@ export class Router {
      */
     instance.onHashChange = function () {
 
-      let hashStr = LOCATION.hash, { pending, route404 } = instance
+      let hashStr = LOCATION.hash, { pending } = instance
 
       // 如果不以 PREFIX_HASH 开头，表示不合法
       hashStr = hashStr !== constant.PREFIX_HASH
@@ -253,7 +257,7 @@ export class Router {
             instance.setRoute(location)
           }
           else {
-            instance.push(route404)
+            instance.push(instance.route404)
           }
         }
       )
@@ -295,7 +299,7 @@ export class Router {
 
     addRoute = function (routeOptions: routerType.RouteOptions) {
 
-      let { name, component, children, load } = routeOptions,
+      let { name, component, children, loadRoute } = routeOptions,
 
       parentPath = Yox.array.last(pathStack),
 
@@ -326,12 +330,12 @@ export class Router {
         route.name = name
       }
 
-      // component 和 load 二选一
+      // component 和 loadRoute 二选一
       if (component) {
         route.component = component
       }
-      else if (load) {
-        route.load = load
+      else if (loadRoute) {
+        route.loadRoute = loadRoute
       }
 
       if (parentRoute) {
@@ -670,9 +674,9 @@ export class Router {
           }
         }
         // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-        else if (route.load && Yox.string.startsWith(realpath, path)) {
-          route.load(
-            function (lazyRoute: routerType.RouteOptions) {
+        else if (route.loadRoute && Yox.string.startsWith(realpath, path)) {
+          route.loadRoute(
+            function (lazyRoute) {
               instance.remove(route as routerType.LinkedRoute)
               searchRoute(
                 instance.add(lazyRoute),
@@ -836,7 +840,7 @@ export class Router {
             filterProps(
               parent,
               location,
-              parent.component
+              parent.component as YoxOptions
             )
           )
 
@@ -864,7 +868,7 @@ export class Router {
             Yox.object.extend(
               {
                 el: instance.el,
-                props: filterProps(route, location, component),
+                props: filterProps(route, location, component as YoxOptions),
                 extensions,
               },
               component as YoxOptions
@@ -879,7 +883,7 @@ export class Router {
         if (context.$vnode) {
           context[ROUTE] = route
           context.forceUpdate(
-            filterProps(route, location, component)
+            filterProps(route, location, component as YoxOptions)
           )
         }
         else {
@@ -1081,29 +1085,17 @@ export function install(Class: YoxClass): void {
 
   Yox.afterMount = function (instance) {
 
-    if (afterMount) {
-      afterMount(instance)
-    }
-
-    updateRoute(instance, constant.HOOK_AFTER_ROUTE_ENTER, constant.HOOK_AFTER_ENTER, env.TRUE)
+    updateRoute(instance, afterMount, constant.HOOK_AFTER_ROUTE_ENTER, constant.HOOK_AFTER_ENTER, env.TRUE)
 
   }
   Yox.afterUpdate = function (instance) {
 
-    if (afterUpdate) {
-      afterUpdate(instance)
-    }
-
-    updateRoute(instance, constant.HOOK_AFTER_ROUTE_UPDATE, constant.HOOK_AFTER_UPDATE, env.TRUE)
+    updateRoute(instance, afterUpdate, constant.HOOK_AFTER_ROUTE_UPDATE, constant.HOOK_AFTER_UPDATE, env.TRUE)
 
   }
   Yox.afterDestroy = function (instance) {
 
-    if (afterDestroy) {
-      afterDestroy(instance)
-    }
-
-    updateRoute(instance, constant.HOOK_AFTER_ROUTE_LEAVE, constant.HOOK_AFTER_LEAVE)
+    updateRoute(instance, afterDestroy, constant.HOOK_AFTER_ROUTE_LEAVE, constant.HOOK_AFTER_LEAVE)
 
   }
 

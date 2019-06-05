@@ -44,7 +44,7 @@ export interface RouteOptions {
   path: string
   component: YoxOptions
   name?: string
-  load?: RouteLoader
+  loadRoute?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
   [constant.HOOK_BEFORE_ENTER]?: BeforeHook
@@ -57,7 +57,7 @@ export interface LinkedRoute {
   path: string
   route: RouteOptions
   name?: string
-  load?: RouteLoader
+  loadRoute?: RouteLoader
   component?: YoxOptions
   params?: string[]
   context?: Yox
@@ -66,8 +66,8 @@ export interface LinkedRoute {
 }
 
 export interface Location {
-  hash: string,
   path: string
+  hash?: string
   params?: type.data
   query?: type.data
 }

@@ -209,6 +209,7 @@
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
   function formatPath(path, parentPath) {
+      // 如果不是 / 开头，表示是相对路径
       if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
           // 确保 parentPath 以 / 结尾
           if (parentPath) {
@@ -230,7 +231,6 @@
   }
   function toLocation(target, name2Path) {
       var location = {
-          hash: EMPTY_STRING,
           path: EMPTY_STRING
       };
       if (Yox.is.string(target)) {
@@ -265,14 +265,14 @@
    * 2. 避免覆盖 data 定义的数据
    */
   function filterProps(route, location, options) {
-      var result = {}, propTypes = options && options.propTypes;
+      var result = {}, propTypes = options.propTypes;
       if (propTypes) {
           var props = location.query, routeParams = route.params, locationParams = location.params;
           // 从 location.params 挑出 route.params 定义过的参数
           if (routeParams && locationParams) {
               props = props ? Yox.object.copy(props) : {};
-              for (var i = 0, key = void 0; key = routeParams[i]; i++) {
-                  props[key] = locationParams[key];
+              for (var i = 0, length = routeParams.length; i < length; i++) {
+                  props[routeParams[i]] = locationParams[routeParams[i]];
               }
           }
           if (props) {
@@ -291,14 +291,17 @@
       var child = route.child;
       return !child || !child.context;
   }
-  function updateRoute(instance, componentHook, hook, upsert) {
+  function updateRoute(instance, hook, componentHookName, hookName, upsert) {
+      if (hook) {
+          hook(instance);
+      }
       var route = instance[ROUTE];
       if (route) {
           route.context = upsert ? instance : UNDEFINED;
           if (isLeafRoute(route)) {
               var router = instance[ROUTER];
-              if (componentHook && hook) {
-                  router.hook(route, componentHook, hook);
+              if (componentHookName && hookName) {
+                  router.hook(route, componentHookName, hookName);
               }
               if (upsert) {
                   var pending = router.pending;
@@ -332,7 +335,7 @@
            * 否则一旦解绑，所有实例都解绑了
            */
           instance.onHashChange = function () {
-              var hashStr = LOCATION.hash, pending = instance.pending, route404 = instance.route404;
+              var hashStr = LOCATION.hash, pending = instance.pending;
               // 如果不以 PREFIX_HASH 开头，表示不合法
               hashStr = hashStr !== PREFIX_HASH
                   && Yox.string.startsWith(hashStr, PREFIX_HASH)
@@ -355,7 +358,7 @@
                       instance.setRoute(location);
                   }
                   else {
-                      instance.push(route404);
+                      instance.push(instance.route404);
                   }
               });
           };
@@ -375,7 +378,7 @@
        */
       Router.prototype.add = function (routeOptions) {
           var instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
-              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, load = routeOptions.load, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
+              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, loadRoute = routeOptions.loadRoute, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
               Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
                   if (Yox.string.startsWith(item, PREFIX_PARAM)) {
                       params.push(item.substr(PREFIX_PARAM.length));
@@ -387,12 +390,12 @@
               if (name) {
                   route.name = name;
               }
-              // component 和 load 二选一
+              // component 和 loadRoute 二选一
               if (component) {
                   route.component = component;
               }
-              else if (load) {
-                  route.load = load;
+              else if (loadRoute) {
+                  route.loadRoute = loadRoute;
               }
               if (parentRoute) {
                   route.parent = parentRoute;
@@ -618,8 +621,8 @@
                       }
                   }
                   // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-                  else if (route.load && Yox.string.startsWith(realpath, path)) {
-                      route.load(function (lazyRoute) {
+                  else if (route.loadRoute && Yox.string.startsWith(realpath, path)) {
+                      route.loadRoute(function (lazyRoute) {
                           instance.remove(route);
                           searchRoute(instance.add(lazyRoute), callback);
                       });
@@ -875,22 +878,13 @@
           }
       };
       Yox.afterMount = function (instance) {
-          if (afterMount) {
-              afterMount(instance);
-          }
-          updateRoute(instance, HOOK_AFTER_ROUTE_ENTER, HOOK_AFTER_ENTER, TRUE);
+          updateRoute(instance, afterMount, HOOK_AFTER_ROUTE_ENTER, HOOK_AFTER_ENTER, TRUE);
       };
       Yox.afterUpdate = function (instance) {
-          if (afterUpdate) {
-              afterUpdate(instance);
-          }
-          updateRoute(instance, HOOK_AFTER_ROUTE_UPDATE, HOOK_AFTER_UPDATE, TRUE);
+          updateRoute(instance, afterUpdate, HOOK_AFTER_ROUTE_UPDATE, HOOK_AFTER_UPDATE, TRUE);
       };
       Yox.afterDestroy = function (instance) {
-          if (afterDestroy) {
-              afterDestroy(instance);
-          }
-          updateRoute(instance, HOOK_AFTER_ROUTE_LEAVE, HOOK_AFTER_LEAVE);
+          updateRoute(instance, afterDestroy, HOOK_AFTER_ROUTE_LEAVE, HOOK_AFTER_LEAVE);
       };
   }
 
