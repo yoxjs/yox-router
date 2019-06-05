@@ -78,19 +78,19 @@ new YoxRouter.Router({
         beforeRouteEnter: function (to, from, next) {
           next()
         },
-        afterRouteEnter: function (to, from, next) {
+        afterRouteEnter: function (to, from) {
 
         },
         beforeRouteUpdate: function (to, from, next) {
           next()
         },
-        afterRouteUpdate: function (to, from, next) {
+        afterRouteUpdate: function (to, from) {
 
         },
         beforeRouteLeave: function (to, from, next) {
           next()
         },
-        afterRouteLeave: function (to, from, next) {
+        afterRouteLeave: function (to, from) {
 
         }
       }
@@ -112,19 +112,19 @@ new YoxRouter.Router({
       beforeEnter: function (to, from, next) {
         next()
       },
-      afterEnter: function (to, from, next) {
+      afterEnter: function (to, from) {
 
       },
       beforeUpdate: function (to, from, next) {
         next()
       },
-      afterUpdate: function (to, from, next) {
+      afterUpdate: function (to, from) {
 
       },
       beforeLeave: function (to, from, next) {
         next()
       },
-      afterLeave: function (to, from, next) {
+      afterLeave: function (to, from) {
 
       }
     }
@@ -147,19 +147,19 @@ new YoxRouter.Router({
   beforeEnter: function (to, from, next) {
     next()
   },
-  afterEnter: function (to, from, next) {
+  afterEnter: function (to, from) {
 
   },
   beforeUpdate: function (to, from, next) {
     next()
   },
-  afterUpdate: function (to, from, next) {
+  afterUpdate: function (to, from) {
 
   },
   beforeLeave: function (to, from, next) {
     next()
   },
-  afterLeave: function (to, from, next) {
+  afterLeave: function (to, from) {
 
   }
 })
