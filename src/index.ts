@@ -616,10 +616,6 @@ export class Router {
       realpath = url
     }
 
-    // 重置为 0，方便 while 循环
-    index = 0
-
-
     // 匹配已注册的 route
     const instance = this,
 
@@ -632,7 +628,7 @@ export class Router {
       callback: (route?: routerType.LinkedRoute, params?: type.data) => void
     ) {
 
-      let route: routerType.LinkedRoute | void
+      let index = 0, route: routerType.LinkedRoute | void
 
       loop: while (route = routes[index++]) {
         const path = route.path

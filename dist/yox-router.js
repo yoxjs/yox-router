@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha6
+ * yox-router.js v1.0.0-alpha7
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -222,11 +222,12 @@
   }
   function createHandler(handler) {
       return function () {
-          var url = LOCATION.hash;
-          // 如果不以 HASH_PREFIX 开头，表示不合法
-          url = url !== HASH_PREFIX && url.indexOf(HASH_PREFIX) === 0
-              ? url.substr(HASH_PREFIX.length)
-              : SEPARATOR_PATH;
+          // 不能直接读取 window.location.hash
+          // 因为 Firefox 会做 pre-decode
+          var href = LOCATION.href, index = href.indexOf(HASH_PREFIX), url = SEPARATOR_PATH;
+          if (index > 0) {
+              url = href.substr(index + HASH_PREFIX.length);
+          }
           handler(url);
       };
   }
@@ -607,11 +608,9 @@
           else {
               realpath = url;
           }
-          // 重置为 0，方便 while 循环
-          index = 0;
           // 匹配已注册的 route
           var instance = this, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, searchRoute = function (routes, callback) {
-              var route;
+              var index = 0, route;
               loop: while (route = routes[index++]) {
                   var path = route.path;
                   // 动态路由
@@ -854,7 +853,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha6";
+  var version = "1.0.0-alpha7";
   /**
    * 安装插件
    */

@@ -39,12 +39,12 @@ export function createHandler(handler: (url: string) => void) {
 
   return function () {
 
-    let url = LOCATION.hash
-
-    // 如果不以 HASH_PREFIX 开头，表示不合法
-    url = url !== HASH_PREFIX && url.indexOf(HASH_PREFIX) === 0
-      ? url.substr(HASH_PREFIX.length)
-      : constant.SEPARATOR_PATH
+    // 不能直接读取 window.location.hash
+    // 因为 Firefox 会做 pre-decode
+    let href = LOCATION.href, index = href.indexOf(HASH_PREFIX), url = constant.SEPARATOR_PATH
+    if (index > 0) {
+      url = href.substr(index + HASH_PREFIX.length)
+    }
 
     handler(url)
 
