@@ -1,5 +1,5 @@
-import * as env from '../../yox-common/src/util/env'
-import YoxClass from '../../yox-type/src/interface/YoxClass'
+import * as env from '../../../yox-common/src/util/env'
+import YoxClass from '../../../yox-type/src/interface/YoxClass'
 
 /**
  * 把字符串 value 解析成最合适的类型

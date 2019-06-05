@@ -1,7 +1,7 @@
 
-import YoxClass from '../../yox-type/src/interface/YoxClass'
+import YoxClass from '../../../yox-type/src/interface/YoxClass'
 
-import * as constant from './constant'
+import * as constant from '../constant'
 import * as valueUtil from './value'
 
 /**

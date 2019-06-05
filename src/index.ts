@@ -18,16 +18,14 @@ import RouteTarget from '../../yox-type/src/router/RouteTarget'
 
 import Hooks from './Hooks'
 import * as constant from './constant'
-import * as queryUtil from './query'
-import * as valueUtil from './value'
+import * as queryUtil from './util/query'
+import * as valueUtil from './util/value'
+
+import * as hashMode from './mode/hash'
 
 let Yox: YoxClass, domApi: API, guid = 0
 
-const WINDOW = window,
-
-LOCATION = WINDOW.location,
-
-ROUTER = '$router',
+const ROUTER = '$router',
 
 ROUTE = '$route',
 
@@ -35,9 +33,7 @@ ROUTE_VIEW = '$routeView',
 
 ROUTE_COMPONENT = 'RouteComponent',
 
-EVENT_CLICK = 'click',
-
-EVENT_HASH_CHANGE = 'hashchange'
+EVENT_CLICK = 'click'
 
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
@@ -231,42 +227,36 @@ export class Router {
      * 此函数必须写在实例上，不能写在类上
      * 否则一旦解绑，所有实例都解绑了
      */
-    instance.onHashChange = function () {
+    instance.onHashChange = hashMode.createHandler(
+      function (url) {
+        let { pending } = instance
 
-      let hashStr = LOCATION.hash, { pending } = instance
-
-      // 如果不以 PREFIX_HASH 开头，表示不合法
-      hashStr = hashStr !== constant.PREFIX_HASH
-        && Yox.string.startsWith(hashStr, constant.PREFIX_HASH)
-        ? hashStr.substr(constant.PREFIX_HASH.length)
-        : constant.SEPARATOR_PATH
-
-      if (pending) {
-        const { location } = pending
-        // 通过 push 或 go 触发
-        if (location.hash === hashStr) {
-          instance.setHistory(location, pending.cursor)
-          instance.setRoute(location)
-          return
-        }
-        instance.pending = env.UNDEFINED
-      }
-
-      // 直接修改地址栏触发
-      instance.parseLocation(
-        hashStr,
-        function (location) {
-          if (location) {
-            instance.setHistory(location)
+        if (pending) {
+          const { location } = pending
+          // 通过 push 或 go 触发
+          if (location.url === url) {
+            instance.setHistory(location, pending.cursor)
             instance.setRoute(location)
+            return
           }
-          else {
-            instance.push(instance.route404)
-          }
+          instance.pending = env.UNDEFINED
         }
-      )
 
-    }
+        // 直接修改地址栏触发
+        instance.parseLocation(
+          url,
+          function (location) {
+            if (location) {
+              instance.setHistory(location)
+              instance.setRoute(location)
+            }
+            else {
+              instance.push(instance.route404)
+            }
+          }
+        )
+      }
+    )
 
     instance.routes = []
     instance.name2Path = {}
@@ -488,15 +478,14 @@ export class Router {
    * 启动路由
    */
   start() {
-    domApi.on(WINDOW, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
-    this.onHashChange()
+    hashMode.start(domApi, this.onHashChange)
   }
 
   /**
    * 停止路由
    */
   stop() {
-    domApi.off(WINDOW, EVENT_HASH_CHANGE, this.onHashChange as type.listener)
+    hashMode.stop(domApi, this.onHashChange)
   }
 
   /**
@@ -571,12 +560,7 @@ export class Router {
 
   private setHash(location: Location) {
 
-    const hash = constant.PREFIX_HASH + location.hash
-
-    if (LOCATION.hash !== hash) {
-      LOCATION.hash = hash
-    }
-    else {
+    if (!hashMode.setLocation(location)) {
       this.setRoute(location)
     }
 
@@ -592,25 +576,25 @@ export class Router {
 
     let instance = this,
 
-    hash = instance.stringifyLocation(location),
+    url = instance.stringifyLocation(location),
 
     oldLocation = instance.location,
 
-    oldHash = oldLocation ? instance.stringifyLocation(oldLocation) : env.UNDEFINED
+    oldUrl = oldLocation ? instance.stringifyLocation(oldLocation) : env.UNDEFINED
 
     instance.parseLocation(
-      hash,
+      url,
       function (location) {
 
         if (!location) {
-          hash = instance.route404.path
+          url = instance.route404.path
           location = {
-            hash,
-            path: hash
+            url,
+            path: url
           }
         }
 
-        if (hash !== oldHash) {
+        if (url !== oldUrl) {
           instance.pending = {
             cursor,
             location,
@@ -625,16 +609,16 @@ export class Router {
 
   }
 
-  private parseLocation(hash: string, callback: (location: Location | void) => void) {
+  private parseLocation(url: string, callback: (location: Location | void) => void) {
 
-    let realpath: string, search: string | void, index = hash.indexOf(constant.SEPARATOR_SEARCH)
+    let realpath: string, search: string | void, index = url.indexOf(constant.SEPARATOR_SEARCH)
 
     if (index >= 0) {
-      realpath = hash.slice(0, index)
-      search = hash.slice(index + 1)
+      realpath = url.slice(0, index)
+      search = url.slice(index + 1)
     }
     else {
-      realpath = hash
+      realpath = url
     }
 
     // 重置为 0，方便 while 循环
@@ -705,7 +689,7 @@ export class Router {
       function (route, params) {
         if (route) {
           const location: Location = {
-            hash,
+            url,
             path: route.path
           }
           if (params) {

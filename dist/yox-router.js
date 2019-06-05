@@ -93,8 +93,6 @@
       return Hooks;
   }());
 
-  // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-  var PREFIX_HASH = '#!';
   // path 中的参数前缀，如 #!/user/:userId
   var PREFIX_PARAM = ':';
   // path 分隔符
@@ -205,8 +203,35 @@
       return result.join(SEPARATOR_QUERY);
   }
 
+  // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
+  var WINDOW = window, LOCATION = WINDOW.location, EVENT_HASH_CHANGE = 'hashchange', PREFIX_HASH = '#!';
+  function start(domApi, handler) {
+      domApi.on(WINDOW, EVENT_HASH_CHANGE, handler);
+      handler();
+  }
+  function stop(domApi, handler) {
+      domApi.off(WINDOW, EVENT_HASH_CHANGE, handler);
+  }
+  function setLocation(location) {
+      var hash = PREFIX_HASH + location.url;
+      if (LOCATION.hash !== hash) {
+          LOCATION.hash = hash;
+          return TRUE;
+      }
+  }
+  function createHandler(handler) {
+      return function () {
+          var url = LOCATION.hash;
+          // 如果不以 PREFIX_HASH 开头，表示不合法
+          url = url !== PREFIX_HASH && url.indexOf(PREFIX_HASH) === 0
+              ? url.substr(PREFIX_HASH.length)
+              : SEPARATOR_PATH;
+          handler(url);
+      };
+  }
+
   var Yox, domApi, guid = 0;
-  var WINDOW = window, LOCATION = WINDOW.location, ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EVENT_HASH_CHANGE = 'hashchange';
+  var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -336,17 +361,12 @@
            * 此函数必须写在实例上，不能写在类上
            * 否则一旦解绑，所有实例都解绑了
            */
-          instance.onHashChange = function () {
-              var hashStr = LOCATION.hash, pending = instance.pending;
-              // 如果不以 PREFIX_HASH 开头，表示不合法
-              hashStr = hashStr !== PREFIX_HASH
-                  && Yox.string.startsWith(hashStr, PREFIX_HASH)
-                  ? hashStr.substr(PREFIX_HASH.length)
-                  : SEPARATOR_PATH;
+          instance.onHashChange = createHandler(function (url) {
+              var pending = instance.pending;
               if (pending) {
                   var location = pending.location;
                   // 通过 push 或 go 触发
-                  if (location.hash === hashStr) {
+                  if (location.url === url) {
                       instance.setHistory(location, pending.cursor);
                       instance.setRoute(location);
                       return;
@@ -354,7 +374,7 @@
                   instance.pending = UNDEFINED;
               }
               // 直接修改地址栏触发
-              instance.parseLocation(hashStr, function (location) {
+              instance.parseLocation(url, function (location) {
                   if (location) {
                       instance.setHistory(location);
                       instance.setRoute(location);
@@ -363,7 +383,7 @@
                       instance.push(instance.route404);
                   }
               });
-          };
+          });
           instance.routes = [];
           instance.name2Path = {};
           instance.path2Route = {};
@@ -491,14 +511,13 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          domApi.on(WINDOW, EVENT_HASH_CHANGE, this.onHashChange);
-          this.onHashChange();
+          start(domApi, this.onHashChange);
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          domApi.off(WINDOW, EVENT_HASH_CHANGE, this.onHashChange);
+          stop(domApi, this.onHashChange);
       };
       /**
        * 钩子函数
@@ -558,25 +577,21 @@
           }
       };
       Router.prototype.setHash = function (location) {
-          var hash = PREFIX_HASH + location.hash;
-          if (LOCATION.hash !== hash) {
-              LOCATION.hash = hash;
-          }
-          else {
+          if (!setLocation(location)) {
               this.setRoute(location);
           }
       };
       Router.prototype.setLocation = function (location, cursor, onComplete, onAbort, callback) {
-          var instance = this, hash = instance.stringifyLocation(location), oldLocation = instance.location, oldHash = oldLocation ? instance.stringifyLocation(oldLocation) : UNDEFINED;
-          instance.parseLocation(hash, function (location) {
+          var instance = this, url = instance.stringifyLocation(location), oldLocation = instance.location, oldUrl = oldLocation ? instance.stringifyLocation(oldLocation) : UNDEFINED;
+          instance.parseLocation(url, function (location) {
               if (!location) {
-                  hash = instance.route404.path;
+                  url = instance.route404.path;
                   location = {
-                      hash: hash,
-                      path: hash
+                      url: url,
+                      path: url
                   };
               }
-              if (hash !== oldHash) {
+              if (url !== oldUrl) {
                   instance.pending = {
                       cursor: cursor,
                       location: location,
@@ -587,14 +602,14 @@
               }
           });
       };
-      Router.prototype.parseLocation = function (hash, callback) {
-          var realpath, search, index = hash.indexOf(SEPARATOR_SEARCH);
+      Router.prototype.parseLocation = function (url, callback) {
+          var realpath, search, index = url.indexOf(SEPARATOR_SEARCH);
           if (index >= 0) {
-              realpath = hash.slice(0, index);
-              search = hash.slice(index + 1);
+              realpath = url.slice(0, index);
+              search = url.slice(index + 1);
           }
           else {
-              realpath = hash;
+              realpath = url;
           }
           // 重置为 0，方便 while 循环
           index = 0;
@@ -640,7 +655,7 @@
           searchRoute(instance.routes, function (route, params) {
               if (route) {
                   var location = {
-                      hash: hash,
+                      url: url,
                       path: route.path
                   };
                   if (params) {

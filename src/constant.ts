@@ -1,6 +1,3 @@
-// hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-export const PREFIX_HASH = '#!'
-
 // path 中的参数前缀，如 #!/user/:userId
 export const PREFIX_PARAM = ':'
 
