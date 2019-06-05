@@ -5,22 +5,21 @@ import Location from '../../../yox-type/src/router/Location'
 
 import * as constant from '../constant'
 
-// hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-const HASH_PREFIX = '#!',
+const POP_STATE = 'popstate'
 
-HASH_CHANGE = 'hashchange'
+export const isSupported = 'pushState' in constant.HISTORY
 
 export function start(domApi: API, handler: Function) {
-  domApi.on(constant.WINDOW, HASH_CHANGE, handler as type.listener)
+  domApi.on(constant.WINDOW, POP_STATE, handler as type.listener)
   handler()
 }
 
 export function stop(domApi: API, handler: Function) {
-  domApi.off(constant.WINDOW, HASH_CHANGE, handler as type.listener)
+  domApi.off(constant.WINDOW, POP_STATE, handler as type.listener)
 }
 
 export function push(location: Location) {
-  constant.LOCATION.hash = HASH_PREFIX + location.url
+  constant.HISTORY.pushState({}, '', location.url)
 }
 
 export function go(n: number) {
@@ -28,13 +27,7 @@ export function go(n: number) {
 }
 
 export function current() {
-  // 不能直接读取 window.location.hash
-  // 因为 Firefox 会做 pre-decode
-  let href = constant.LOCATION.href, index = href.indexOf(HASH_PREFIX), url = constant.SEPARATOR_PATH
-  if (index > 0) {
-    url = href.substr(index + HASH_PREFIX.length)
-  }
-  return url
+  return constant.LOCATION.pathname + constant.LOCATION.search
 }
 
 export function createHandler(handler: (url: string) => void) {

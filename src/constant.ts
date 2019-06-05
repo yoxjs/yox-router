@@ -1,3 +1,8 @@
+export const WINDOW = window
+
+export const LOCATION = WINDOW.location
+export const HISTORY = WINDOW.history
+
 // path 中的参数前缀，如 /user/:userId
 export const PREFIX_PARAM = ':'
 

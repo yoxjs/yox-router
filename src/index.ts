@@ -22,6 +22,7 @@ import * as queryUtil from './util/query'
 import * as valueUtil from './util/value'
 
 import * as hashMode from './mode/hash'
+import * as historyMode from './mode/history'
 
 let Yox: YoxClass, domApi: API, guid = 0
 
@@ -203,6 +204,8 @@ export class Router {
 
   path2Route: Record<string, routerType.LinkedRoute>
 
+  mode: typeof hashMode
+
   history: Location[]
 
   cursor: number
@@ -242,7 +245,9 @@ export class Router {
       }
     }
 
-    instance.handler = hashMode.createHandler(
+    instance.mode = options.mode === 'history' && historyMode.isSupported ? historyMode : hashMode
+
+    instance.handler = instance.mode.createHandler(
       function (url) {
         let { pending } = instance
 
@@ -436,7 +441,7 @@ export class Router {
    */
   push(target: routerType.Target) {
 
-    const instance = this
+    const instance = this, { mode } = instance
 
     instance.setUrl(
       toUrl(target, instance.name2Path),
@@ -444,8 +449,8 @@ export class Router {
       env.EMPTY_FUNCTION,
       function (location, pending) {
         instance.pending = pending
-        if (hashMode.current() !== location.url) {
-          hashMode.push(location)
+        if (mode.current() !== location.url) {
+          mode.push(location)
         }
         else {
           instance.setRoute(location)
@@ -483,6 +488,8 @@ export class Router {
 
     const instance = this,
 
+    { mode } = instance,
+
     cursor = instance.cursor + n,
 
     location = instance.history[cursor]
@@ -496,8 +503,8 @@ export class Router {
           pending.cursor = cursor
           instance.pending = pending
 
-          if (hashMode.current() !== location.url) {
-            hashMode.go(n)
+          if (mode.current() !== location.url) {
+            mode.go(n)
           }
           else {
             instance.setHistory(location, cursor)
@@ -513,14 +520,14 @@ export class Router {
    * 启动路由
    */
   start() {
-    hashMode.start(domApi, this.handler)
+    this.mode.start(domApi, this.handler)
   }
 
   /**
    * 停止路由
    */
   stop() {
-    hashMode.stop(domApi, this.handler)
+    this.mode.stop(domApi, this.handler)
   }
 
   /**

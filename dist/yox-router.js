@@ -88,6 +88,9 @@
       return Hooks;
   }());
 
+  var WINDOW = window;
+  var LOCATION = WINDOW.location;
+  var HISTORY = WINDOW.history;
   // path 中的参数前缀，如 /user/:userId
   var PREFIX_PARAM = ':';
   // path 分隔符
@@ -198,9 +201,8 @@
       return result.join(SEPARATOR_QUERY);
   }
 
-  var WINDOW = window, LOCATION = WINDOW.location, 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-  HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
+  var HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
   function start(domApi, handler) {
       domApi.on(WINDOW, HASH_CHANGE, handler);
       handler();
@@ -212,7 +214,7 @@
       LOCATION.hash = HASH_PREFIX + location.url;
   }
   function go(n) {
-      WINDOW.history.go(n);
+      HISTORY.go(n);
   }
   function current() {
       // 不能直接读取 window.location.hash
@@ -228,6 +230,49 @@
           handler(current());
       };
   }
+
+  var hashMode = /*#__PURE__*/Object.freeze({
+    start: start,
+    stop: stop,
+    push: push,
+    go: go,
+    current: current,
+    createHandler: createHandler
+  });
+
+  var POP_STATE = 'popstate';
+  var isSupported = 'pushState' in HISTORY;
+  function start$1(domApi, handler) {
+      domApi.on(WINDOW, POP_STATE, handler);
+      handler();
+  }
+  function stop$1(domApi, handler) {
+      domApi.off(WINDOW, POP_STATE, handler);
+  }
+  function push$1(location) {
+      HISTORY.pushState({}, '', location.url);
+  }
+  function go$1(n) {
+      HISTORY.go(n);
+  }
+  function current$1() {
+      return LOCATION.pathname + LOCATION.search;
+  }
+  function createHandler$1(handler) {
+      return function () {
+          handler(current$1());
+      };
+  }
+
+  var historyMode = /*#__PURE__*/Object.freeze({
+    isSupported: isSupported,
+    start: start$1,
+    stop: stop$1,
+    push: push$1,
+    go: go$1,
+    current: current$1,
+    createHandler: createHandler$1
+  });
 
   var Yox, domApi, guid = 0;
   var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -366,7 +411,8 @@
                   return;
               }
           }
-          instance.handler = createHandler(function (url) {
+          instance.mode = options.mode === 'history' && isSupported ? historyMode : hashMode;
+          instance.handler = instance.mode.createHandler(function (url) {
               var pending = instance.pending;
               if (pending) {
                   var location = pending.location;
@@ -492,11 +538,11 @@
        *
        */
       Router.prototype.push = function (target) {
-          var instance = this;
+          var instance = this, mode = instance.mode;
           instance.setUrl(toUrl(target, instance.name2Path), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
               instance.pending = pending;
-              if (current() !== location.url) {
-                  push(location);
+              if (mode.current() !== location.url) {
+                  mode.push(location);
               }
               else {
                   instance.setRoute(location);
@@ -519,13 +565,13 @@
        * 前进或后退 n 步
        */
       Router.prototype.go = function (n) {
-          var instance = this, cursor = instance.cursor + n, location = instance.history[cursor];
+          var instance = this, mode = instance.mode, cursor = instance.cursor + n, location = instance.history[cursor];
           if (location) {
               instance.setUrl(stringifyUrl(location.path, location.params, location.query), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
                   pending.cursor = cursor;
                   instance.pending = pending;
-                  if (current() !== location.url) {
-                      go(n);
+                  if (mode.current() !== location.url) {
+                      mode.go(n);
                   }
                   else {
                       instance.setHistory(location, cursor);
@@ -538,13 +584,13 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          start(domApi, this.handler);
+          this.mode.start(domApi, this.handler);
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          stop(domApi, this.handler);
+          this.mode.stop(domApi, this.handler);
       };
       /**
        * 钩子函数
