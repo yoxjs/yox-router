@@ -65,37 +65,61 @@ function formatPath(path: string, parentPath: string | void) {
 
 }
 
-function toLocation(target: routerType.Target, name2Path: type.data): Location {
+/**
+ * 把结构化数据序列化成 url
+ */
+function stringifyUrl(path: string, params: type.data | void, query: type.data | void) {
 
-  const location: Location = {
-    path: env.EMPTY_STRING
+  if (/\/\:\w+/.test(path)) {
+
+    const terms: string[] = []
+
+    Yox.array.each(
+      path.split(constant.SEPARATOR_PATH),
+      function (item) {
+        terms.push(
+          Yox.string.startsWith(item, constant.PREFIX_PARAM) && params
+            ? params[item.substr(constant.PREFIX_PARAM.length)]
+            : item
+        )
+      }
+    )
+
+    path = terms.join(constant.SEPARATOR_PATH)
+
   }
+
+  if (query) {
+    const queryStr = queryUtil.stringify(Yox, query)
+    if (queryStr) {
+      path += constant.SEPARATOR_SEARCH + queryStr
+    }
+  }
+
+  return path
+
+}
+
+function toUrl(target: routerType.Target, name2Path: type.data): string {
 
   if (Yox.is.string(target)) {
-    location.path = formatPath(target as string)
-  }
-  else {
-    const route = target as RouteTarget, name = route.name
-    if (name) {
-      location.path = name2Path[name]
-      if (process.env.NODE_ENV === 'development') {
-        if (!Yox.is.string(location.path)) {
-          Yox.logger.error(`The route of name[${name}] is not found.`)
-        }
-      }
-    }
-    else {
-      location.path = formatPath(route.path as string)
-    }
-    if (route.params) {
-      location.params = route.params
-    }
-    if (route.query) {
-      location.query = route.query
-    }
+    return formatPath(target as string)
   }
 
-  return location
+  let route = target as RouteTarget, name = route.name, path: string
+  if (name) {
+    path = name2Path[name]
+    if (process.env.NODE_ENV === 'development') {
+      if (!Yox.is.string(path)) {
+        Yox.logger.error(`The route of name[${name}] is not found.`)
+      }
+    }
+  }
+  else {
+    path = formatPath(route.path as string)
+  }
+
+  return stringifyUrl(path, route.params, route.query)
 
 }
 
@@ -274,7 +298,7 @@ export class Router {
   }
 
   /**
-   * 添加新的路由
+   * 添加一个新的路由
    */
   add(routeOptions: routerType.RouteOptions) {
 
@@ -375,6 +399,9 @@ export class Router {
 
   }
 
+  /**
+   * 删除一个已注册的路由
+   */
   remove(route: routerType.LinkedRoute) {
 
     const instance = this
@@ -417,8 +444,8 @@ export class Router {
 
     const instance = this
 
-    instance.setLocation(
-      toLocation(target, instance.name2Path),
+    instance.setUrl(
+      toUrl(target, instance.name2Path),
       env.UNDEFINED,
       env.EMPTY_FUNCTION,
       env.EMPTY_FUNCTION,
@@ -433,8 +460,8 @@ export class Router {
 
     const instance = this
 
-    instance.setLocation(
-      toLocation(target, instance.name2Path),
+    instance.setUrl(
+      toUrl(target, instance.name2Path),
       env.UNDEFINED,
       function () {
         instance.replaceHistory(instance.location as Location)
@@ -453,11 +480,11 @@ export class Router {
 
     cursor = instance.cursor + offset,
 
-    location: Location | void = instance.history[cursor]
+    location = instance.history[cursor]
 
     if (location) {
-      instance.setLocation(
-        location,
+      instance.setUrl(
+        stringifyUrl(location.path, location.params, location.query),
         cursor,
         env.EMPTY_FUNCTION,
         env.EMPTY_FUNCTION,
@@ -561,8 +588,8 @@ export class Router {
 
   }
 
-  private setLocation(
-    location: Location,
+  private setUrl(
+    url: string,
     cursor: number | void,
     onComplete: routerType.RouteComplete,
     onAbort: routerType.RouteAbort,
@@ -571,32 +598,27 @@ export class Router {
 
     let instance = this,
 
-    url = instance.stringifyLocation(location),
-
     oldLocation = instance.location,
 
-    oldUrl = oldLocation ? instance.stringifyLocation(oldLocation) : env.UNDEFINED
+    oldUrl = oldLocation ? stringifyUrl(oldLocation.path, oldLocation.params, oldLocation.query) : env.UNDEFINED
 
     instance.parseLocation(
       url,
       function (location) {
 
-        if (!location) {
-          url = instance.route404.path
-          location = {
-            url,
-            path: url
+        if (location) {
+          if (url !== oldUrl) {
+            instance.pending = {
+              cursor,
+              location,
+              onComplete,
+              onAbort,
+            }
+            callback(location)
           }
         }
-
-        if (url !== oldUrl) {
-          instance.pending = {
-            cursor,
-            location,
-            onComplete,
-            onAbort,
-          }
-          callback(location)
+        else if (process.env.NODE_ENV === 'development') {
+          Yox.logger.error(`"${url}" can't match a route.`)
         }
 
       }
@@ -623,7 +645,7 @@ export class Router {
 
     length = realpathTerms.length,
 
-    searchRoute = function (
+    matchRoute = function (
       routes: routerType.LinkedRoute[],
       callback: (route?: routerType.LinkedRoute, params?: type.data) => void
     ) {
@@ -657,7 +679,7 @@ export class Router {
           route.load(
             function (lazyRoute) {
               instance.remove(route as routerType.LinkedRoute)
-              searchRoute(
+              matchRoute(
                 instance.add(lazyRoute),
                 callback
               )
@@ -675,7 +697,7 @@ export class Router {
 
     }
 
-    searchRoute(
+    matchRoute(
       instance.routes,
       function (route, params) {
         if (route) {
@@ -699,37 +721,6 @@ export class Router {
         }
       }
     )
-
-  }
-
-  /**
-   * 把结构化数据序列化成 hash
-   */
-  private stringifyLocation(location: Location) {
-
-    const { path, params, query } = location, terms: string[] = []
-
-    Yox.array.each(
-      path.split(constant.SEPARATOR_PATH),
-      function (item) {
-        terms.push(
-          Yox.string.startsWith(item, constant.PREFIX_PARAM) && params
-            ? params[item.substr(constant.PREFIX_PARAM.length)]
-            : item
-        )
-      }
-    )
-
-    let realpath = terms.join(constant.SEPARATOR_PATH)
-
-    if (query) {
-      const queryStr = queryUtil.stringify(Yox, query)
-      if (queryStr) {
-        realpath += constant.SEPARATOR_SEARCH + queryStr
-      }
-    }
-
-    return realpath
 
   }
 

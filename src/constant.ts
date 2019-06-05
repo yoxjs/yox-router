@@ -1,4 +1,4 @@
-// path 中的参数前缀，如 #!/user/:userId
+// path 中的参数前缀，如 /user/:userId
 export const PREFIX_PARAM = ':'
 
 // path 分隔符
