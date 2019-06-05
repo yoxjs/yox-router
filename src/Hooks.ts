@@ -1,4 +1,5 @@
 import Task from '../../yox-type/src/interface/Task'
+import Location from '../../yox-type/src/router/Location'
 
 import * as type from './type'
 
@@ -6,11 +7,11 @@ export default class Hooks {
 
   list: Task[]
 
-  to: type.Location
+  to: Location
 
-  from: type.Location | void
+  from: Location | void
 
-  setLocation(to: type.Location, from: type.Location | void) {
+  setLocation(to: Location, from: Location | void) {
     this.to = to
     this.from = from
     return this
@@ -32,7 +33,7 @@ export default class Hooks {
     return this
   }
 
-  next(next: type.Next, isGuard?: boolean, callback?: type.Callback) {
+  next(next: Function, isGuard?: boolean, callback?: type.Callback) {
     const task = this.list.shift()
     if (task) {
       if (isGuard) {

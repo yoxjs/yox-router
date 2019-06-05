@@ -3,18 +3,12 @@ import * as type from '../../yox-type/src/type'
 import Yox from '../../yox-type/src/interface/Yox'
 import YoxOptions from '../../yox-type/src/options/Yox'
 
+import Location from '../../yox-type/src/router/Location'
+import RouteTarget from '../../yox-type/src/router/RouteTarget'
+
 import * as constant from './constant'
 
-export interface RouteTarget {
-  name?: string
-  path?: string
-  params?: type.data
-  query?: type.data
-}
-
 export type Target = string | RouteTarget
-
-export type Next = (value?: false | Target) => void
 
 export type Redirect = (to: Location) => Target
 
@@ -23,10 +17,6 @@ export type Callback = () => void
 export type RouteCallback = (route: RouteOptions) => void
 
 export type RouteLoader = (callback: RouteCallback) => void
-
-export type BeforeHook = (to: Location, from: Location | void, next: Next) => void
-
-export type AfterHook = (to: Location, from: Location | void) => void
 
 export type RouteComplete = () => void
 
@@ -47,10 +37,10 @@ export interface RouteOptions {
   loadRoute?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
-  [constant.HOOK_BEFORE_ENTER]?: BeforeHook
-  [constant.HOOK_AFTER_ENTER]?: AfterHook
-  [constant.HOOK_BEFORE_LEAVE]?: BeforeHook
-  [constant.HOOK_AFTER_LEAVE]?: AfterHook
+  [constant.HOOK_BEFORE_ENTER]?: type.routerBeforeHook
+  [constant.HOOK_AFTER_ENTER]?: type.routerAfterHook
+  [constant.HOOK_BEFORE_LEAVE]?: type.routerBeforeHook
+  [constant.HOOK_AFTER_LEAVE]?: type.routerAfterHook
 }
 
 export interface LinkedRoute {
@@ -63,13 +53,6 @@ export interface LinkedRoute {
   context?: Yox
   parent?: LinkedRoute
   child?: LinkedRoute
-}
-
-export interface Location {
-  path: string
-  hash?: string
-  params?: type.data
-  query?: type.data
 }
 
 export interface Pending {

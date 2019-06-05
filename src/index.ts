@@ -1,3 +1,4 @@
+import * as config from '../../yox-config/src/config'
 import * as type from '../../yox-type/src/type'
 import * as routerType from './type'
 
@@ -11,6 +12,9 @@ import YoxOptions from '../../yox-type/src/options/Yox'
 import VNode from '../../yox-type/src/vnode/VNode'
 import Directive from '../../yox-type/src/vnode/Directive'
 import CustomEvent from '../../yox-type/src/event/CustomEvent'
+
+import Location from '../../yox-type/src/router/Location'
+import RouteTarget from '../../yox-type/src/router/RouteTarget'
 
 import Hooks from './Hooks'
 import * as constant from './constant'
@@ -65,9 +69,9 @@ function formatPath(path: string, parentPath: string | void) {
 
 }
 
-function toLocation(target: routerType.Target, name2Path: type.data): routerType.Location {
+function toLocation(target: routerType.Target, name2Path: type.data): Location {
 
-  const location: routerType.Location = {
+  const location: Location = {
     path: env.EMPTY_STRING
   }
 
@@ -75,7 +79,7 @@ function toLocation(target: routerType.Target, name2Path: type.data): routerType
     location.path = formatPath(target as string)
   }
   else {
-    const route = target as routerType.RouteTarget, name = route.name
+    const route = target as RouteTarget, name = route.name
     if (name) {
       location.path = name2Path[name]
       if (process.env.NODE_ENV === 'development') {
@@ -105,7 +109,7 @@ function toLocation(target: routerType.Target, name2Path: type.data): routerType
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: routerType.LinkedRoute, location: routerType.Location, options: YoxOptions) {
+function filterProps(route: routerType.LinkedRoute, location: Location, options: YoxOptions) {
   const result: type.data = {}, propTypes = options.propTypes
   if (propTypes) {
 
@@ -177,7 +181,7 @@ export class Router {
 
   path2Route: Record<string, routerType.LinkedRoute>
 
-  history: routerType.Location[]
+  history: Location[]
 
   cursor: number
 
@@ -193,15 +197,15 @@ export class Router {
   route?: routerType.LinkedRoute
 
   // 当前地址栏的路径和参数
-  location?: routerType.Location
+  location?: Location
 
-  [constant.HOOK_BEFORE_LEAVE]?: routerType.BeforeHook
+  [constant.HOOK_BEFORE_LEAVE]?: type.routerBeforeHook
 
-  [constant.HOOK_BEFORE_ENTER]?: routerType.BeforeHook
+  [constant.HOOK_BEFORE_ENTER]?: type.routerBeforeHook
 
-  [constant.HOOK_AFTER_ENTER]?: routerType.AfterHook
+  [constant.HOOK_AFTER_ENTER]?: type.routerAfterHook
 
-  [constant.HOOK_AFTER_LEAVE]?: routerType.AfterHook
+  [constant.HOOK_AFTER_LEAVE]?: type.routerAfterHook
 
   constructor(options: routerType.RouterOptions) {
 
@@ -448,7 +452,7 @@ export class Router {
       toLocation(target, instance.name2Path),
       env.UNDEFINED,
       function () {
-        instance.replaceHistory(instance.location as routerType.Location)
+        instance.replaceHistory(instance.location as Location)
       },
       env.EMPTY_FUNCTION,
       function (location) {
@@ -464,7 +468,7 @@ export class Router {
 
     cursor = instance.cursor + offset,
 
-    location: routerType.Location | void = instance.history[cursor]
+    location: Location | void = instance.history[cursor]
 
     if (location) {
       instance.setLocation(
@@ -538,7 +542,7 @@ export class Router {
 
   }
 
-  private setHistory(location: routerType.Location, index: number | void) {
+  private setHistory(location: Location, index: number | void) {
 
     const { history, cursor } = this
 
@@ -558,14 +562,14 @@ export class Router {
 
   }
 
-  private replaceHistory(location: routerType.Location) {
+  private replaceHistory(location: Location) {
     const { history, cursor } = this
     if (history[cursor]) {
       history[cursor] = location
     }
   }
 
-  private setHash(location: routerType.Location) {
+  private setHash(location: Location) {
 
     const hash = constant.PREFIX_HASH + location.hash
 
@@ -579,11 +583,11 @@ export class Router {
   }
 
   private setLocation(
-    location: routerType.Location,
+    location: Location,
     cursor: number | void,
     onComplete: routerType.RouteComplete,
     onAbort: routerType.RouteAbort,
-    callback: (locaiton: routerType.Location) => void
+    callback: (locaiton: Location) => void
   ) {
 
     let instance = this,
@@ -621,7 +625,7 @@ export class Router {
 
   }
 
-  private parseLocation(hash: string, callback: (location: routerType.Location | void) => void) {
+  private parseLocation(hash: string, callback: (location: Location | void) => void) {
 
     let realpath: string, search: string | void, index = hash.indexOf(constant.SEPARATOR_SEARCH)
 
@@ -700,7 +704,7 @@ export class Router {
       instance.routes,
       function (route, params) {
         if (route) {
-          const location: routerType.Location = {
+          const location: Location = {
             hash,
             path: route.path
           }
@@ -726,7 +730,7 @@ export class Router {
   /**
    * 把结构化数据序列化成 hash
    */
-  private stringifyLocation(location: routerType.Location) {
+  private stringifyLocation(location: Location) {
 
     const { path, params, query } = location, terms: string[] = []
 
@@ -824,7 +828,7 @@ export class Router {
     startRoute: routerType.LinkedRoute | void
   ) {
 
-    const instance = this, location = instance.location as routerType.Location
+    const instance = this, location = instance.location as Location
 
     // 从上往下更新 props
     while (route) {
@@ -898,7 +902,7 @@ export class Router {
     }
   }
 
-  private setRoute(location: routerType.Location) {
+  private setRoute(location: Location) {
 
     let instance = this,
 
@@ -929,7 +933,7 @@ export class Router {
         function (route, startRoute) {
           instance.hook(
             newRoute,
-            startRoute ? constant.HOOK_BEFORE_ROUTE_ENTER : constant.HOOK_BEFORE_ROUTE_UPDATE,
+            startRoute ? config.HOOK_BEFORE_ROUTE_ENTER : config.HOOK_BEFORE_ROUTE_UPDATE,
             startRoute ? constant.HOOK_BEFORE_ENTER : constant.HOOK_BEFORE_UPDATE,
             env.TRUE,
             function () {
@@ -950,7 +954,7 @@ export class Router {
     if (oldRoute && oldLocation && location.path !== oldLocation.path) {
       instance.hook(
         oldRoute,
-        constant.HOOK_BEFORE_ROUTE_LEAVE,
+        config.HOOK_BEFORE_ROUTE_LEAVE,
         constant.HOOK_BEFORE_LEAVE,
         env.TRUE,
         enterRoute
@@ -1085,17 +1089,17 @@ export function install(Class: YoxClass): void {
 
   Yox.afterMount = function (instance) {
 
-    updateRoute(instance, afterMount, constant.HOOK_AFTER_ROUTE_ENTER, constant.HOOK_AFTER_ENTER, env.TRUE)
+    updateRoute(instance, afterMount, config.HOOK_AFTER_ROUTE_ENTER, constant.HOOK_AFTER_ENTER, env.TRUE)
 
   }
   Yox.afterUpdate = function (instance) {
 
-    updateRoute(instance, afterUpdate, constant.HOOK_AFTER_ROUTE_UPDATE, constant.HOOK_AFTER_UPDATE, env.TRUE)
+    updateRoute(instance, afterUpdate, config.HOOK_AFTER_ROUTE_UPDATE, constant.HOOK_AFTER_UPDATE, env.TRUE)
 
   }
   Yox.afterDestroy = function (instance) {
 
-    updateRoute(instance, afterDestroy, constant.HOOK_AFTER_ROUTE_LEAVE, constant.HOOK_AFTER_LEAVE)
+    updateRoute(instance, afterDestroy, config.HOOK_AFTER_ROUTE_LEAVE, constant.HOOK_AFTER_LEAVE)
 
   }
 

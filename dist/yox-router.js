@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha5
+ * yox-router.js v1.0.0-alpha6
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -9,6 +9,14 @@
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
   (global = global || self, factory(global.YoxRouter = {}));
 }(this, function (exports) { 'use strict';
+
+  // 路由钩子
+  var HOOK_BEFORE_ROUTE_ENTER = 'beforeRouteEnter';
+  var HOOK_AFTER_ROUTE_ENTER = 'afterRouteEnter';
+  var HOOK_BEFORE_ROUTE_UPDATE = 'beforeRouteUpdate';
+  var HOOK_AFTER_ROUTE_UPDATE = 'afterRouteUpdate';
+  var HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave';
+  var HOOK_AFTER_ROUTE_LEAVE = 'afterRouteLeave';
 
   /**
    * 为了压缩，定义的常量
@@ -101,22 +109,16 @@
   var FLAG_ARRAY = '[]';
   // 导航钩子 - 路由进入之前
   var HOOK_BEFORE_ENTER = 'beforeEnter';
-  var HOOK_BEFORE_ROUTE_ENTER = 'beforeRouteEnter';
   // 导航钩子 - 路由进入之后
   var HOOK_AFTER_ENTER = 'afterEnter';
-  var HOOK_AFTER_ROUTE_ENTER = 'afterRouteEnter';
   // 导航钩子 - 路由更新之前
   var HOOK_BEFORE_UPDATE = 'beforeUpdate';
-  var HOOK_BEFORE_ROUTE_UPDATE = 'beforeRouteUpdate';
   // 导航钩子 - 路由更新之后
   var HOOK_AFTER_UPDATE = 'afterUpdate';
-  var HOOK_AFTER_ROUTE_UPDATE = 'afterRouteUpdate';
   // 导航钩子 - 路由离开之前
   var HOOK_BEFORE_LEAVE = 'beforeLeave';
-  var HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave';
   // 导航钩子 - 路由离开之后
   var HOOK_AFTER_LEAVE = 'afterLeave';
-  var HOOK_AFTER_ROUTE_LEAVE = 'afterRouteLeave';
 
   /**
    * 把字符串 value 解析成最合适的类型
@@ -841,7 +843,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha5";
+  var version = "1.0.0-alpha6";
   /**
    * 安装插件
    */
