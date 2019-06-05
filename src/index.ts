@@ -440,11 +440,14 @@ export class Router {
 
     instance.setUrl(
       toUrl(target, instance.name2Path),
-      env.UNDEFINED,
       env.EMPTY_FUNCTION,
       env.EMPTY_FUNCTION,
-      function (location) {
-        if (!hashMode.push(location)) {
+      function (location, pending) {
+        instance.pending = pending
+        if (hashMode.current() !== location.url) {
+          hashMode.push(location)
+        }
+        else {
           instance.setRoute(location)
         }
       }
@@ -461,12 +464,12 @@ export class Router {
 
     instance.setUrl(
       toUrl(target, instance.name2Path),
-      env.UNDEFINED,
       function () {
         instance.replaceHistory(instance.location as Location)
       },
       env.EMPTY_FUNCTION,
-      function (location) {
+      function (location, pending) {
+        instance.pending = pending
         instance.setRoute(location)
       }
     )
@@ -487,11 +490,17 @@ export class Router {
     if (location) {
       instance.setUrl(
         stringifyUrl(location.path, location.params, location.query),
-        cursor,
         env.EMPTY_FUNCTION,
         env.EMPTY_FUNCTION,
-        function (location) {
-          if (!hashMode.go(n)) {
+        function (location, pending) {
+          pending.cursor = cursor
+          instance.pending = pending
+
+          if (hashMode.current() !== location.url) {
+            hashMode.go(n)
+          }
+          else {
+            instance.setHistory(location, cursor)
             instance.setRoute(location)
           }
         }
@@ -586,10 +595,9 @@ export class Router {
 
   private setUrl(
     url: string,
-    cursor: number | void,
     onComplete: routerType.RouteComplete,
     onAbort: routerType.RouteAbort,
-    callback: (locaiton: Location) => void
+    callback: (locaiton: Location, pending: routerType.Pending) => void
   ) {
 
     // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
@@ -600,13 +608,14 @@ export class Router {
       function (location) {
 
         if (location) {
-          instance.pending = {
-            cursor,
+          callback(
             location,
-            onComplete,
-            onAbort,
-          }
-          callback(location)
+            {
+              location,
+              onComplete,
+              onAbort,
+            }
+          )
         }
         else if (process.env.NODE_ENV === 'development') {
           Yox.logger.error(`"${url}" can't match a route.`)

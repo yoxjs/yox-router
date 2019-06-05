@@ -31,19 +31,20 @@ export function go(n: number) {
   WINDOW.history.go(n)
 }
 
+export function current() {
+  // 不能直接读取 window.location.hash
+  // 因为 Firefox 会做 pre-decode
+  let href = LOCATION.href, index = href.indexOf(HASH_PREFIX), url = constant.SEPARATOR_PATH
+  if (index > 0) {
+    url = href.substr(index + HASH_PREFIX.length)
+  }
+  return url
+}
+
 export function createHandler(handler: (url: string) => void) {
 
   return function () {
-
-    // 不能直接读取 window.location.hash
-    // 因为 Firefox 会做 pre-decode
-    let href = LOCATION.href, index = href.indexOf(HASH_PREFIX), url = constant.SEPARATOR_PATH
-    if (index > 0) {
-      url = href.substr(index + HASH_PREFIX.length)
-    }
-
-    handler(url)
-
+    handler(current())
   }
 
 }

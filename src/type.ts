@@ -60,7 +60,7 @@ export interface LinkedRoute {
 }
 
 export interface Pending {
-  cursor: number | void
+  cursor?: number
   location: Location
   onComplete: RouteComplete
   onAbort: RouteAbort

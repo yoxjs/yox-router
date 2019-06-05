@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha8
+ * yox-router.js v1.0.0-alpha9
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -208,25 +208,24 @@
   function stop(domApi, handler) {
       domApi.off(WINDOW, HASH_CHANGE, handler);
   }
+  function push(location) {
+      LOCATION.hash = HASH_PREFIX + location.url;
+  }
   function go(n) {
       WINDOW.history.go(n);
   }
-  function setLocation(location) {
-      var hash = HASH_PREFIX + location.url;
-      if (LOCATION.hash !== hash) {
-          LOCATION.hash = hash;
-          return TRUE;
+  function current() {
+      // 不能直接读取 window.location.hash
+      // 因为 Firefox 会做 pre-decode
+      var href = LOCATION.href, index = href.indexOf(HASH_PREFIX), url = SEPARATOR_PATH;
+      if (index > 0) {
+          url = href.substr(index + HASH_PREFIX.length);
       }
+      return url;
   }
   function createHandler(handler) {
       return function () {
-          // 不能直接读取 window.location.hash
-          // 因为 Firefox 会做 pre-decode
-          var href = LOCATION.href, index = href.indexOf(HASH_PREFIX), url = SEPARATOR_PATH;
-          if (index > 0) {
-              url = href.substr(index + HASH_PREFIX.length);
-          }
-          handler(url);
+          handler(current());
       };
   }
 
@@ -353,6 +352,7 @@
   var Router = /** @class */ (function () {
       function Router(options) {
           var instance = this, el = options.el, route404 = options.route404;
+          instance.options = options;
           instance.el = Yox.is.string(el)
               ? domApi.find(el)
               : el;
@@ -493,8 +493,12 @@
        */
       Router.prototype.push = function (target) {
           var instance = this;
-          instance.setUrl(toUrl(target, instance.name2Path), UNDEFINED, EMPTY_FUNCTION, EMPTY_FUNCTION, function (location) {
-              if (!setLocation(location)) {
+          instance.setUrl(toUrl(target, instance.name2Path), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
+              instance.pending = pending;
+              if (current() !== location.url) {
+                  push(location);
+              }
+              else {
                   instance.setRoute(location);
               }
           });
@@ -504,9 +508,10 @@
        */
       Router.prototype.replace = function (target) {
           var instance = this;
-          instance.setUrl(toUrl(target, instance.name2Path), UNDEFINED, function () {
+          instance.setUrl(toUrl(target, instance.name2Path), function () {
               instance.replaceHistory(instance.location);
-          }, EMPTY_FUNCTION, function (location) {
+          }, EMPTY_FUNCTION, function (location, pending) {
+              instance.pending = pending;
               instance.setRoute(location);
           });
       };
@@ -516,8 +521,16 @@
       Router.prototype.go = function (n) {
           var instance = this, cursor = instance.cursor + n, location = instance.history[cursor];
           if (location) {
-              instance.setUrl(stringifyUrl(location.path, location.params, location.query), cursor, EMPTY_FUNCTION, EMPTY_FUNCTION, function () {
-                  go(n);
+              instance.setUrl(stringifyUrl(location.path, location.params, location.query), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
+                  pending.cursor = cursor;
+                  instance.pending = pending;
+                  if (current() !== location.url) {
+                      go(n);
+                  }
+                  else {
+                      instance.setHistory(location, cursor);
+                      instance.setRoute(location);
+                  }
               });
           }
       };
@@ -545,7 +558,7 @@
               // 再调用路由配置的钩子
               .add(route.route[hook], route.route)
               // 最后调用路由实例的钩子
-              .add(instance[hook], instance);
+              .add(instance.options[hook], instance);
           var next = function (value) {
               if (value === UNDEFINED) {
                   hooks.next(next, isGuard, callback);
@@ -590,18 +603,16 @@
               history[cursor] = location;
           }
       };
-      Router.prototype.setUrl = function (url, cursor, onComplete, onAbort, callback) {
+      Router.prototype.setUrl = function (url, onComplete, onAbort, callback) {
           // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
           var instance = this;
           instance.parseLocation(url, function (location) {
               if (location) {
-                  instance.pending = {
-                      cursor: cursor,
+                  callback(location, {
                       location: location,
                       onComplete: onComplete,
                       onAbort: onAbort
-                  };
-                  callback(location);
+                  });
               }
               else {
                   Yox.logger.error("\"" + url + "\" can't match a route.");
@@ -843,7 +854,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha8";
+  var version = "1.0.0-alpha9";
   /**
    * 安装插件
    */
