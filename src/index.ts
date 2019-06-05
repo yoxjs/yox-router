@@ -288,7 +288,7 @@ export class Router {
 
     addRoute = function (routeOptions: routerType.RouteOptions) {
 
-      let { name, component, children, loadRoute } = routeOptions,
+      let { name, component, children, load } = routeOptions,
 
       parentPath = Yox.array.last(pathStack),
 
@@ -319,12 +319,12 @@ export class Router {
         route.name = name
       }
 
-      // component 和 loadRoute 二选一
+      // component 和 load 二选一
       if (component) {
         route.component = component
       }
-      else if (loadRoute) {
-        route.loadRoute = loadRoute
+      else if (load) {
+        route.load = load
       }
 
       if (parentRoute) {
@@ -653,8 +653,8 @@ export class Router {
           }
         }
         // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-        else if (route.loadRoute && Yox.string.startsWith(realpath, path)) {
-          route.loadRoute(
+        else if (route.load && Yox.string.startsWith(realpath, path)) {
+          route.load(
             function (lazyRoute) {
               instance.remove(route as routerType.LinkedRoute)
               searchRoute(

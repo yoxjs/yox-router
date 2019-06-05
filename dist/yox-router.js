@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha7
+ * yox-router.js v1.0.0-alpha8
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -397,7 +397,7 @@
        */
       Router.prototype.add = function (routeOptions) {
           var instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
-              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, loadRoute = routeOptions.loadRoute, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
+              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, load = routeOptions.load, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
               Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
                   if (Yox.string.startsWith(item, PREFIX_PARAM)) {
                       params.push(item.substr(PREFIX_PARAM.length));
@@ -409,12 +409,12 @@
               if (name) {
                   route.name = name;
               }
-              // component 和 loadRoute 二选一
+              // component 和 load 二选一
               if (component) {
                   route.component = component;
               }
-              else if (loadRoute) {
-                  route.loadRoute = loadRoute;
+              else if (load) {
+                  route.load = load;
               }
               if (parentRoute) {
                   route.parent = parentRoute;
@@ -633,8 +633,8 @@
                       }
                   }
                   // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-                  else if (route.loadRoute && Yox.string.startsWith(realpath, path)) {
-                      route.loadRoute(function (lazyRoute) {
+                  else if (route.load && Yox.string.startsWith(realpath, path)) {
+                      route.load(function (lazyRoute) {
                           instance.remove(route);
                           searchRoute(instance.add(lazyRoute), callback);
                       });
@@ -853,7 +853,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha7";
+  var version = "1.0.0-alpha8";
   /**
    * 安装插件
    */
