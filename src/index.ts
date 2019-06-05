@@ -417,8 +417,6 @@ export class Router {
   }
 
   /**
-   * 真正执行路由切换操作的函数
-   *
    * target 有 2 种格式：
    *
    * 如果只是简单的 path，直接传字符串
@@ -450,12 +448,17 @@ export class Router {
       env.EMPTY_FUNCTION,
       env.EMPTY_FUNCTION,
       function (location) {
-        instance.setHash(location)
+        if (!hashMode.setLocation(location)) {
+          instance.setRoute(location)
+        }
       }
     )
 
   }
 
+  /**
+   * 不改变 URL，只修改路由组件
+   */
   replace(target: routerType.Target) {
 
     const instance = this
@@ -474,11 +477,14 @@ export class Router {
 
   }
 
-  go(offset: number) {
+  /**
+   * 前进或后退 n 步
+   */
+  go(n: number) {
 
     const instance = this,
 
-    cursor = instance.cursor + offset,
+    cursor = instance.cursor + n,
 
     location = instance.history[cursor]
 
@@ -488,8 +494,8 @@ export class Router {
         cursor,
         env.EMPTY_FUNCTION,
         env.EMPTY_FUNCTION,
-        function (location) {
-          instance.setHash(location)
+        function () {
+          hashMode.go(n)
         }
       )
     }
@@ -578,14 +584,6 @@ export class Router {
     if (history[cursor]) {
       history[cursor] = location
     }
-  }
-
-  private setHash(location: Location) {
-
-    if (!hashMode.setLocation(location)) {
-      this.setRoute(location)
-    }
-
   }
 
   private setUrl(

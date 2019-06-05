@@ -24,6 +24,10 @@ export function stop(domApi: API, handler: Function) {
   domApi.off(WINDOW, HASH_CHANGE, handler as type.listener)
 }
 
+export function go(n: number) {
+  WINDOW.history.go(n)
+}
+
 export function setLocation(location: Location) {
 
   const hash = HASH_PREFIX + location.url
