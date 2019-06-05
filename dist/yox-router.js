@@ -203,17 +203,18 @@
       return result.join(SEPARATOR_QUERY);
   }
 
+  var WINDOW = window, LOCATION = WINDOW.location, 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-  var WINDOW = window, LOCATION = WINDOW.location, EVENT_HASH_CHANGE = 'hashchange', PREFIX_HASH = '#!';
+  HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
   function start(domApi, handler) {
-      domApi.on(WINDOW, EVENT_HASH_CHANGE, handler);
+      domApi.on(WINDOW, HASH_CHANGE, handler);
       handler();
   }
   function stop(domApi, handler) {
-      domApi.off(WINDOW, EVENT_HASH_CHANGE, handler);
+      domApi.off(WINDOW, HASH_CHANGE, handler);
   }
   function setLocation(location) {
-      var hash = PREFIX_HASH + location.url;
+      var hash = HASH_PREFIX + location.url;
       if (LOCATION.hash !== hash) {
           LOCATION.hash = hash;
           return TRUE;
@@ -222,9 +223,9 @@
   function createHandler(handler) {
       return function () {
           var url = LOCATION.hash;
-          // 如果不以 PREFIX_HASH 开头，表示不合法
-          url = url !== PREFIX_HASH && url.indexOf(PREFIX_HASH) === 0
-              ? url.substr(PREFIX_HASH.length)
+          // 如果不以 HASH_PREFIX 开头，表示不合法
+          url = url !== HASH_PREFIX && url.indexOf(HASH_PREFIX) === 0
+              ? url.substr(HASH_PREFIX.length)
               : SEPARATOR_PATH;
           handler(url);
       };
@@ -356,12 +357,7 @@
                   return;
               }
           }
-          /**
-           * hashchange 事件处理函数
-           * 此函数必须写在实例上，不能写在类上
-           * 否则一旦解绑，所有实例都解绑了
-           */
-          instance.onHashChange = createHandler(function (url) {
+          instance.handler = createHandler(function (url) {
               var pending = instance.pending;
               if (pending) {
                   var location = pending.location;
@@ -511,13 +507,13 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          start(domApi, this.onHashChange);
+          start(domApi, this.handler);
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          stop(domApi, this.onHashChange);
+          stop(domApi, this.handler);
       };
       /**
        * 钩子函数

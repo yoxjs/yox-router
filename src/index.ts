@@ -187,7 +187,7 @@ export class Router {
   hooks: Hooks
 
   // 路由或参数发生了变化会触发此函数
-  onHashChange: Function
+  handler: Function
 
   // 当前渲染的路由
   route?: routerType.LinkedRoute
@@ -222,12 +222,7 @@ export class Router {
       }
     }
 
-    /**
-     * hashchange 事件处理函数
-     * 此函数必须写在实例上，不能写在类上
-     * 否则一旦解绑，所有实例都解绑了
-     */
-    instance.onHashChange = hashMode.createHandler(
+    instance.handler = hashMode.createHandler(
       function (url) {
         let { pending } = instance
 
@@ -478,14 +473,14 @@ export class Router {
    * 启动路由
    */
   start() {
-    hashMode.start(domApi, this.onHashChange)
+    hashMode.start(domApi, this.handler)
   }
 
   /**
    * 停止路由
    */
   stop() {
-    hashMode.stop(domApi, this.onHashChange)
+    hashMode.stop(domApi, this.handler)
   }
 
   /**

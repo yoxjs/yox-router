@@ -6,21 +6,27 @@ import Location from '../../../yox-type/src/router/Location'
 
 import * as constant from '../constant'
 
+const WINDOW = window,
+
+LOCATION = WINDOW.location,
+
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-const WINDOW = window, LOCATION = WINDOW.location, EVENT_HASH_CHANGE = 'hashchange', PREFIX_HASH = '#!'
+HASH_PREFIX = '#!',
+
+HASH_CHANGE = 'hashchange'
 
 export function start(domApi: API, handler: Function) {
-  domApi.on(WINDOW, EVENT_HASH_CHANGE, handler as type.listener)
+  domApi.on(WINDOW, HASH_CHANGE, handler as type.listener)
   handler()
 }
 
 export function stop(domApi: API, handler: Function) {
-  domApi.off(WINDOW, EVENT_HASH_CHANGE, handler as type.listener)
+  domApi.off(WINDOW, HASH_CHANGE, handler as type.listener)
 }
 
 export function setLocation(location: Location) {
 
-  const hash = PREFIX_HASH + location.url
+  const hash = HASH_PREFIX + location.url
 
   if (LOCATION.hash !== hash) {
     LOCATION.hash = hash
@@ -29,15 +35,15 @@ export function setLocation(location: Location) {
 
 }
 
-export function createHandler(handler: (hash: string) => void) {
+export function createHandler(handler: (url: string) => void) {
 
   return function () {
 
     let url = LOCATION.hash
 
-    // 如果不以 PREFIX_HASH 开头，表示不合法
-    url = url !== PREFIX_HASH && url.indexOf(PREFIX_HASH) === 0
-      ? url.substr(PREFIX_HASH.length)
+    // 如果不以 HASH_PREFIX 开头，表示不合法
+    url = url !== HASH_PREFIX && url.indexOf(HASH_PREFIX) === 0
+      ? url.substr(HASH_PREFIX.length)
       : constant.SEPARATOR_PATH
 
     handler(url)
