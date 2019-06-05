@@ -1,5 +1,4 @@
 import * as type from '../../../yox-type/src/type'
-import * as env from '../../../yox-common/src/util/env'
 
 import API from '../../../yox-type/src/interface/API'
 import Location from '../../../yox-type/src/router/Location'
@@ -20,14 +19,12 @@ export function stop(domApi: API, handler: Function) {
   domApi.off(constant.WINDOW, HASH_CHANGE, handler as type.listener)
 }
 
-export function push(location: Location) {
+export function push(location: Location, handler: Function) {
   constant.LOCATION.hash = HASH_PREFIX + location.url
-  return env.TRUE
 }
 
-export function go(n: number) {
+export function go(n: number, handler: Function) {
   constant.HISTORY.go(n)
-  return env.TRUE
 }
 
 export function current() {
@@ -38,12 +35,4 @@ export function current() {
     url = href.substr(index + HASH_PREFIX.length)
   }
   return url
-}
-
-export function createHandler(handler: (url: string) => void) {
-
-  return function () {
-    handler(current())
-  }
-
 }

@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha9
+ * yox-router.js v1.0.0-alpha10
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -210,13 +210,11 @@
   function stop(domApi, handler) {
       domApi.off(WINDOW, HASH_CHANGE, handler);
   }
-  function push(location) {
+  function push(location, handler) {
       LOCATION.hash = HASH_PREFIX + location.url;
-      return TRUE;
   }
-  function go(n) {
+  function go(n, handler) {
       HISTORY.go(n);
-      return TRUE;
   }
   function current() {
       // 不能直接读取 window.location.hash
@@ -227,19 +225,13 @@
       }
       return url;
   }
-  function createHandler(handler) {
-      return function () {
-          handler(current());
-      };
-  }
 
   var hashMode = /*#__PURE__*/Object.freeze({
     start: start,
     stop: stop,
     push: push,
     go: go,
-    current: current,
-    createHandler: createHandler
+    current: current
   });
 
   var POP_STATE = 'popstate';
@@ -251,19 +243,16 @@
   function stop$1(domApi, handler) {
       domApi.off(WINDOW, POP_STATE, handler);
   }
-  function push$1(location) {
+  function push$1(location, handler) {
       HISTORY.pushState({}, '', location.url);
+      handler();
   }
-  function go$1(n) {
+  function go$1(n, handler) {
       HISTORY.go(n);
+      handler();
   }
   function current$1() {
       return LOCATION.pathname + LOCATION.search;
-  }
-  function createHandler$1(handler) {
-      return function () {
-          handler(current$1());
-      };
   }
 
   var historyMode = /*#__PURE__*/Object.freeze({
@@ -272,8 +261,7 @@
     stop: stop$1,
     push: push$1,
     go: go$1,
-    current: current$1,
-    createHandler: createHandler$1
+    current: current$1
   });
 
   var Yox, domApi, guid = 0;
@@ -414,8 +402,8 @@
               }
           }
           instance.mode = options.mode === 'history' && isSupported ? historyMode : hashMode;
-          instance.handler = instance.mode.createHandler(function (url) {
-              var pending = instance.pending;
+          instance.handler = function () {
+              var url = instance.mode.current(), pending = instance.pending;
               if (pending) {
                   var location = pending.location;
                   // 通过 push 或 go 触发
@@ -436,7 +424,7 @@
                       instance.push(instance.route404);
                   }
               });
-          });
+          };
           instance.routes = [];
           instance.name2Path = {};
           instance.path2Route = {};
@@ -544,9 +532,7 @@
           instance.setUrl(toUrl(target, instance.name2Path), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
               instance.pending = pending;
               if (mode.current() !== location.url) {
-                  if (!mode.push(location)) {
-                      instance.handler();
-                  }
+                  mode.push(location, instance.handler);
               }
               else {
                   instance.setRoute(location);
@@ -575,9 +561,7 @@
                   pending.cursor = cursor;
                   instance.pending = pending;
                   if (mode.current() !== location.url) {
-                      if (!mode.go(n)) {
-                          instance.handler();
-                      }
+                      mode.go(n, instance.handler);
                   }
                   else {
                       instance.setHistory(location, cursor);
@@ -906,7 +890,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha9";
+  var version = "1.0.0-alpha10";
   /**
    * 安装插件
    */

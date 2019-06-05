@@ -18,22 +18,16 @@ export function stop(domApi: API, handler: Function) {
   domApi.off(constant.WINDOW, POP_STATE, handler as type.listener)
 }
 
-export function push(location: Location) {
+export function push(location: Location, handler: Function) {
   constant.HISTORY.pushState({}, '', location.url)
+  handler()
 }
 
-export function go(n: number) {
+export function go(n: number, handler: Function) {
   constant.HISTORY.go(n)
+  handler()
 }
 
 export function current() {
   return constant.LOCATION.pathname + constant.LOCATION.search
-}
-
-export function createHandler(handler: (url: string) => void) {
-
-  return function () {
-    handler(current())
-  }
-
 }

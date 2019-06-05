@@ -247,36 +247,35 @@ export class Router {
 
     instance.mode = options.mode === 'history' && historyMode.isSupported ? historyMode : hashMode
 
-    instance.handler = instance.mode.createHandler(
-      function (url) {
-        let { pending } = instance
+    instance.handler = function () {
 
-        if (pending) {
-          const { location } = pending
-          // 通过 push 或 go 触发
-          if (location.url === url) {
-            instance.setHistory(location, pending.cursor)
-            instance.setRoute(location)
-            return
-          }
-          instance.pending = env.UNDEFINED
+      const url = instance.mode.current(), { pending } = instance
+
+      if (pending) {
+        const { location } = pending
+        // 通过 push 或 go 触发
+        if (location.url === url) {
+          instance.setHistory(location, pending.cursor)
+          instance.setRoute(location)
+          return
         }
-
-        // 直接修改地址栏触发
-        instance.parseLocation(
-          url,
-          function (location) {
-            if (location) {
-              instance.setHistory(location)
-              instance.setRoute(location)
-            }
-            else {
-              instance.push(instance.route404)
-            }
-          }
-        )
+        instance.pending = env.UNDEFINED
       }
-    )
+
+      // 直接修改地址栏触发
+      instance.parseLocation(
+        url,
+        function (location) {
+          if (location) {
+            instance.setHistory(location)
+            instance.setRoute(location)
+          }
+          else {
+            instance.push(instance.route404)
+          }
+        }
+      )
+    }
 
     instance.routes = []
     instance.name2Path = {}
@@ -450,9 +449,7 @@ export class Router {
       function (location, pending) {
         instance.pending = pending
         if (mode.current() !== location.url) {
-          if (!mode.push(location)) {
-            instance.handler()
-          }
+          mode.push(location, instance.handler)
         }
         else {
           instance.setRoute(location)
@@ -506,9 +503,7 @@ export class Router {
           instance.pending = pending
 
           if (mode.current() !== location.url) {
-            if (!mode.go(n)) {
-              instance.handler()
-            }
+            mode.go(n, instance.handler)
           }
           else {
             instance.setHistory(location, cursor)
