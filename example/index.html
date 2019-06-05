@@ -380,27 +380,6 @@
             component: Index,
           }
         })
-        router.beforeEnter = function (to, from, next) {
-          console.log('router beforeEnter', to, from)
-          next()
-        }
-        router.afterEnter = function (to, from) {
-          console.log('router afterEnter', to, from)
-        }
-        router.beforeUpdate = function (to, from, next) {
-          console.log('router beforeUpdate', to, from)
-          next()
-        }
-        router.afterUpdate = function (to, from) {
-          console.log('router afterUpdate', to, from)
-        }
-        router.beforeLeave = function (to, from, next) {
-          console.log('router beforeLeave', to, from)
-          next()
-        }
-        router.afterLeave = function (to, from) {
-          console.log('router afterLeave', to, from)
-        }
 
         router.start()
 
