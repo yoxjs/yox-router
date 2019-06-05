@@ -7,7 +7,7 @@ Yox Router 默认使用 `hash` 模式。
 
 ## history 模式
 
-觉得你觉得 `hash` 模式的 URL 很丑，也可以使用 `history` 模式，如下：
+如果你觉得 `hash` 模式的 URL 很丑，也可以使用 `history` 模式，如下：
 
 ```js
 new YoxRouter.Router({
