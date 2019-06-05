@@ -28,6 +28,10 @@ export interface RouterOptions {
   el: Element | string
   routes: RouteOptions[]
   route404: RouteOptions
+  [constant.HOOK_BEFORE_ENTER]?: type.routerBeforeHook
+  [constant.HOOK_AFTER_ENTER]?: type.routerAfterHook
+  [constant.HOOK_BEFORE_LEAVE]?: type.routerBeforeHook
+  [constant.HOOK_AFTER_LEAVE]?: type.routerAfterHook
 }
 
 export interface RouteOptions {

@@ -193,6 +193,8 @@ export class Router {
 
   el: Element
 
+  options: routerType.RouterOptions
+
   routes: routerType.LinkedRoute[]
 
   route404: routerType.LinkedRoute
@@ -219,17 +221,11 @@ export class Router {
   // 当前地址栏的路径和参数
   location?: Location
 
-  [constant.HOOK_BEFORE_LEAVE]?: type.routerBeforeHook
-
-  [constant.HOOK_BEFORE_ENTER]?: type.routerBeforeHook
-
-  [constant.HOOK_AFTER_ENTER]?: type.routerAfterHook
-
-  [constant.HOOK_AFTER_LEAVE]?: type.routerAfterHook
-
   constructor(options: routerType.RouterOptions) {
 
     const instance = this, { el, route404 } = options
+
+    instance.options = options
 
     instance.el = Yox.is.string(el)
       ? domApi.find(el as string) as Element
@@ -448,7 +444,7 @@ export class Router {
       env.EMPTY_FUNCTION,
       env.EMPTY_FUNCTION,
       function (location) {
-        if (!hashMode.setLocation(location)) {
+        if (!hashMode.push(location)) {
           instance.setRoute(location)
         }
       }
@@ -494,8 +490,10 @@ export class Router {
         cursor,
         env.EMPTY_FUNCTION,
         env.EMPTY_FUNCTION,
-        function () {
-          hashMode.go(n)
+        function (location) {
+          if (!hashMode.go(n)) {
+            instance.setRoute(location)
+          }
         }
       )
     }
@@ -530,7 +528,7 @@ export class Router {
       // 再调用路由配置的钩子
       .add(route.route[hook], route.route)
       // 最后调用路由实例的钩子
-      .add(instance[hook], instance)
+      .add(instance.options[hook], instance)
 
     const next = function (value?: false | routerType.Target) {
       if (value === env.UNDEFINED) {
@@ -594,26 +592,21 @@ export class Router {
     callback: (locaiton: Location) => void
   ) {
 
-    let instance = this,
-
-    oldLocation = instance.location,
-
-    oldUrl = oldLocation ? stringifyUrl(oldLocation.path, oldLocation.params, oldLocation.query) : env.UNDEFINED
+    // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
+    const instance = this
 
     instance.parseLocation(
       url,
       function (location) {
 
         if (location) {
-          if (url !== oldUrl) {
-            instance.pending = {
-              cursor,
-              location,
-              onComplete,
-              onAbort,
-            }
-            callback(location)
+          instance.pending = {
+            cursor,
+            location,
+            onComplete,
+            onAbort,
           }
+          callback(location)
         }
         else if (process.env.NODE_ENV === 'development') {
           Yox.logger.error(`"${url}" can't match a route.`)

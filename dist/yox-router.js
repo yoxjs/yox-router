@@ -208,6 +208,9 @@
   function stop(domApi, handler) {
       domApi.off(WINDOW, HASH_CHANGE, handler);
   }
+  function go(n) {
+      WINDOW.history.go(n);
+  }
   function setLocation(location) {
       var hash = HASH_PREFIX + location.url;
       if (LOCATION.hash !== hash) {
@@ -467,8 +470,6 @@
           delete instance.path2Route[route.path];
       };
       /**
-       * 真正执行路由切换操作的函数
-       *
        * target 有 2 种格式：
        *
        * 如果只是简单的 path，直接传字符串
@@ -493,9 +494,14 @@
       Router.prototype.push = function (target) {
           var instance = this;
           instance.setUrl(toUrl(target, instance.name2Path), UNDEFINED, EMPTY_FUNCTION, EMPTY_FUNCTION, function (location) {
-              instance.setHash(location);
+              if (!setLocation(location)) {
+                  instance.setRoute(location);
+              }
           });
       };
+      /**
+       * 不改变 URL，只修改路由组件
+       */
       Router.prototype.replace = function (target) {
           var instance = this;
           instance.setUrl(toUrl(target, instance.name2Path), UNDEFINED, function () {
@@ -504,11 +510,14 @@
               instance.setRoute(location);
           });
       };
-      Router.prototype.go = function (offset) {
-          var instance = this, cursor = instance.cursor + offset, location = instance.history[cursor];
+      /**
+       * 前进或后退 n 步
+       */
+      Router.prototype.go = function (n) {
+          var instance = this, cursor = instance.cursor + n, location = instance.history[cursor];
           if (location) {
-              instance.setUrl(stringifyUrl(location.path, location.params, location.query), cursor, EMPTY_FUNCTION, EMPTY_FUNCTION, function (location) {
-                  instance.setHash(location);
+              instance.setUrl(stringifyUrl(location.path, location.params, location.query), cursor, EMPTY_FUNCTION, EMPTY_FUNCTION, function () {
+                  go(n);
               });
           }
       };
@@ -581,24 +590,18 @@
               history[cursor] = location;
           }
       };
-      Router.prototype.setHash = function (location) {
-          if (!setLocation(location)) {
-              this.setRoute(location);
-          }
-      };
       Router.prototype.setUrl = function (url, cursor, onComplete, onAbort, callback) {
-          var instance = this, oldLocation = instance.location, oldUrl = oldLocation ? stringifyUrl(oldLocation.path, oldLocation.params, oldLocation.query) : UNDEFINED;
+          // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
+          var instance = this;
           instance.parseLocation(url, function (location) {
               if (location) {
-                  if (url !== oldUrl) {
-                      instance.pending = {
-                          cursor: cursor,
-                          location: location,
-                          onComplete: onComplete,
-                          onAbort: onAbort
-                      };
-                      callback(location);
-                  }
+                  instance.pending = {
+                      cursor: cursor,
+                      location: location,
+                      onComplete: onComplete,
+                      onAbort: onAbort
+                  };
+                  callback(location);
               }
               else {
                   Yox.logger.error("\"" + url + "\" can't match a route.");
