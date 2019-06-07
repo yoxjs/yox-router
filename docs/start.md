@@ -30,6 +30,7 @@
       }
     ],
     // 当 path 未在 routes 中定义时，跳转到 404 路由
+    // 此项必传
     route404: {
       path: '/404',
       component: {
