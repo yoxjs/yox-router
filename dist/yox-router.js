@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha11
+ * yox-router.js v1.0.0-alpha12
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -386,7 +386,7 @@
   }
   var Router = /** @class */ (function () {
       function Router(options) {
-          var instance = this, el = options.el, route404 = options.route404;
+          var instance = this, el = options.el, route404 = options.route404 || default404;
           instance.options = options;
           instance.el = Yox.is.string(el)
               ? domApi.find(el)
@@ -394,10 +394,6 @@
           {
               if (!instance.el) {
                   Yox.logger.error("router.el is not an element.");
-                  return;
-              }
-              if (!route404) {
-                  Yox.logger.error("Route for 404 is required.");
                   return;
               }
           }
@@ -846,7 +842,12 @@
       };
       return Router;
   }());
-  var directive = {
+  var default404 = {
+      path: '/404',
+      component: {
+          template: '<div>This a default 404 page, please set "route404" for your own 404 page.</div>'
+      }
+  }, directive = {
       bind: function (node, directive, vnode) {
           // 当前组件如果是根组件，则没有 $root 属性
           var $root = vnode.context.$root || vnode.context, router = $root[ROUTER], listener = vnode.data[directive.key] = function (_) {
@@ -890,7 +891,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha11";
+  var version = "1.0.0-alpha12";
   /**
    * 安装插件
    */
