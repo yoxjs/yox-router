@@ -31,7 +31,7 @@ export function current() {
 
   // 不能直接读取 window.location.hash
   // 因为 Firefox 会做 pre-decode
-  const href = constant.LOCATION.href, index = href.indexOf(HASH_PREFIX),
+  const href = constant.LOCATION.href, index = href.indexOf(HASH_PREFIX)
 
   return index > 0
     ? href.substr(index + HASH_PREFIX.length)

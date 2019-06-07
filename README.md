@@ -21,7 +21,7 @@ npm install yox-router
 
 ```js
 import Yox from 'yox'
-import YoxRouter from 'yox-router'
+import * as YoxRouter from 'yox-router'
 Yox.use(YoxRouter)
 ```
 
@@ -34,7 +34,7 @@ yarn add yox-router
 
 ```js
 import Yox from 'yox'
-import YoxRouter from 'yox-router'
+import * as YoxRouter from 'yox-router'
 Yox.use(YoxRouter)
 ```
 

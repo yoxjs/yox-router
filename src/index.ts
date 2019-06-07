@@ -226,7 +226,7 @@ export class Router {
 
   constructor(options: routerType.RouterOptions) {
 
-    const instance = this, { el, route404 } = options
+    const instance = this, el = options.el, route404 = options.route404 || default404
 
     instance.options = options
 
@@ -237,10 +237,6 @@ export class Router {
     if (process.env.NODE_ENV === 'development') {
       if (!instance.el) {
         Yox.logger.error(`router.el is not an element.`)
-        return
-      }
-      if (!route404) {
-        Yox.logger.error(`Route for 404 is required.`)
         return
       }
     }
@@ -940,7 +936,14 @@ export class Router {
 
 }
 
-const directive = {
+const default404 = {
+  path: '/404',
+  component: {
+    template: '<div>This a default 404 page, please set "route404" for your own 404 page.</div>'
+  }
+},
+
+directive = {
   bind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
 
     // 当前组件如果是根组件，则没有 $root 属性
