@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha12
+ * yox-router.js v1.0.0-alpha13
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -845,7 +845,7 @@
   var default404 = {
       path: '/404',
       component: {
-          template: '<div>This a default 404 page, please set "route404" for your own 404 page.</div>'
+          template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
       }
   }, directive = {
       bind: function (node, directive, vnode) {
@@ -891,7 +891,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha12";
+  var version = "1.0.0-alpha13";
   /**
    * 安装插件
    */

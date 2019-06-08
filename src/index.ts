@@ -2,8 +2,6 @@ import * as config from '../../yox-config/src/config'
 import * as type from '../../yox-type/src/type'
 import * as routerType from './type'
 
-import * as env from '../../yox-common/src/util/env'
-
 import API from '../../yox-type/src/interface/API'
 import Yox from '../../yox-type/src/interface/Yox'
 import YoxClass from '../../yox-type/src/interface/YoxClass'
@@ -15,6 +13,8 @@ import CustomEvent from '../../yox-type/src/event/CustomEvent'
 
 import Location from '../../yox-type/src/router/Location'
 import RouteTarget from '../../yox-type/src/router/RouteTarget'
+
+import * as env from '../../yox-common/src/util/env'
 
 import Hooks from './Hooks'
 import * as constant from './constant'
@@ -939,7 +939,7 @@ export class Router {
 const default404 = {
   path: '/404',
   component: {
-    template: '<div>This a default 404 page, please set "route404" for your own 404 page.</div>'
+    template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
   }
 },
 
