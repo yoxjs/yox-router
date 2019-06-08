@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha15
+ * yox-router.js v1.0.0-alpha17
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -265,7 +265,7 @@
   });
 
   var Yox, domApi, guid = 0;
-  var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', CONTEXT_VIEW = '$contextView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
+  var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -876,24 +876,22 @@
   }, RouterView = {
       template: '<$' + ROUTE_COMPONENT + '/>',
       beforeCreate: function (options) {
-          // 有可能当做 slot 传入了子组件，因此这里需要获取 vnode.context
-          var context = options.vnode.context, route = context[ROUTE].child;
+          var context = options.context, route = context[ROUTE].child;
           if (route) {
               context[ROUTE_VIEW] = this;
-              this[CONTEXT_VIEW] = context;
               var props = options.props = {}, components = options.components = {}, name = ROUTE_COMPONENT + (++guid);
               props[ROUTE_COMPONENT] = name;
               components[name] = route.component;
           }
       },
       beforeDestroy: function () {
-          this[CONTEXT_VIEW][ROUTE_VIEW] = UNDEFINED;
+          this.$context[ROUTE_VIEW] = UNDEFINED;
       }
   };
   /**
    * 版本
    */
-  var version = "1.0.0-alpha15";
+  var version = "1.0.0-alpha17";
   /**
    * 安装插件
    */
@@ -911,20 +909,18 @@
           if (beforeCreate) {
               beforeCreate(options);
           }
-          var parent = options.parent;
-          // 处理 <router-view> 嵌入的组件
-          if (parent && options.beforeCreate !== RouterView.beforeCreate) {
-              // parent 是 <router-view> 实例，得再上一层才是路由组件
-              parent = parent[CONTEXT_VIEW];
-              if (parent) {
-                  var router = parent[ROUTER], route = parent[ROUTE].child;
-                  if (router && route) {
-                      var extensions = options.extensions = {};
-                      extensions[ROUTER] = router;
-                      extensions[ROUTE] = route;
-                      if (router.location) {
-                          options.props = filterProps(route, router.location, options);
-                      }
+          var context = options.context;
+          // 当前组件是 <router-view> 中的动态组件
+          if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+              // 找到渲染 <router-view> 的父级组件，它是一定存在的
+              context = context.$context;
+              var router = context[ROUTER], route = context[ROUTE].child;
+              if (route) {
+                  var extensions = options.extensions = {};
+                  extensions[ROUTER] = router;
+                  extensions[ROUTE] = route;
+                  if (router.location) {
+                      options.props = filterProps(route, router.location, options);
                   }
               }
           }

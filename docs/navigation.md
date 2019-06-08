@@ -89,5 +89,22 @@ router.go(100)
 </div>
 ```
 
+这三个指令会监听 `元素节点` 的 `click` 事件，如果需要在 `组件节点` 上使用这三个指令，则组件必须向上冒泡 `click` 事件，如下：
+
+组件模板
+
+```html
+<button on-click="click">
+  <slot />
+</button>
+```
+
+路由模板
+
+```html
+<Button o-push="/user/foo">
+  Click
+</Button>
+```
 
 

@@ -32,8 +32,6 @@ ROUTE = '$route',
 
 ROUTE_VIEW = '$routeView',
 
-CONTEXT_VIEW = '$contextView',
-
 ROUTE_COMPONENT = 'RouteComponent',
 
 EVENT_CLICK = 'click'
@@ -984,19 +982,15 @@ RouterView: YoxOptions = {
   template: '<$' + ROUTE_COMPONENT + '/>',
   beforeCreate(options) {
 
-    // 有可能当做 slot 传入了子组件，因此这里需要获取 vnode.context
-    const { context } = options.vnode as VNode,
+    const context = options.context as Yox,
 
     route = context[ROUTE].child as routerType.LinkedRoute
 
     if (route) {
 
       context[ROUTE_VIEW] = this
-      this[CONTEXT_VIEW] = context
 
-      const props = options.props = {},
-
-      components = options.components = {},
+      const props = options.props = {}, components = options.components = {},
 
       name = ROUTE_COMPONENT + (++guid)
 
@@ -1007,7 +1001,7 @@ RouterView: YoxOptions = {
 
   },
   beforeDestroy() {
-    this[CONTEXT_VIEW][ROUTE_VIEW] = env.UNDEFINED
+    this.$context[ROUTE_VIEW] = env.UNDEFINED
   }
 }
 
@@ -1040,30 +1034,29 @@ export function install(Class: YoxClass): void {
       beforeCreate(options)
     }
 
-    let { parent } = options
+    let { context } = options
 
-    // 处理 <router-view> 嵌入的组件
-    if (parent && options.beforeCreate !== RouterView.beforeCreate) {
+    // 当前组件是 <router-view> 中的动态组件
+    if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+      // 找到渲染 <router-view> 的父级组件，它是一定存在的
+      context = context.$context as Yox
 
-      // parent 是 <router-view> 实例，得再上一层才是路由组件
-      parent = parent[CONTEXT_VIEW]
-      if (parent) {
-        const router = parent[ROUTER] as Router,
-        route = parent[ROUTE].child as routerType.LinkedRoute
+      const router = context[ROUTER] as Router,
 
-        if (router && route) {
-          const extensions = options.extensions = {}
+      route = context[ROUTE].child as routerType.LinkedRoute
 
-          extensions[ROUTER] = router
-          extensions[ROUTE] = route
+      if (route) {
+        const extensions = options.extensions = {}
+        extensions[ROUTER] = router
+        extensions[ROUTE] = route
 
-          if (router.location) {
-            options.props = filterProps(route, router.location, options)
-          }
+        if (router.location) {
+          options.props = filterProps(route, router.location, options)
         }
       }
 
     }
+
   }
 
   Yox.afterMount = function (instance) {
