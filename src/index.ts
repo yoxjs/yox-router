@@ -1046,7 +1046,7 @@ export function install(Class: YoxClass): void {
     if (parent && options.beforeCreate !== RouterView.beforeCreate) {
 
       // parent 是 <router-view> 实例，得再上一层才是路由组件
-      parent = parent.$parent
+      parent = parent[CONTEXT_VIEW]
       if (parent) {
         const router = parent[ROUTER] as Router,
         route = parent[ROUTE].child as routerType.LinkedRoute

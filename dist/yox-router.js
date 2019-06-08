@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha14
+ * yox-router.js v1.0.0-alpha15
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -893,7 +893,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha14";
+  var version = "1.0.0-alpha15";
   /**
    * 安装插件
    */
@@ -915,7 +915,7 @@
           // 处理 <router-view> 嵌入的组件
           if (parent && options.beforeCreate !== RouterView.beforeCreate) {
               // parent 是 <router-view> 实例，得再上一层才是路由组件
-              parent = parent.$parent;
+              parent = parent[CONTEXT_VIEW];
               if (parent) {
                   var router = parent[ROUTER], route = parent[ROUTE].child;
                   if (router && route) {
