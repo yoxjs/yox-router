@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha13
+ * yox-router.js v1.0.0-alpha14
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -265,7 +265,7 @@
   });
 
   var Yox, domApi, guid = 0;
-  var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
+  var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', CONTEXT_VIEW = '$contextView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -876,22 +876,24 @@
   }, RouterView = {
       template: '<$' + ROUTE_COMPONENT + '/>',
       beforeCreate: function (options) {
-          var $parent = options.parent, route = $parent[ROUTE].child;
+          // 有可能当做 slot 传入了子组件，因此这里需要获取 vnode.context
+          var context = options.vnode.context, route = context[ROUTE].child;
           if (route) {
-              $parent[ROUTE_VIEW] = this;
+              context[ROUTE_VIEW] = this;
+              this[CONTEXT_VIEW] = context;
               var props = options.props = {}, components = options.components = {}, name = ROUTE_COMPONENT + (++guid);
               props[ROUTE_COMPONENT] = name;
               components[name] = route.component;
           }
       },
       beforeDestroy: function () {
-          this.$parent[ROUTE_VIEW] = UNDEFINED;
+          this[CONTEXT_VIEW][ROUTE_VIEW] = UNDEFINED;
       }
   };
   /**
    * 版本
    */
-  var version = "1.0.0-alpha13";
+  var version = "1.0.0-alpha14";
   /**
    * 安装插件
    */

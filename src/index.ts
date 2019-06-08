@@ -32,6 +32,8 @@ ROUTE = '$route',
 
 ROUTE_VIEW = '$routeView',
 
+CONTEXT_VIEW = '$contextView',
+
 ROUTE_COMPONENT = 'RouteComponent',
 
 EVENT_CLICK = 'click'
@@ -982,13 +984,15 @@ RouterView: YoxOptions = {
   template: '<$' + ROUTE_COMPONENT + '/>',
   beforeCreate(options) {
 
-    const $parent = options.parent as Yox,
+    // 有可能当做 slot 传入了子组件，因此这里需要获取 vnode.context
+    const { context } = options.vnode as VNode,
 
-    route = $parent[ROUTE].child as routerType.LinkedRoute
+    route = context[ROUTE].child as routerType.LinkedRoute
 
     if (route) {
 
-      $parent[ROUTE_VIEW] = this
+      context[ROUTE_VIEW] = this
+      this[CONTEXT_VIEW] = context
 
       const props = options.props = {},
 
@@ -1003,7 +1007,7 @@ RouterView: YoxOptions = {
 
   },
   beforeDestroy() {
-    this.$parent[ROUTE_VIEW] = env.UNDEFINED
+    this[CONTEXT_VIEW][ROUTE_VIEW] = env.UNDEFINED
   }
 }
 
