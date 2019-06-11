@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha18
+ * yox-router.js v1.0.0-alpha19
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -502,7 +502,7 @@
           delete instance.path2Route[route.path];
       };
       /**
-       * target 有 2 种格式：
+       * target 有 3 种格式：
        *
        * 如果只是简单的 path，直接传字符串
        *
@@ -891,7 +891,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha18";
+  var version = "1.0.0-alpha19";
   /**
    * 安装插件
    */

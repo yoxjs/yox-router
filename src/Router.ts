@@ -729,7 +729,7 @@ export class Router {
   private diffRoute(
     route: routerType.LinkedRoute,
     oldRoute: routerType.LinkedRoute | void,
-    onComplete: (route: LinkedRoute, startRoute: LinkedRoute | void) => void,
+    onComplete: (route: routerType.LinkedRoute, startRoute: routerType.LinkedRoute | void) => void,
     startRoute: routerType.LinkedRoute | void,
     childRoute: routerType.LinkedRoute | void,
     oldTopRoute: routerType.LinkedRoute | void
