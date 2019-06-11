@@ -18,17 +18,15 @@ export type RouteCallback = (route: RouteOptions) => void
 
 export type RouteLoader = (callback: RouteCallback) => void
 
-export type DiffComplete = (route: LinkedRoute, startRoute: LinkedRoute | void) => void
-
 export interface RouterOptions {
   el: Element | string
   routes: RouteOptions[]
-  route404: RouteOptions
+  route404?: RouteOptions
   mode?: 'hash' | 'history'
-  [constant.HOOK_BEFORE_ENTER]?: type.routerBeforeHook
-  [constant.HOOK_AFTER_ENTER]?: type.routerAfterHook
-  [constant.HOOK_BEFORE_LEAVE]?: type.routerBeforeHook
-  [constant.HOOK_AFTER_LEAVE]?: type.routerAfterHook
+  [constant.HOOK_BEFORE_ENTER]?: type.yoxRouterBeforeHook
+  [constant.HOOK_AFTER_ENTER]?: type.yoxRouterAfterHook
+  [constant.HOOK_BEFORE_LEAVE]?: type.yoxRouterBeforeHook
+  [constant.HOOK_AFTER_LEAVE]?: type.yoxRouterAfterHook
 }
 
 export interface RouteOptions {
@@ -38,10 +36,10 @@ export interface RouteOptions {
   load?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
-  [constant.HOOK_BEFORE_ENTER]?: type.routerBeforeHook
-  [constant.HOOK_AFTER_ENTER]?: type.routerAfterHook
-  [constant.HOOK_BEFORE_LEAVE]?: type.routerBeforeHook
-  [constant.HOOK_AFTER_LEAVE]?: type.routerAfterHook
+  [constant.HOOK_BEFORE_ENTER]?: type.yoxRouterBeforeHook
+  [constant.HOOK_AFTER_ENTER]?: type.yoxRouterAfterHook
+  [constant.HOOK_BEFORE_LEAVE]?: type.yoxRouterBeforeHook
+  [constant.HOOK_AFTER_LEAVE]?: type.yoxRouterAfterHook
 }
 
 export interface LinkedRoute {
