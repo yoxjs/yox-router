@@ -597,8 +597,8 @@ export class Router {
 
   private setUrl(
     url: string,
-    onComplete: routerType.RouteComplete,
-    onAbort: routerType.RouteAbort,
+    onComplete: routerType.Callback,
+    onAbort: routerType.Callback,
     callback: (locaiton: Location, pending: routerType.Pending) => void
   ) {
 

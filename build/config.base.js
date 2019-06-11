@@ -59,7 +59,7 @@ export default function (env, minify = false, port = 0) {
 
   return [
     {
-      input: 'src/index.ts',
+      input: 'src/Router.ts',
       output: [
         {
           file: `dist/${fileName}.js`,

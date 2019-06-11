@@ -18,10 +18,6 @@ export type RouteCallback = (route: RouteOptions) => void
 
 export type RouteLoader = (callback: RouteCallback) => void
 
-export type RouteComplete = () => void
-
-export type RouteAbort = () => void
-
 export type DiffComplete = (route: LinkedRoute, startRoute: LinkedRoute | void) => void
 
 export interface RouterOptions {
@@ -37,7 +33,7 @@ export interface RouterOptions {
 
 export interface RouteOptions {
   path: string
-  component: YoxOptions
+  component?: YoxOptions
   name?: string
   load?: RouteLoader
   redirect?: Target | Redirect
@@ -63,6 +59,6 @@ export interface LinkedRoute {
 export interface Pending {
   cursor?: number
   location: Location
-  onComplete: RouteComplete
-  onAbort: RouteAbort
+  onComplete: Callback
+  onAbort: Callback
 }
