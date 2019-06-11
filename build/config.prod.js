@@ -1,3 +1,3 @@
 import create from './config.base'
 
-export default create('prod', true)
+export default create('production', true)

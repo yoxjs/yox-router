@@ -413,7 +413,7 @@ export class Router {
   }
 
   /**
-   * target 有 2 种格式：
+   * target 有 3 种格式：
    *
    * 如果只是简单的 path，直接传字符串
    *
