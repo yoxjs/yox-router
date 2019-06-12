@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha19
+ * yox-router.js v1.0.0-alpha20
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -29,7 +29,6 @@
   var RAW_TRUE = 'true';
   var RAW_FALSE = 'false';
   var RAW_NULL = 'null';
-  var RAW_UNDEFINED = 'undefined';
 
   /**
    * Single instance for noop function
@@ -134,9 +133,6 @@
           else if (value === RAW_NULL) {
               result = NULL;
           }
-          else if (value === RAW_UNDEFINED) {
-              result = UNDEFINED;
-          }
           else {
               result = decodeURIComponent(value);
           }
@@ -153,7 +149,6 @@
       else if (value === NULL) {
           return RAW_NULL;
       }
-      return RAW_UNDEFINED;
   }
 
   /**
@@ -188,11 +183,17 @@
           var value = query[key];
           if (Yox.is.array(value)) {
               Yox.array.each(value, function (value) {
-                  result.push(key + FLAG_ARRAY + SEPARATOR_PAIR + stringify(Yox, value));
+                  var str = stringify(Yox, value);
+                  if (Yox.is.string(str)) {
+                      result.push(key + FLAG_ARRAY + SEPARATOR_PAIR + str);
+                  }
               });
           }
           else {
-              result.push(key + SEPARATOR_PAIR + stringify(Yox, value));
+              var str = stringify(Yox, value);
+              if (Yox.is.string(str)) {
+                  result.push(key + SEPARATOR_PAIR + str);
+              }
           }
       };
       for (var key in query) {
@@ -348,7 +349,10 @@
           }
           if (props) {
               for (var key in propTypes) {
-                  result[key] = Yox.checkProp(key, props[key], propTypes[key]);
+                  var value = props[key];
+                  if (value !== UNDEFINED) {
+                      result[key] = value;
+                  }
               }
           }
       }
@@ -891,7 +895,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha19";
+  var version = "1.0.0-alpha20";
   /**
    * 安装插件
    */

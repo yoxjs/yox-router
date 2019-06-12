@@ -19,9 +19,6 @@ export function parse(Yox: YoxClass, value: string) {
     else if (value === env.RAW_NULL) {
       result = env.NULL
     }
-    else if (value === env.RAW_UNDEFINED) {
-      result = env.UNDEFINED
-    }
     else {
       result = decodeURIComponent(value)
     }
@@ -29,7 +26,7 @@ export function parse(Yox: YoxClass, value: string) {
   return result
 }
 
-export function stringify(Yox: YoxClass, value: any): string {
+export function stringify(Yox: YoxClass, value: any): string | void {
   if (Yox.is.string(value)) {
     return encodeURIComponent(value)
   }
@@ -39,5 +36,4 @@ export function stringify(Yox: YoxClass, value: any): string {
   else if (value === env.NULL) {
     return env.RAW_NULL
   }
-  return env.RAW_UNDEFINED
 }

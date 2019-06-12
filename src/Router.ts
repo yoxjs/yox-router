@@ -150,7 +150,10 @@ function filterProps(route: routerType.LinkedRoute, location: Location, options:
 
     if (props) {
       for (let key in propTypes) {
-        result[key] = Yox.checkProp(key, props[key], propTypes[key])
+        let value = props[key]
+        if (value !== env.UNDEFINED) {
+          result[key] = value
+        }
       }
     }
 

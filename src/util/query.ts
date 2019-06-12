@@ -52,16 +52,22 @@ export function stringify(Yox: YoxClass, query: Object) {
       Yox.array.each(
         value,
         function (value) {
-          result.push(
-            key + constant.FLAG_ARRAY + constant.SEPARATOR_PAIR + valueUtil.stringify(Yox, value)
-          )
+          const str = valueUtil.stringify(Yox, value)
+          if (Yox.is.string(str)) {
+            result.push(
+              key + constant.FLAG_ARRAY + constant.SEPARATOR_PAIR + str
+            )
+          }
         }
       )
     }
     else {
-      result.push(
-        key + constant.SEPARATOR_PAIR + valueUtil.stringify(Yox, value)
-      )
+      const str = valueUtil.stringify(Yox, value)
+      if (Yox.is.string(str)) {
+        result.push(
+          key + constant.SEPARATOR_PAIR + str
+        )
+      }
     }
   }
   return result.join(constant.SEPARATOR_QUERY)

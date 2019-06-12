@@ -41,18 +41,16 @@ Yox Router 支持识别以下参数类型，如果识别成功，则会自动转
 
 * `number`
 * `boolean`
-* `undefined`
 * `null`
 
-路由参数还支持数组，当 URL 为 `/user/profile?test1=null&test2=undefined&tags[]=1&tags[]=2&tags[]=3`，格式化参数如下：
+路由参数还支持数组，当 URL 为 `/user/profile?test=null&tags[]=1&tags[]=2&tags[]=3`，格式化参数如下：
 
 ```js
 {
-  url: '/user/profile?test1=null&test2=undefined&tags[]=1&tags[]=2&tags[]=3',
+  url: '/user/profile?test=null&tags[]=1&tags[]=2&tags[]=3',
   path: '/user/profile',
   query: {
-    test1: null,
-    test2: undefined,
+    test: null,
     tags: [1, 2, 3]
   }
 }
