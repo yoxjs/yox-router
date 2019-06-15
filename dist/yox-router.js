@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha20
+ * yox-router.js v1.0.0-alpha21
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -895,7 +895,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha20";
+  var version = "1.0.0-alpha21";
   /**
    * 安装插件
    */
