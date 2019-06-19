@@ -1,8 +1,5 @@
-import CustomEvent from './event/CustomEvent';
-import YoxOptions from './options/Yox';
-import Yox from './interface/Yox';
-import VNode from './vnode/VNode';
-import Directive from './vnode/Directive';
+import { CustomEvent, YoxOptions, Yox } from './class';
+import { VNode, Directive } from './vnode';
 import Location from './router/Location';
 import RouteTarget from './router/RouteTarget';
 export declare type hint = 1 | 2 | 3;
@@ -29,8 +26,6 @@ export declare type componentLoader = (callback: componentCallback) => void;
 export declare type component = YoxOptions | componentLoader;
 export declare type yoxOptionsBeforeCreateHook = (options: YoxOptions) => void;
 export declare type yoxOptionsOtherHook = () => void;
-export declare type yoxClassBeforeCreateHook = (options: YoxOptions) => void;
-export declare type yoxClassOtherHook = (instance: Yox) => void;
 export declare type yoxRouterBeforeHook = (to: Location, from: Location | void, next: (value?: false | string | RouteTarget) => void) => void;
 export declare type yoxRouterAfterHook = (to: Location, from: Location | void) => void;
 //# sourceMappingURL=type.d.ts.map

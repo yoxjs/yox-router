@@ -2,14 +2,16 @@ import * as config from '../../yox-config/src/config'
 import * as type from '../../yox-type/src/type'
 import * as routerType from './type'
 
-import API from '../../yox-type/src/interface/API'
-import Yox from '../../yox-type/src/interface/Yox'
-import YoxClass from '../../yox-type/src/interface/YoxClass'
+import {
+  Yox,
+  YoxOptions,
+  CustomEvent,
+} from '../../yox-type/src/class'
 
-import YoxOptions from '../../yox-type/src/options/Yox'
-import VNode from '../../yox-type/src/vnode/VNode'
-import Directive from '../../yox-type/src/vnode/Directive'
-import CustomEvent from '../../yox-type/src/event/CustomEvent'
+import {
+  VNode,
+  Directive,
+} from '../../yox-type/src/vnode'
 
 import Location from '../../yox-type/src/router/Location'
 import RouteTarget from '../../yox-type/src/router/RouteTarget'
@@ -24,7 +26,9 @@ import * as valueUtil from './util/value'
 import * as hashMode from './mode/hash'
 import * as historyMode from './mode/history'
 
-let Yox: YoxClass, domApi: API, guid = 0
+type YoxClass = typeof Yox
+
+let API: YoxClass, hookEvents: Record<string, type.listener>, guid = 0
 
 const ROUTER = '$router',
 
@@ -42,10 +46,10 @@ EVENT_CLICK = 'click'
 function formatPath(path: string, parentPath: string | void) {
 
   // 如果不是 / 开头，表示是相对路径
-  if (!Yox.string.startsWith(path, constant.SEPARATOR_PATH)) {
+  if (!API.string.startsWith(path, constant.SEPARATOR_PATH)) {
     // 确保 parentPath 以 / 结尾
     if (parentPath) {
-      if (!Yox.string.endsWith(parentPath, constant.SEPARATOR_PATH)) {
+      if (!API.string.endsWith(parentPath, constant.SEPARATOR_PATH)) {
         parentPath += constant.SEPARATOR_PATH
       }
     }
@@ -57,9 +61,9 @@ function formatPath(path: string, parentPath: string | void) {
 
   // 如果 path 以 / 结尾，删掉它
   if (path !== constant.SEPARATOR_PATH
-    && Yox.string.endsWith(path, constant.SEPARATOR_PATH)
+    && API.string.endsWith(path, constant.SEPARATOR_PATH)
   ) {
-    path = Yox.string.slice(path, 0, -constant.SEPARATOR_PATH.length)
+    path = API.string.slice(path, 0, -constant.SEPARATOR_PATH.length)
   }
 
   return path
@@ -75,11 +79,11 @@ function stringifyUrl(path: string, params: type.data | void, query: type.data |
 
     const terms: string[] = []
 
-    Yox.array.each(
+    API.array.each(
       path.split(constant.SEPARATOR_PATH),
       function (item) {
         terms.push(
-          Yox.string.startsWith(item, constant.PREFIX_PARAM) && params
+          API.string.startsWith(item, constant.PREFIX_PARAM) && params
             ? params[item.substr(constant.PREFIX_PARAM.length)]
             : item
         )
@@ -91,7 +95,7 @@ function stringifyUrl(path: string, params: type.data | void, query: type.data |
   }
 
   if (query) {
-    const queryStr = queryUtil.stringify(Yox, query)
+    const queryStr = queryUtil.stringify(API, query)
     if (queryStr) {
       path += constant.SEPARATOR_SEARCH + queryStr
     }
@@ -103,7 +107,7 @@ function stringifyUrl(path: string, params: type.data | void, query: type.data |
 
 function toUrl(target: routerType.Target, name2Path: type.data): string {
 
-  if (Yox.is.string(target)) {
+  if (API.is.string(target)) {
     return formatPath(target as string)
   }
 
@@ -111,8 +115,8 @@ function toUrl(target: routerType.Target, name2Path: type.data): string {
   if (name) {
     path = name2Path[name]
     if (process.env.NODE_ENV === 'development') {
-      if (!Yox.is.string(path)) {
-        Yox.logger.error(`The route of name[${name}] is not found.`)
+      if (!API.is.string(path)) {
+        API.logger.error(`The route of name[${name}] is not found.`)
       }
     }
   }
@@ -142,7 +146,7 @@ function filterProps(route: routerType.LinkedRoute, location: Location, options:
 
     // 从 location.params 挑出 route.params 定义过的参数
     if (routeParams && locationParams) {
-      props = props ? Yox.object.copy(props) : {}
+      props = props ? API.object.copy(props) : {}
       for (let i = 0, length = routeParams.length; i < length; i++) {
         (props as type.data)[routeParams[i]] = locationParams[routeParams[i]]
       }
@@ -170,10 +174,7 @@ function isLeafRoute(route: routerType.LinkedRoute) {
   return !child || !child.context
 }
 
-function updateRoute(instance: Yox, hook: Function | void, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
-  if (hook) {
-    hook(instance)
-  }
+function updateRoute(instance: Yox, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
   const route = instance[ROUTE] as routerType.LinkedRoute
   if (route) {
     route.context = upsert ? instance : env.UNDEFINED
@@ -233,13 +234,13 @@ export class Router {
 
     instance.options = options
 
-    instance.el = Yox.is.string(el)
-      ? domApi.find(el as string) as Element
+    instance.el = API.is.string(el)
+      ? API.dom.find(el as string) as Element
       : el as Element
 
     if (process.env.NODE_ENV === 'development') {
       if (!instance.el) {
-        Yox.logger.error(`router.el is not an element.`)
+        API.logger.error(`router.el is not an element.`)
         return
       }
     }
@@ -285,7 +286,7 @@ export class Router {
 
     instance.hooks = new Hooks()
 
-    Yox.array.each(
+    API.array.each(
       options.routes,
       function (route) {
         instance.add(route)
@@ -313,9 +314,9 @@ export class Router {
 
       let { name, component, children, load } = routeOptions,
 
-      parentPath = Yox.array.last(pathStack),
+      parentPath = API.array.last(pathStack),
 
-      parentRoute = Yox.array.last(routeStack),
+      parentRoute = API.array.last(routeStack),
 
       path = formatPath(routeOptions.path, parentPath),
 
@@ -323,10 +324,10 @@ export class Router {
 
       params: string[] = []
 
-      Yox.array.each(
+      API.array.each(
         path.split(constant.SEPARATOR_PATH),
         function (item) {
-          if (Yox.string.startsWith(item, constant.PREFIX_PARAM)) {
+          if (API.string.startsWith(item, constant.PREFIX_PARAM)) {
             params.push(
               item.substr(constant.PREFIX_PARAM.length)
             )
@@ -357,7 +358,7 @@ export class Router {
       if (children) {
         pathStack.push(path)
         routeStack.push(route)
-        Yox.array.each(
+        API.array.each(
           children,
           addRoute
         )
@@ -371,8 +372,8 @@ export class Router {
 
         if (name) {
           if (process.env.NODE_ENV === 'development') {
-            if (Yox.object.has(instance.name2Path, name)) {
-              Yox.logger.error(`Name[${name}] of the route is existed.`)
+            if (API.object.has(instance.name2Path, name)) {
+              API.logger.error(`Name[${name}] of the route is existed.`)
               return
             }
           }
@@ -380,8 +381,8 @@ export class Router {
         }
 
         if (process.env.NODE_ENV === 'development') {
-          if (Yox.object.has(instance.path2Route, path)) {
-            Yox.logger.error(`path [${path}] of the route is existed.`)
+          if (API.object.has(instance.path2Route, path)) {
+            API.logger.error(`path [${path}] of the route is existed.`)
             return
           }
         }
@@ -405,7 +406,7 @@ export class Router {
 
     const instance = this
 
-    Yox.array.remove(instance.routes, route)
+    API.array.remove(instance.routes, route)
 
     if (route.name) {
       delete instance.name2Path[route.name]
@@ -518,14 +519,14 @@ export class Router {
    * 启动路由
    */
   start() {
-    this.mode.start(domApi, this.handler)
+    this.mode.start(API.dom, this.handler)
   }
 
   /**
    * 停止路由
    */
   stop() {
-    this.mode.stop(domApi, this.handler)
+    this.mode.stop(API.dom, this.handler)
   }
 
   /**
@@ -576,7 +577,7 @@ export class Router {
     const { history, cursor } = this
 
     // 如果没传 cursor，表示 push
-    if (!Yox.is.number(index)) {
+    if (!API.is.number(index)) {
       index = cursor + 1
       // 确保下一个为空
       // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
@@ -623,7 +624,7 @@ export class Router {
           )
         }
         else if (process.env.NODE_ENV === 'development') {
-          Yox.logger.error(`"${url}" can't match a route.`)
+          API.logger.error(`"${url}" can't match a route.`)
         }
 
       }
@@ -667,8 +668,8 @@ export class Router {
           if (length === pathTerms.length) {
             const params: type.data = {}
             for (let i = 0; i < length; i++) {
-              if (Yox.string.startsWith(pathTerms[i], constant.PREFIX_PARAM)) {
-                params[pathTerms[i].substr(constant.PREFIX_PARAM.length)] = valueUtil.parse(Yox, realpathTerms[i])
+              if (API.string.startsWith(pathTerms[i], constant.PREFIX_PARAM)) {
+                params[pathTerms[i].substr(constant.PREFIX_PARAM.length)] = valueUtil.parse(API, realpathTerms[i])
               }
               // 非参数段不相同
               else if (pathTerms[i] !== realpathTerms[i]) {
@@ -680,7 +681,7 @@ export class Router {
           }
         }
         // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-        else if (route.load && Yox.string.startsWith(realpath, path)) {
+        else if (route.load && API.string.startsWith(realpath, path)) {
           route.load(
             function (lazyRoute) {
               instance.remove(route as routerType.LinkedRoute)
@@ -714,7 +715,7 @@ export class Router {
             location.params = params
           }
           if (search) {
-            const query = queryUtil.parse(Yox, search)
+            const query = queryUtil.parse(API, search)
             if (query) {
               location.query = query
             }
@@ -760,7 +761,7 @@ export class Router {
 
     if (route.parent) {
       this.diffRoute(
-        Yox.object.copy(route.parent),
+        API.object.copy(route.parent),
         oldRoute ? oldRoute.parent : env.UNDEFINED,
         onComplete,
         startRoute,
@@ -839,16 +840,20 @@ export class Router {
           extensions[ROUTER] = instance
           extensions[ROUTE] = route
 
-          route.context = new Yox(
-            Yox.object.extend(
-              {
-                el: instance.el,
-                props: filterProps(route, location, component as YoxOptions),
-                extensions,
-              },
-              component as YoxOptions
-            )
+          const options: YoxOptions = API.object.extend(
+            {
+              el: instance.el,
+              props: filterProps(route, location, component as YoxOptions),
+              extensions,
+            },
+            component as YoxOptions
           )
+
+          options.events = options.events
+            ? API.object.extend(options.events, hookEvents)
+            : hookEvents
+
+          route.context = new API(options)
 
         }
 
@@ -882,7 +887,7 @@ export class Router {
     redirect = linkedRoute.route.redirect
 
     if (redirect) {
-      if (Yox.is.func(redirect)) {
+      if (API.is.func(redirect)) {
         redirect = (redirect as routerType.Redirect)(location)
       }
       if (redirect) {
@@ -891,7 +896,7 @@ export class Router {
       }
     }
 
-    const newRoute = Yox.object.copy(linkedRoute),
+    const newRoute = API.object.copy(linkedRoute),
 
     oldRoute = instance.route,
 
@@ -956,7 +961,7 @@ directive = {
 
     listener = vnode.data[directive.key] = function (_: CustomEvent) {
       let { value, getter } = directive, target: any = value
-      if (value && getter && Yox.string.has(value as string, '{')) {
+      if (value && getter && API.string.has(value as string, '{')) {
         target = getter()
       }
       router[directive.name](target)
@@ -966,7 +971,7 @@ directive = {
       (node as Yox).on(EVENT_CLICK, listener)
     }
     else {
-      domApi.on(node as HTMLElement, EVENT_CLICK, listener)
+      API.dom.on(node as HTMLElement, EVENT_CLICK, listener)
     }
 
   },
@@ -976,7 +981,7 @@ directive = {
       (node as Yox).off(EVENT_CLICK, listener)
     }
     else {
-      domApi.off(node as HTMLElement, EVENT_CLICK, listener)
+      API.dom.off(node as HTMLElement, EVENT_CLICK, listener)
     }
   },
 },
@@ -1016,10 +1021,9 @@ export const version = process.env.NODE_VERSION
 /**
  * 安装插件
  */
-export function install(Class: YoxClass): void {
+export function install(Yox: YoxClass): void {
 
-  Yox = Class
-  domApi = Class.dom as API
+  API = Yox
 
   Yox.directive({
     push: directive,
@@ -1029,53 +1033,53 @@ export function install(Class: YoxClass): void {
 
   Yox.component('router-view', RouterView)
 
-  const { beforeCreate, afterMount, afterUpdate, afterDestroy } = Yox
+  hookEvents = {
+    'beforeCreate.hook': function (event: CustomEvent, data?: type.data) {
+      if (data) {
+        let options = data as YoxOptions, { context } = options
+        // 当前组件是 <router-view> 中的动态组件
+        if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+          // 找到渲染 <router-view> 的父级组件，它是一定存在的
+          context = context.$context as Yox
 
-  Yox.beforeCreate = function (options) {
+          const router = context[ROUTER] as Router,
+          route = context[ROUTE].child as routerType.LinkedRoute
 
-    if (beforeCreate) {
-      beforeCreate(options)
-    }
+          if (route) {
+            const extensions = options.extensions = {}
+            extensions[ROUTER] = router
+            extensions[ROUTE] = route
 
-    let { context } = options
-
-    // 当前组件是 <router-view> 中的动态组件
-    if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-      // 找到渲染 <router-view> 的父级组件，它是一定存在的
-      context = context.$context as Yox
-
-      const router = context[ROUTER] as Router,
-
-      route = context[ROUTE].child as routerType.LinkedRoute
-
-      if (route) {
-        const extensions = options.extensions = {}
-        extensions[ROUTER] = router
-        extensions[ROUTE] = route
-
-        if (router.location) {
-          options.props = filterProps(route, router.location, options)
+            if (router.location) {
+              options.props = filterProps(route, router.location, options)
+            }
+          }
         }
       }
-
+    },
+    'afterMount.hook': function (event: CustomEvent) {
+      updateRoute(
+        event.target as Yox,
+        config.HOOK_AFTER_ROUTE_ENTER,
+        constant.HOOK_AFTER_ENTER,
+        env.TRUE
+      )
+    },
+    'afterUpdate.hook': function (event: CustomEvent) {
+      updateRoute(
+        event.target as Yox,
+        config.HOOK_AFTER_ROUTE_UPDATE,
+        constant.HOOK_AFTER_UPDATE,
+        env.TRUE
+      )
+    },
+    'afterDestroy.hook': function (event: CustomEvent) {
+      updateRoute(
+        event.target as Yox,
+        config.HOOK_AFTER_ROUTE_LEAVE,
+        constant.HOOK_AFTER_LEAVE
+      )
     }
-
-  }
-
-  Yox.afterMount = function (instance) {
-
-    updateRoute(instance, afterMount, config.HOOK_AFTER_ROUTE_ENTER, constant.HOOK_AFTER_ENTER, env.TRUE)
-
-  }
-  Yox.afterUpdate = function (instance) {
-
-    updateRoute(instance, afterUpdate, config.HOOK_AFTER_ROUTE_UPDATE, constant.HOOK_AFTER_UPDATE, env.TRUE)
-
-  }
-  Yox.afterDestroy = function (instance) {
-
-    updateRoute(instance, afterDestroy, config.HOOK_AFTER_ROUTE_LEAVE, constant.HOOK_AFTER_LEAVE)
-
   }
 
 }

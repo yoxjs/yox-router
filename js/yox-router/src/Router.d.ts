@@ -1,8 +1,9 @@
 import * as routerType from './type';
-import YoxClass from '../../yox-type/src/interface/YoxClass';
+import { Yox } from '../../yox-type/src/class';
 import Location from '../../yox-type/src/router/Location';
 import Hooks from './Hooks';
 import * as hashMode from './mode/hash';
+declare type YoxClass = typeof Yox;
 export declare class Router {
     el: Element;
     options: routerType.RouterOptions;
@@ -85,5 +86,6 @@ export declare const version: string | undefined;
 /**
  * 安装插件
  */
-export declare function install(Class: YoxClass): void;
+export declare function install(Yox: YoxClass): void;
+export {};
 //# sourceMappingURL=Router.d.ts.map

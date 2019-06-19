@@ -1,6 +1,6 @@
 import * as type from '../../../yox-type/src/type'
 
-import API from '../../../yox-type/src/interface/API'
+import API from '../../../yox-type/src/util/API'
 import Location from '../../../yox-type/src/router/Location'
 
 import * as constant from '../constant'

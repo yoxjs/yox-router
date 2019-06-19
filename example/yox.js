@@ -1,5 +1,5 @@
 /**
- * yox.js v1.0.0-alpha.61
+ * yox.js v1.0.0-alpha.67
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -1327,6 +1327,7 @@
   var DIRECTIVE_BINDING = 'binding';
   var DIRECTIVE_CUSTOM = 'o';
   var MODEL_PROP_DEFAULT = 'value';
+  var NAMESPACE_HOOK = '.hook';
   var HOOK_BEFORE_CREATE = 'beforeCreate';
   var HOOK_AFTER_CREATE = 'afterCreate';
   var HOOK_BEFORE_MOUNT = 'beforeMount';
@@ -2080,7 +2081,7 @@
           // 如 a.b.c 可以算出 staticKeypath，而 a[b].c 则不行，因为 b 是动态的
           // 优化 2：计算 offset 并智能转成 Identifier
           //
-          // 比如 ../../xx 这样的表达式，应优化成 offset = 2，并转成 Identifier
+          // 比如 xx 这样的表达式，应优化成 offset = 2，并转成 Identifier
           // 处理第一个节点
           if (firstNode.type === IDENTIFIER) {
               var identifier = firstNode;
@@ -2463,7 +2464,7 @@
       /**
        * 扫描路径，如 `./` 和 `../`
        *
-       * 路径必须位于开头，如 ./../ 或 ../../，不存在 a/../b/../c 这样的情况，因为路径是用来切换或指定 context 的
+       * 路径必须位于开头，如 ./../ 或 ，不存在 a/../b/../c 这样的情况，因为路径是用来切换或指定 context 的
        *
        * @param startIndex
        * @param prevNode
@@ -3412,13 +3413,13 @@
           // 校验事件名称
           isEvent = directive.ns === DIRECTIVE_EVENT,
           // 自定义指令运行不合法的表达式
-          isCustom = directive.ns === DIRECTIVE_CUSTOM;
+          isCustom = directive.ns === DIRECTIVE_CUSTOM,
           // 指令的值是纯文本，可以预编译表达式，提升性能
-          var expr;
+          expr;
           try {
               expr = compile(text);
           }
-          catch (_a) { }
+          catch (e) { }
           if (expr) {
               {
                   var raw = expr.raw;
@@ -4433,33 +4434,6 @@
   var codePrefix,
   // 表达式求值是否要求返回字符串类型
   isStringRequired;
-  function getCodePrefix() {
-      if (!codePrefix) {
-          codePrefix = "function(" + join([
-              RENDER_EXPRESSION_IDENTIFIER,
-              RENDER_EXPRESSION_MEMBER_KEYPATH,
-              RENDER_EXPRESSION_MEMBER_LITERAL,
-              RENDER_EXPRESSION_CALL,
-              RENDER_TEXT_VNODE,
-              RENDER_ATTRIBUTE_VNODE,
-              RENDER_PROPERTY_VNODE,
-              RENDER_LAZY_VNODE,
-              RENDER_TRANSITION_VNODE,
-              RENDER_BINDING_VNODE,
-              RENDER_MODEL_VNODE,
-              RENDER_EVENT_METHOD_VNODE,
-              RENDER_EVENT_NAME_VNODE,
-              RENDER_DIRECTIVE_VNODE,
-              RENDER_SPREAD_VNODE,
-              RENDER_ELEMENT_VNODE,
-              RENDER_SLOT,
-              RENDER_PARTIAL,
-              RENDER_IMPORT,
-              RENDER_EACH,
-              TO_STRING ], COMMA) + "){" + CODE_RETURN;
-      }
-      return codePrefix;
-  }
   function renderExpression(expr, holder, depIgnore, stack) {
       return generate(expr, RENDER_EXPRESSION_IDENTIFIER, RENDER_EXPRESSION_MEMBER_KEYPATH, RENDER_EXPRESSION_MEMBER_LITERAL, RENDER_EXPRESSION_CALL, holder, depIgnore, stack);
   }
@@ -4802,10 +4776,31 @@
       ]);
   };
   function generate$1(node) {
-      return getCodePrefix() + nodeGenerator[node.type](node) + '}';
-  }
-  function hasGenerated(code) {
-      return startsWith(code, getCodePrefix());
+      if (!codePrefix) {
+          codePrefix = "function(" + join([
+              RENDER_EXPRESSION_IDENTIFIER,
+              RENDER_EXPRESSION_MEMBER_KEYPATH,
+              RENDER_EXPRESSION_MEMBER_LITERAL,
+              RENDER_EXPRESSION_CALL,
+              RENDER_TEXT_VNODE,
+              RENDER_ATTRIBUTE_VNODE,
+              RENDER_PROPERTY_VNODE,
+              RENDER_LAZY_VNODE,
+              RENDER_TRANSITION_VNODE,
+              RENDER_BINDING_VNODE,
+              RENDER_MODEL_VNODE,
+              RENDER_EVENT_METHOD_VNODE,
+              RENDER_EVENT_NAME_VNODE,
+              RENDER_DIRECTIVE_VNODE,
+              RENDER_SPREAD_VNODE,
+              RENDER_ELEMENT_VNODE,
+              RENDER_SLOT,
+              RENDER_PARTIAL,
+              RENDER_IMPORT,
+              RENDER_EACH,
+              TO_STRING ], COMMA) + "){" + CODE_RETURN;
+      }
+      return codePrefix + nodeGenerator[node.type](node) + '}';
   }
 
   function setPair(target, name, key, value) {
@@ -6407,37 +6402,53 @@
       return isDef(this.get(SLOT_DATA_PREFIX + name));
   }
 
-  var globalDirectives = {}, globalTransitions = {}, globalComponents = {}, globalPartials = {}, globalFilters = {}, compileCache = {}, LOADER_QUEUE = '$queue', TEMPLATE_COMPUTED = '$' + RAW_TEMPLATE, selectorPattern = /^[#.][-\w+]+$/;
+  var globalDirectives = {}, globalTransitions = {}, globalComponents = {}, globalPartials = {}, globalFilters = {}, compileCache = {}, LOADER_QUEUE = '$queue', TEMPLATE_COMPUTED = '$$', selectorPattern = /^[#.][-\w+]+$/;
   var Yox = /** @class */ (function () {
       function Yox(options) {
           var instance = this, $options = options || EMPTY_OBJECT;
-          // 一进来就执行 before create
-          execute($options[HOOK_BEFORE_CREATE], instance, $options);
-          execute(Yox[HOOK_BEFORE_CREATE], UNDEFINED, $options);
+          // 为了冒泡 HOOK_BEFORE_CREATE 事件，必须第一时间创建 emitter
+          // 监听各种事件
+          // 支持命名空间
+          instance.$emitter = new Emitter(TRUE);
+          if ($options.events) {
+              instance.on($options.events);
+          }
+          {
+              // 当前组件的直接父组件
+              if ($options.parent) {
+                  instance.$parent = $options.parent;
+              }
+              // 建立好父子连接后，立即触发钩子
+              execute($options[HOOK_BEFORE_CREATE], instance, $options);
+              // 冒泡 before create 事件
+              instance.fire(HOOK_BEFORE_CREATE + NAMESPACE_HOOK, $options);
+          }
+          var data = $options.data, props = $options.props, vnode = $options.vnode, propTypes = $options.propTypes, computed = $options.computed, methods = $options.methods, watchers = $options.watchers, extensions = $options.extensions;
           instance.$options = $options;
-          var data = $options.data, props = $options.props, vnode = $options.vnode, propTypes = $options.propTypes, computed = $options.computed, events = $options.events, methods = $options.methods, watchers = $options.watchers, extensions = $options.extensions;
           if (extensions) {
               extend(instance, extensions);
           }
           // 数据源，默认值仅在创建组件时启用
           var source = props ? copy(props) : {};
-          if (propTypes) {
-              each$2(propTypes, function (rule, key) {
-                  var value = source[key];
-                  {
-                      checkProp(key, value, rule);
-                  }
-                  if (isUndef(value)) {
-                      value = rule.value;
-                      if (isDef(value)) {
-                          source[key] = rule.type === RAW_FUNCTION
-                              ? value
-                              : func(value)
-                                  ? value()
-                                  : value;
+          {
+              if (propTypes) {
+                  each$2(propTypes, function (rule, key) {
+                      var value = source[key];
+                      {
+                          checkProp(key, value, rule);
                       }
-                  }
-              });
+                      if (isUndef(value)) {
+                          value = rule.value;
+                          if (isDef(value)) {
+                              source[key] = rule.type === RAW_FUNCTION
+                                  ? value
+                                  : func(value)
+                                      ? value()
+                                      : value;
+                          }
+                      }
+                  });
+              }
           }
           // 先放 props
           // 当 data 是函数时，可以通过 this.get() 获取到外部数据
@@ -6474,14 +6485,8 @@
                   instance[name] = method;
               });
           }
-          // 监听各种事件
-          // 支持命名空间
-          instance.$emitter = new Emitter(TRUE);
-          if (events) {
-              instance.on(events);
-          }
           {
-              var placeholder = UNDEFINED, el = $options.el, root = $options.root, model_1 = $options.model, parent = $options.parent, context = $options.context, replace = $options.replace, template = $options.template, transitions = $options.transitions, components = $options.components, directives = $options.directives, partials = $options.partials, filters = $options.filters, slots = $options.slots;
+              var placeholder = UNDEFINED, el = $options.el, root = $options.root, model_1 = $options.model, context = $options.context, replace = $options.replace, template = $options.template, transitions = $options.transitions, components = $options.components, directives = $options.directives, partials = $options.partials, filters = $options.filters, slots = $options.slots;
               if (model_1) {
                   instance.$model = model_1;
               }
@@ -6533,10 +6538,6 @@
               if (root) {
                   instance.$root = root;
               }
-              // 当前组件的直接父组件
-              if (parent) {
-                  instance.$parent = parent;
-              }
               // 当前组件是被哪个组件渲染出来的
               // 因为有 slot 机制，$context 不一定等于 $parent
               if (context) {
@@ -6576,7 +6577,9 @@
                   // 在产品阶段，template 是编译后且经过 stringify 的字符串
                   // 当然，这个需要外部自己控制传入的 template 是什么
                   // Yox.compile 会自动判断 template 是否经过编译
-                  instance.$template = Yox.compile(template);
+                  instance.$template = string(template)
+                      ? Yox.compile(template)
+                      : template;
                   if (!vnode) {
                       {
                           if (!placeholder) {
@@ -6615,25 +6618,20 @@
        */
       Yox.compile = function (template, stringify) {
           {
-              {
-                  if (!hasGenerated(template)) {
-                      // 未编译，常出现在开发阶段
-                      if (!compileCache[template]) {
-                          var nodes = compile$1(template);
-                          {
-                              if (nodes.length !== 1) {
-                                  fatal("\"template\" should have just one root element.");
-                              }
-                          }
-                          compileCache[template] = generate$1(nodes[0]);
-                      }
-                      template = compileCache[template];
-                      if (stringify) {
-                          return template;
+              // 需要编译的都是模板源文件，一旦经过预编译，就成了 render 函数，不会再走进 Yox.compile
+              if (!compileCache[template]) {
+                  var nodes = compile$1(template);
+                  {
+                      if (nodes.length !== 1) {
+                          fatal("\"template\" should have just one root element.");
                       }
                   }
+                  compileCache[template] = generate$1(nodes[0]);
               }
-              return new Function("return " + template)();
+              template = compileCache[template];
+              return stringify
+                  ? template
+                  : new Function("return " + template)();
           }
       };
       Yox.directive = function (name, directive) {
@@ -6925,13 +6923,13 @@
               instance_1.$refs = {};
               if ($vnode) {
                   execute($options_1[HOOK_BEFORE_UPDATE], instance_1);
-                  execute(Yox[HOOK_BEFORE_UPDATE], UNDEFINED, instance_1);
+                  instance_1.fire(HOOK_BEFORE_UPDATE + NAMESPACE_HOOK);
                   patch(domApi, vnode, oldVnode);
                   afterHook_1 = HOOK_AFTER_UPDATE;
               }
               else {
                   execute($options_1[HOOK_BEFORE_MOUNT], instance_1);
-                  execute(Yox[HOOK_BEFORE_MOUNT], UNDEFINED, instance_1);
+                  instance_1.fire(HOOK_BEFORE_MOUNT + NAMESPACE_HOOK);
                   patch(domApi, vnode, oldVnode);
                   instance_1.$el = vnode.node;
                   afterHook_1 = HOOK_AFTER_MOUNT;
@@ -6942,7 +6940,7 @@
               Yox.nextTick(function () {
                   if (instance_1.$vnode) {
                       execute($options_1[afterHook_1], instance_1);
-                      execute(Yox[afterHook_1], UNDEFINED, instance_1);
+                      instance_1.fire(afterHook_1 + NAMESPACE_HOOK);
                   }
               });
           }
@@ -6976,9 +6974,9 @@
        */
       Yox.prototype.destroy = function () {
           var instance = this, $parent = instance.$parent, $options = instance.$options, $emitter = instance.$emitter, $observer = instance.$observer;
-          execute($options[HOOK_BEFORE_DESTROY], instance);
-          execute(Yox[HOOK_BEFORE_DESTROY], UNDEFINED, instance);
           {
+              execute($options[HOOK_BEFORE_DESTROY], instance);
+              instance.fire(HOOK_BEFORE_DESTROY + NAMESPACE_HOOK);
               var $vnode = instance.$vnode;
               if ($parent && $parent.$children) {
                   remove($parent.$children, instance);
@@ -6989,10 +6987,13 @@
                   destroy(domApi, $vnode, !$parent);
               }
           }
-          $emitter.off();
           $observer.destroy();
-          execute($options[HOOK_AFTER_DESTROY], instance);
-          execute(Yox[HOOK_AFTER_DESTROY], UNDEFINED, instance);
+          {
+              execute($options[HOOK_AFTER_DESTROY], instance);
+              instance.fire(HOOK_AFTER_DESTROY + NAMESPACE_HOOK);
+          }
+          // 发完 after destroy 事件再解绑所有事件
+          $emitter.off();
           clear(instance);
       };
       /**
@@ -7091,7 +7092,7 @@
       /**
        * core 版本
        */
-      Yox.version = "1.0.0-alpha.61";
+      Yox.version = "1.0.0-alpha.67";
       /**
        * 方便外部共用的通用逻辑，特别是写插件，减少重复代码
        */
@@ -7102,6 +7103,7 @@
       Yox.logger = logger;
       Yox.Event = CustomEvent;
       Yox.Emitter = Emitter;
+      Yox.dom = domApi;
       return Yox;
   }());
   var toString$2 = Object.prototype.toString;
@@ -7155,8 +7157,10 @@
       if (watchers) {
           instance.watch(watchers);
       }
-      execute(instance.$options[HOOK_AFTER_CREATE], instance);
-      execute(Yox[HOOK_AFTER_CREATE], UNDEFINED, instance);
+      {
+          execute(instance.$options[HOOK_AFTER_CREATE], instance);
+          instance.fire(HOOK_AFTER_CREATE + NAMESPACE_HOOK);
+      }
   }
   function setFlexibleOptions(instance, key, value) {
       if (func(value)) {
@@ -7233,7 +7237,6 @@
       }
   }
   {
-      Yox['dom'] = domApi;
       // 全局注册内置指令
       Yox.directive({ event: event, model: model, binding: binding });
       // 全局注册内置过滤器

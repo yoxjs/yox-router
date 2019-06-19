@@ -1,6 +1,5 @@
 import * as type from '../../yox-type/src/type';
-import Yox from '../../yox-type/src/interface/Yox';
-import YoxOptions from '../../yox-type/src/options/Yox';
+import { Yox, YoxOptions } from '../../yox-type/src/class';
 import Location from '../../yox-type/src/router/Location';
 import RouteTarget from '../../yox-type/src/router/RouteTarget';
 import * as constant from './constant';

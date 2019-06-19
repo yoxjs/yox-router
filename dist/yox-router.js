@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha21
+ * yox-router.js v1.0.0-alpha22
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -265,17 +265,17 @@
     current: current$1
   });
 
-  var Yox, domApi, guid = 0;
+  var API, hookEvents, guid = 0;
   var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
   function formatPath(path, parentPath) {
       // 如果不是 / 开头，表示是相对路径
-      if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
+      if (!API.string.startsWith(path, SEPARATOR_PATH)) {
           // 确保 parentPath 以 / 结尾
           if (parentPath) {
-              if (!Yox.string.endsWith(parentPath, SEPARATOR_PATH)) {
+              if (!API.string.endsWith(parentPath, SEPARATOR_PATH)) {
                   parentPath += SEPARATOR_PATH;
               }
           }
@@ -286,8 +286,8 @@
       }
       // 如果 path 以 / 结尾，删掉它
       if (path !== SEPARATOR_PATH
-          && Yox.string.endsWith(path, SEPARATOR_PATH)) {
-          path = Yox.string.slice(path, 0, -SEPARATOR_PATH.length);
+          && API.string.endsWith(path, SEPARATOR_PATH)) {
+          path = API.string.slice(path, 0, -SEPARATOR_PATH.length);
       }
       return path;
   }
@@ -297,15 +297,15 @@
   function stringifyUrl(path, params, query) {
       if (/\/\:\w+/.test(path)) {
           var terms_1 = [];
-          Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
-              terms_1.push(Yox.string.startsWith(item, PREFIX_PARAM) && params
+          API.array.each(path.split(SEPARATOR_PATH), function (item) {
+              terms_1.push(API.string.startsWith(item, PREFIX_PARAM) && params
                   ? params[item.substr(PREFIX_PARAM.length)]
                   : item);
           });
           path = terms_1.join(SEPARATOR_PATH);
       }
       if (query) {
-          var queryStr = stringify$1(Yox, query);
+          var queryStr = stringify$1(API, query);
           if (queryStr) {
               path += SEPARATOR_SEARCH + queryStr;
           }
@@ -313,15 +313,15 @@
       return path;
   }
   function toUrl(target, name2Path) {
-      if (Yox.is.string(target)) {
+      if (API.is.string(target)) {
           return formatPath(target);
       }
       var route = target, name = route.name, path;
       if (name) {
           path = name2Path[name];
           {
-              if (!Yox.is.string(path)) {
-                  Yox.logger.error("The route of name[" + name + "] is not found.");
+              if (!API.is.string(path)) {
+                  API.logger.error("The route of name[" + name + "] is not found.");
               }
           }
       }
@@ -342,7 +342,7 @@
           var props = location.query, routeParams = route.params, locationParams = location.params;
           // 从 location.params 挑出 route.params 定义过的参数
           if (routeParams && locationParams) {
-              props = props ? Yox.object.copy(props) : {};
+              props = props ? API.object.copy(props) : {};
               for (var i = 0, length = routeParams.length; i < length; i++) {
                   props[routeParams[i]] = locationParams[routeParams[i]];
               }
@@ -366,10 +366,7 @@
       var child = route.child;
       return !child || !child.context;
   }
-  function updateRoute(instance, hook, componentHookName, hookName, upsert) {
-      if (hook) {
-          hook(instance);
-      }
+  function updateRoute(instance, componentHookName, hookName, upsert) {
       var route = instance[ROUTE];
       if (route) {
           route.context = upsert ? instance : UNDEFINED;
@@ -392,12 +389,12 @@
       function Router(options) {
           var instance = this, el = options.el, route404 = options.route404 || default404;
           instance.options = options;
-          instance.el = Yox.is.string(el)
-              ? domApi.find(el)
+          instance.el = API.is.string(el)
+              ? API.dom.find(el)
               : el;
           {
               if (!instance.el) {
-                  Yox.logger.error("router.el is not an element.");
+                  API.logger.error("router.el is not an element.");
                   return;
               }
           }
@@ -431,7 +428,7 @@
           instance.history = [];
           instance.cursor = -1;
           instance.hooks = new Hooks();
-          Yox.array.each(options.routes, function (route) {
+          API.array.each(options.routes, function (route) {
               instance.add(route);
           });
           instance.route404 = instance.add(route404)[0];
@@ -441,9 +438,9 @@
        */
       Router.prototype.add = function (routeOptions) {
           var instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
-              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, load = routeOptions.load, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
-              Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
-                  if (Yox.string.startsWith(item, PREFIX_PARAM)) {
+              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, load = routeOptions.load, parentPath = API.array.last(pathStack), parentRoute = API.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
+              API.array.each(path.split(SEPARATOR_PATH), function (item) {
+                  if (API.string.startsWith(item, PREFIX_PARAM)) {
                       params.push(item.substr(PREFIX_PARAM.length));
                   }
               });
@@ -466,7 +463,7 @@
               if (children) {
                   pathStack.push(path);
                   routeStack.push(route);
-                  Yox.array.each(children, addRoute);
+                  API.array.each(children, addRoute);
                   routeStack.pop();
                   pathStack.pop();
               }
@@ -475,16 +472,16 @@
                   instance.routes.push(route);
                   if (name) {
                       {
-                          if (Yox.object.has(instance.name2Path, name)) {
-                              Yox.logger.error("Name[" + name + "] of the route is existed.");
+                          if (API.object.has(instance.name2Path, name)) {
+                              API.logger.error("Name[" + name + "] of the route is existed.");
                               return;
                           }
                       }
                       instance.name2Path[name] = path;
                   }
                   {
-                      if (Yox.object.has(instance.path2Route, path)) {
-                          Yox.logger.error("path [" + path + "] of the route is existed.");
+                      if (API.object.has(instance.path2Route, path)) {
+                          API.logger.error("path [" + path + "] of the route is existed.");
                           return;
                       }
                   }
@@ -499,7 +496,7 @@
        */
       Router.prototype.remove = function (route) {
           var instance = this;
-          Yox.array.remove(instance.routes, route);
+          API.array.remove(instance.routes, route);
           if (route.name) {
               delete instance.name2Path[route.name];
           }
@@ -574,13 +571,13 @@
        * 启动路由
        */
       Router.prototype.start = function () {
-          this.mode.start(domApi, this.handler);
+          this.mode.start(API.dom, this.handler);
       };
       /**
        * 停止路由
        */
       Router.prototype.stop = function () {
-          this.mode.stop(domApi, this.handler);
+          this.mode.stop(API.dom, this.handler);
       };
       /**
        * 钩子函数
@@ -622,7 +619,7 @@
       Router.prototype.setHistory = function (location, index) {
           var _a = this, history = _a.history, cursor = _a.cursor;
           // 如果没传 cursor，表示 push
-          if (!Yox.is.number(index)) {
+          if (!API.is.number(index)) {
               index = cursor + 1;
               // 确保下一个为空
               // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
@@ -651,7 +648,7 @@
                   });
               }
               else {
-                  Yox.logger.error("\"" + url + "\" can't match a route.");
+                  API.logger.error("\"" + url + "\" can't match a route.");
               }
           });
       };
@@ -676,8 +673,8 @@
                       if (length === pathTerms.length) {
                           var params = {};
                           for (var i = 0; i < length; i++) {
-                              if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-                                  params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse(Yox, realpathTerms[i]);
+                              if (API.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
+                                  params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse(API, realpathTerms[i]);
                               }
                               // 非参数段不相同
                               else if (pathTerms[i] !== realpathTerms[i]) {
@@ -689,7 +686,7 @@
                       }
                   }
                   // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-                  else if (route.load && Yox.string.startsWith(realpath, path)) {
+                  else if (route.load && API.string.startsWith(realpath, path)) {
                       route.load(function (lazyRoute) {
                           instance.remove(route);
                           matchRoute(instance.add(lazyRoute), callback);
@@ -713,7 +710,7 @@
                       location.params = params;
                   }
                   if (search) {
-                      var query = parse$1(Yox, search);
+                      var query = parse$1(API, search);
                       if (query) {
                           location.query = query;
                       }
@@ -745,7 +742,7 @@
               startRoute = route;
           }
           if (route.parent) {
-              this.diffRoute(Yox.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route, oldRoute || oldTopRoute);
+              this.diffRoute(API.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route, oldRoute || oldTopRoute);
               return;
           }
           // 整个组件树全换掉
@@ -794,11 +791,15 @@
                       var extensions = {};
                       extensions[ROUTER] = instance;
                       extensions[ROUTE] = route;
-                      route.context = new Yox(Yox.object.extend({
+                      var options = API.object.extend({
                           el: instance.el,
                           props: filterProps(route, location, component),
                           extensions: extensions
-                      }, component));
+                      }, component);
+                      options.events = options.events
+                          ? API.object.extend(options.events, hookEvents)
+                          : hookEvents;
+                      route.context = new API(options);
                   }
               }
               else if (context) {
@@ -820,7 +821,7 @@
       Router.prototype.setRoute = function (location) {
           var instance = this, linkedRoute = instance.path2Route[location.path], redirect = linkedRoute.route.redirect;
           if (redirect) {
-              if (Yox.is.func(redirect)) {
+              if (API.is.func(redirect)) {
                   redirect = redirect(location);
               }
               if (redirect) {
@@ -828,7 +829,7 @@
                   return;
               }
           }
-          var newRoute = Yox.object.copy(linkedRoute), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
+          var newRoute = API.object.copy(linkedRoute), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
                   instance.hook(newRoute, startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE, startRoute ? HOOK_BEFORE_ENTER : HOOK_BEFORE_UPDATE, TRUE, function () {
                       instance.route = newRoute;
@@ -856,7 +857,7 @@
           // 当前组件如果是根组件，则没有 $root 属性
           var $root = vnode.context.$root || vnode.context, router = $root[ROUTER], listener = vnode.data[directive.key] = function (_) {
               var value = directive.value, getter = directive.getter, target = value;
-              if (value && getter && Yox.string.has(value, '{')) {
+              if (value && getter && API.string.has(value, '{')) {
                   target = getter();
               }
               router[directive.name](target);
@@ -865,7 +866,7 @@
               node.on(EVENT_CLICK, listener);
           }
           else {
-              domApi.on(node, EVENT_CLICK, listener);
+              API.dom.on(node, EVENT_CLICK, listener);
           }
       },
       unbind: function (node, directive, vnode) {
@@ -874,7 +875,7 @@
               node.off(EVENT_CLICK, listener);
           }
           else {
-              domApi.off(node, EVENT_CLICK, listener);
+              API.dom.off(node, EVENT_CLICK, listener);
           }
       }
   }, RouterView = {
@@ -895,48 +896,47 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha21";
+  var version = "1.0.0-alpha22";
   /**
    * 安装插件
    */
-  function install(Class) {
-      Yox = Class;
-      domApi = Class.dom;
+  function install(Yox) {
+      API = Yox;
       Yox.directive({
           push: directive,
           replace: directive,
           go: directive
       });
       Yox.component('router-view', RouterView);
-      var beforeCreate = Yox.beforeCreate, afterMount = Yox.afterMount, afterUpdate = Yox.afterUpdate, afterDestroy = Yox.afterDestroy;
-      Yox.beforeCreate = function (options) {
-          if (beforeCreate) {
-              beforeCreate(options);
-          }
-          var context = options.context;
-          // 当前组件是 <router-view> 中的动态组件
-          if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-              // 找到渲染 <router-view> 的父级组件，它是一定存在的
-              context = context.$context;
-              var router = context[ROUTER], route = context[ROUTE].child;
-              if (route) {
-                  var extensions = options.extensions = {};
-                  extensions[ROUTER] = router;
-                  extensions[ROUTE] = route;
-                  if (router.location) {
-                      options.props = filterProps(route, router.location, options);
+      hookEvents = {
+          'beforeCreate.hook': function (event, data) {
+              if (data) {
+                  var options = data, context = options.context;
+                  // 当前组件是 <router-view> 中的动态组件
+                  if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+                      // 找到渲染 <router-view> 的父级组件，它是一定存在的
+                      context = context.$context;
+                      var router = context[ROUTER], route = context[ROUTE].child;
+                      if (route) {
+                          var extensions = options.extensions = {};
+                          extensions[ROUTER] = router;
+                          extensions[ROUTE] = route;
+                          if (router.location) {
+                              options.props = filterProps(route, router.location, options);
+                          }
+                      }
                   }
               }
+          },
+          'afterMount.hook': function (event) {
+              updateRoute(event.target, HOOK_AFTER_ROUTE_ENTER, HOOK_AFTER_ENTER, TRUE);
+          },
+          'afterUpdate.hook': function (event) {
+              updateRoute(event.target, HOOK_AFTER_ROUTE_UPDATE, HOOK_AFTER_UPDATE, TRUE);
+          },
+          'afterDestroy.hook': function (event) {
+              updateRoute(event.target, HOOK_AFTER_ROUTE_LEAVE, HOOK_AFTER_LEAVE);
           }
-      };
-      Yox.afterMount = function (instance) {
-          updateRoute(instance, afterMount, HOOK_AFTER_ROUTE_ENTER, HOOK_AFTER_ENTER, TRUE);
-      };
-      Yox.afterUpdate = function (instance) {
-          updateRoute(instance, afterUpdate, HOOK_AFTER_ROUTE_UPDATE, HOOK_AFTER_UPDATE, TRUE);
-      };
-      Yox.afterDestroy = function (instance) {
-          updateRoute(instance, afterDestroy, HOOK_AFTER_ROUTE_LEAVE, HOOK_AFTER_LEAVE);
       };
   }
 

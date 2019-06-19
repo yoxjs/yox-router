@@ -1,5 +1,10 @@
+import {
+  Yox,
+} from '../../../yox-type/src/class'
+
 import * as env from '../../../yox-common/src/util/env'
-import YoxClass from '../../../yox-type/src/interface/YoxClass'
+
+type YoxClass = typeof Yox
 
 /**
  * 把字符串 value 解析成最合适的类型

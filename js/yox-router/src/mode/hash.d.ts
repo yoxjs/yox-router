@@ -1,4 +1,4 @@
-import API from '../../../yox-type/src/interface/API';
+import API from '../../../yox-type/src/util/API';
 import Location from '../../../yox-type/src/router/Location';
 export declare function start(domApi: API, handler: Function): void;
 export declare function stop(domApi: API, handler: Function): void;
