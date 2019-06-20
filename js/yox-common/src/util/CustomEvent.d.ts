@@ -1,11 +1,11 @@
-import { Yox, CustomEvent as CustomEventInterface } from '../../../yox-type/src/class';
+import { CustomEventInterface } from '../../../yox-type/src/type';
 export default class CustomEvent implements CustomEventInterface {
     static PHASE_CURRENT: number;
     static PHASE_UPWARD: number;
     static PHASE_DOWNWARD: number;
     type: string;
     phase: number;
-    target?: Yox;
+    target?: YoxInterface;
     originalEvent?: CustomEventInterface | Event;
     isPrevented?: true;
     isStoped?: true;

@@ -1,11 +1,7 @@
-import {
-  Yox,
-} from '../../../yox-type/src/class'
-
 import * as constant from '../constant'
 import * as valueUtil from './value'
 
-type YoxClass = typeof Yox
+type YoxClass = typeof YoxInterface
 
 /**
  * 把 GET 参数解析成对象

@@ -1,12 +1,9 @@
-import * as type from '../../yox-type/src/type'
-
 import {
-  Yox,
-  YoxOptions,
-} from '../../yox-type/src/class'
-
-import Location from '../../yox-type/src/router/Location'
-import RouteTarget from '../../yox-type/src/router/RouteTarget'
+  Location,
+  RouteTarget,
+  routerBeforeHook,
+  routerAfterHook,
+} from '../../yox-type/src/type'
 
 import * as constant from './constant'
 
@@ -25,10 +22,10 @@ export interface RouterOptions {
   routes: RouteOptions[]
   route404?: RouteOptions
   mode?: 'hash' | 'history'
-  [constant.HOOK_BEFORE_ENTER]?: type.yoxRouterBeforeHook
-  [constant.HOOK_AFTER_ENTER]?: type.yoxRouterAfterHook
-  [constant.HOOK_BEFORE_LEAVE]?: type.yoxRouterBeforeHook
-  [constant.HOOK_AFTER_LEAVE]?: type.yoxRouterAfterHook
+  [constant.HOOK_BEFORE_ENTER]?: routerBeforeHook
+  [constant.HOOK_AFTER_ENTER]?: routerAfterHook
+  [constant.HOOK_BEFORE_LEAVE]?: routerBeforeHook
+  [constant.HOOK_AFTER_LEAVE]?: routerAfterHook
 }
 
 export interface RouteOptions {
@@ -38,10 +35,10 @@ export interface RouteOptions {
   load?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
-  [constant.HOOK_BEFORE_ENTER]?: type.yoxRouterBeforeHook
-  [constant.HOOK_AFTER_ENTER]?: type.yoxRouterAfterHook
-  [constant.HOOK_BEFORE_LEAVE]?: type.yoxRouterBeforeHook
-  [constant.HOOK_AFTER_LEAVE]?: type.yoxRouterAfterHook
+  [constant.HOOK_BEFORE_ENTER]?: routerBeforeHook
+  [constant.HOOK_AFTER_ENTER]?: routerAfterHook
+  [constant.HOOK_BEFORE_LEAVE]?: routerBeforeHook
+  [constant.HOOK_AFTER_LEAVE]?: routerAfterHook
 }
 
 export interface LinkedRoute {
@@ -51,7 +48,7 @@ export interface LinkedRoute {
   load?: RouteLoader
   component?: YoxOptions
   params?: string[]
-  context?: Yox
+  context?: YoxInterface
   parent?: LinkedRoute
   child?: LinkedRoute
 }

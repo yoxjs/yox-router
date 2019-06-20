@@ -1,5 +1,4 @@
-import { Yox } from '../../../yox-type/src/class';
-declare type YoxClass = typeof Yox;
+declare type YoxClass = typeof YoxInterface;
 /**
  * 把 GET 参数解析成对象
  */

@@ -1,7 +1,8 @@
-import * as type from '../../../yox-type/src/type'
-
-import API from '../../../yox-type/src/util/API'
-import Location from '../../../yox-type/src/router/Location'
+import {
+  API,
+  Location,
+  listener,
+} from '../../../yox-type/src/type'
 
 import * as constant from '../constant'
 
@@ -10,12 +11,12 @@ const POP_STATE = 'popstate'
 export const isSupported = 'pushState' in constant.HISTORY
 
 export function start(domApi: API, handler: Function) {
-  domApi.on(constant.WINDOW, POP_STATE, handler as type.listener)
+  domApi.on(constant.WINDOW, POP_STATE, handler as listener)
   handler()
 }
 
 export function stop(domApi: API, handler: Function) {
-  domApi.off(constant.WINDOW, POP_STATE, handler as type.listener)
+  domApi.off(constant.WINDOW, POP_STATE, handler as listener)
 }
 
 export function push(location: Location, handler: Function) {

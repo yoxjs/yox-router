@@ -1,20 +1,15 @@
 import * as config from '../../yox-config/src/config'
-import * as type from '../../yox-type/src/type'
 import * as routerType from './type'
 
 import {
-  Yox,
-  YoxOptions,
-  CustomEvent,
-} from '../../yox-type/src/class'
-
-import {
+  data,
+  listener,
+  CustomEventInterface,
   VNode,
   Directive,
-} from '../../yox-type/src/vnode'
-
-import Location from '../../yox-type/src/router/Location'
-import RouteTarget from '../../yox-type/src/router/RouteTarget'
+  Location,
+  RouteTarget,
+} from '../../yox-type/src/type'
 
 import * as env from '../../yox-common/src/util/env'
 
@@ -26,9 +21,9 @@ import * as valueUtil from './util/value'
 import * as hashMode from './mode/hash'
 import * as historyMode from './mode/history'
 
-type YoxClass = typeof Yox
+type YoxClass = typeof YoxInterface
 
-let API: YoxClass, hookEvents: Record<string, type.listener>, guid = 0
+let API: YoxClass, hookEvents: Record<string, listener>, guid = 0
 
 const ROUTER = '$router',
 
@@ -73,7 +68,7 @@ function formatPath(path: string, parentPath: string | void) {
 /**
  * 把结构化数据序列化成 url
  */
-function stringifyUrl(path: string, params: type.data | void, query: type.data | void) {
+function stringifyUrl(path: string, params: data | void, query: data | void) {
 
   if (/\/\:\w+/.test(path)) {
 
@@ -105,7 +100,7 @@ function stringifyUrl(path: string, params: type.data | void, query: type.data |
 
 }
 
-function toUrl(target: routerType.Target, name2Path: type.data): string {
+function toUrl(target: routerType.Target, name2Path: data): string {
 
   if (API.is.string(target)) {
     return formatPath(target as string)
@@ -135,7 +130,7 @@ function toUrl(target: routerType.Target, name2Path: type.data): string {
  * 2. 避免覆盖 data 定义的数据
  */
 function filterProps(route: routerType.LinkedRoute, location: Location, options: YoxOptions) {
-  const result: type.data = {}, propTypes = options.propTypes
+  const result: data = {}, propTypes = options.propTypes
   if (propTypes) {
 
     let props = location.query,
@@ -148,7 +143,7 @@ function filterProps(route: routerType.LinkedRoute, location: Location, options:
     if (routeParams && locationParams) {
       props = props ? API.object.copy(props) : {}
       for (let i = 0, length = routeParams.length; i < length; i++) {
-        (props as type.data)[routeParams[i]] = locationParams[routeParams[i]]
+        (props as data)[routeParams[i]] = locationParams[routeParams[i]]
       }
     }
 
@@ -174,7 +169,7 @@ function isLeafRoute(route: routerType.LinkedRoute) {
   return !child || !child.context
 }
 
-function updateRoute(instance: Yox, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
+function updateRoute(instance: YoxInterface, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
   const route = instance[ROUTE] as routerType.LinkedRoute
   if (route) {
     route.context = upsert ? instance : env.UNDEFINED
@@ -632,7 +627,7 @@ export class Router {
 
   }
 
-  private parseLocation(url: string, callback: (location: Location | void) => void) {
+  private parseLocation(url: string, callback: (location?: Location) => void) {
 
     let realpath: string, search: string | void, index = url.indexOf(constant.SEPARATOR_SEARCH)
 
@@ -653,7 +648,7 @@ export class Router {
 
     matchRoute = function (
       routes: routerType.LinkedRoute[],
-      callback: (route?: routerType.LinkedRoute, params?: type.data) => void
+      callback: (route?: routerType.LinkedRoute, params?: data) => void
     ) {
 
       let index = 0, route: routerType.LinkedRoute | void
@@ -666,7 +661,7 @@ export class Router {
           const pathTerms = path.split(constant.SEPARATOR_PATH)
           // path 段数量必须一致，否则没有比较的意义
           if (length === pathTerms.length) {
-            const params: type.data = {}
+            const params: data = {}
             for (let i = 0; i < length; i++) {
               if (API.string.startsWith(pathTerms[i], constant.PREFIX_PARAM)) {
                 params[pathTerms[i].substr(constant.PREFIX_PARAM.length)] = valueUtil.parse(API, realpathTerms[i])
@@ -773,7 +768,7 @@ export class Router {
 
     // 整个组件树全换掉
     if (startRoute === route) {
-      let context: Yox | void
+      let context: YoxInterface | void
       // 当层级较多的路由切换到层级较少的路由
       if (oldRoute) {
         while (oldRoute) {
@@ -811,7 +806,7 @@ export class Router {
 
         if (parent) {
 
-          context = parent.context as Yox
+          context = parent.context as YoxInterface
           context.forceUpdate(
             filterProps(
               parent,
@@ -952,14 +947,14 @@ const default404 = {
 },
 
 directive = {
-  bind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
+  bind(node: HTMLElement | YoxInterface, directive: Directive, vnode: VNode) {
 
     // 当前组件如果是根组件，则没有 $root 属性
     const $root = vnode.context.$root || vnode.context,
 
     router = $root[ROUTER] as Router,
 
-    listener = vnode.data[directive.key] = function (_: CustomEvent) {
+    listener = vnode.data[directive.key] = function (_: CustomEventInterface) {
       let { value, getter } = directive, target: any = value
       if (value && getter && API.string.has(value as string, '{')) {
         target = getter()
@@ -968,17 +963,17 @@ directive = {
     }
 
     if (vnode.isComponent) {
-      (node as Yox).on(EVENT_CLICK, listener)
+      (node as YoxInterface).on(EVENT_CLICK, listener)
     }
     else {
       API.dom.on(node as HTMLElement, EVENT_CLICK, listener)
     }
 
   },
-  unbind(node: HTMLElement | Yox, directive: Directive, vnode: VNode) {
+  unbind(node: HTMLElement | YoxInterface, directive: Directive, vnode: VNode) {
     const listener = vnode.data[directive.key]
     if (vnode.isComponent) {
-      (node as Yox).off(EVENT_CLICK, listener)
+      (node as YoxInterface).off(EVENT_CLICK, listener)
     }
     else {
       API.dom.off(node as HTMLElement, EVENT_CLICK, listener)
@@ -990,7 +985,7 @@ RouterView: YoxOptions = {
   template: '<$' + ROUTE_COMPONENT + '/>',
   beforeCreate(options) {
 
-    const context = options.context as Yox,
+    const context = options.context as YoxInterface,
 
     route = context[ROUTE].child as routerType.LinkedRoute
 
@@ -1034,13 +1029,13 @@ export function install(Yox: YoxClass): void {
   Yox.component('router-view', RouterView)
 
   hookEvents = {
-    'beforeCreate.hook': function (event: CustomEvent, data?: type.data) {
+    'beforeCreate.hook': function (event: CustomEventInterface, data?: data) {
       if (data) {
         let options = data as YoxOptions, { context } = options
         // 当前组件是 <router-view> 中的动态组件
         if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
           // 找到渲染 <router-view> 的父级组件，它是一定存在的
-          context = context.$context as Yox
+          context = context.$context as YoxInterface
 
           const router = context[ROUTER] as Router,
           route = context[ROUTE].child as routerType.LinkedRoute
@@ -1057,25 +1052,25 @@ export function install(Yox: YoxClass): void {
         }
       }
     },
-    'afterMount.hook': function (event: CustomEvent) {
+    'afterMount.hook': function (event: CustomEventInterface) {
       updateRoute(
-        event.target as Yox,
+        event.target as YoxInterface,
         config.HOOK_AFTER_ROUTE_ENTER,
         constant.HOOK_AFTER_ENTER,
         env.TRUE
       )
     },
-    'afterUpdate.hook': function (event: CustomEvent) {
+    'afterUpdate.hook': function (event: CustomEventInterface) {
       updateRoute(
-        event.target as Yox,
+        event.target as YoxInterface,
         config.HOOK_AFTER_ROUTE_UPDATE,
         constant.HOOK_AFTER_UPDATE,
         env.TRUE
       )
     },
-    'afterDestroy.hook': function (event: CustomEvent) {
+    'afterDestroy.hook': function (event: CustomEventInterface) {
       updateRoute(
-        event.target as Yox,
+        event.target as YoxInterface,
         config.HOOK_AFTER_ROUTE_LEAVE,
         constant.HOOK_AFTER_LEAVE
       )

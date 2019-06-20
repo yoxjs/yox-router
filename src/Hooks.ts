@@ -1,8 +1,7 @@
 import {
-  Task
-} from '../../yox-type/src/class'
-
-import Location from '../../yox-type/src/router/Location'
+  Task,
+  Location,
+} from '../../yox-type/src/type'
 
 import * as type from './type'
 

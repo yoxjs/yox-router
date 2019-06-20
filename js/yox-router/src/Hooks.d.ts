@@ -1,5 +1,4 @@
-import { Task } from '../../yox-type/src/class';
-import Location from '../../yox-type/src/router/Location';
+import { Task, Location } from '../../yox-type/src/type';
 import * as type from './type';
 export default class Hooks {
     list: Task[];

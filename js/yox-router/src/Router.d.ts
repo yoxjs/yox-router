@@ -1,9 +1,8 @@
 import * as routerType from './type';
-import { Yox } from '../../yox-type/src/class';
-import Location from '../../yox-type/src/router/Location';
+import { Location } from '../../yox-type/src/type';
 import Hooks from './Hooks';
 import * as hashMode from './mode/hash';
-declare type YoxClass = typeof Yox;
+declare type YoxClass = typeof YoxInterface;
 export declare class Router {
     el: Element;
     options: routerType.RouterOptions;
