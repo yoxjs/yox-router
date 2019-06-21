@@ -1,3 +1,7 @@
+import {
+  YoxInterface,
+} from '../../../yox-type/src/global'
+
 import * as env from '../../../yox-common/src/util/env'
 
 type YoxClass = typeof YoxInterface

@@ -1,9 +1,9 @@
 {
   "name": "yox-router",
-  "version": "1.0.0-alpha23",
+  "version": "1.0.0-alpha24",
   "description": "Official Router for Yox.js",
   "main": "dist/yox-router.js",
-  "types": "js/yox-router/src/Router.d.ts",
+  "types": "dts/yox-router/src/Router.d.ts",
   "keywords": [
     "router",
     "mvvm",

@@ -1,6 +1,3 @@
-import * as config from '../../yox-config/src/config'
-import * as routerType from './type'
-
 import {
   data,
   listener,
@@ -10,6 +7,14 @@ import {
   Location,
   RouteTarget,
 } from '../../yox-type/src/type'
+
+import {
+  YoxOptions,
+  YoxInterface,
+} from '../../yox-type/src/global'
+
+import * as config from '../../yox-config/src/config'
+import * as routerType from './type'
 
 import * as env from '../../yox-common/src/util/env'
 

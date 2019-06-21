@@ -1,3 +1,7 @@
+import {
+  YoxInterface,
+} from '../../../yox-type/src/global'
+
 import * as constant from '../constant'
 import * as valueUtil from './value'
 

@@ -5,6 +5,11 @@ import {
   routerAfterHook,
 } from '../../yox-type/src/type'
 
+import {
+  YoxOptions,
+  YoxInterface,
+} from '../../yox-type/src/global'
+
 import * as constant from './constant'
 
 export type Target = string | RouteTarget
