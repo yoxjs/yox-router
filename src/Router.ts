@@ -35,6 +35,7 @@ import {
   Pending,
   Callback,
   Redirect,
+  RouteCallback,
 } from './type'
 
 import * as config from '../../yox-config/src/config'
@@ -702,15 +703,17 @@ export class Router {
         }
         // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
         else if (route.load && API.string.startsWith(realpath, path)) {
-          route.load(
-            function (lazyRoute) {
-              instance.remove(route as LinkedRoute)
-              matchRoute(
-                instance.add(lazyRoute),
-                callback
-              )
-            }
-          )
+          const routeCallback: RouteCallback = function (lazyRoute) {
+            instance.remove(route as LinkedRoute)
+            matchRoute(
+              instance.add(lazyRoute['default'] || lazyRoute),
+              callback
+            )
+          }
+          const promise = route.load(routeCallback)
+          if (promise) {
+            promise.then(routeCallback)
+          }
           return
         }
         else if (path === realpath) {

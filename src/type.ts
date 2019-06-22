@@ -28,7 +28,7 @@ export type Callback = () => void
 
 export type RouteCallback = (route: RouteOptions) => void
 
-export type RouteLoader = (callback: RouteCallback) => void
+export type RouteLoader = (callback: RouteCallback) => Promise<RouteOptions> | void
 
 export interface RouterOptions {
   el: Element | string
