@@ -22,19 +22,19 @@ export const SEPARATOR_PAIR = '='
 export const FLAG_ARRAY = '[]'
 
 // 导航钩子 - 路由进入之前
-export const HOOK_BEFORE_ENTER = 'beforeEnter'
+export const ROUTER_HOOK_BEFORE_ENTER = 'beforeEnter'
 
 // 导航钩子 - 路由进入之后
-export const HOOK_AFTER_ENTER = 'afterEnter'
+export const ROUTER_HOOK_AFTER_ENTER = 'afterEnter'
 
 // 导航钩子 - 路由更新之前
-export const HOOK_BEFORE_UPDATE = 'beforeUpdate'
+export const ROUTER_HOOK_BEFORE_UPDATE = 'beforeUpdate'
 
 // 导航钩子 - 路由更新之后
-export const HOOK_AFTER_UPDATE = 'afterUpdate'
+export const ROUTER_HOOK_AFTER_UPDATE = 'afterUpdate'
 
 // 导航钩子 - 路由离开之前
-export const HOOK_BEFORE_LEAVE = 'beforeLeave'
+export const ROUTER_HOOK_BEFORE_LEAVE = 'beforeLeave'
 
 // 导航钩子 - 路由离开之后
-export const HOOK_AFTER_LEAVE = 'afterLeave'
+export const ROUTER_HOOK_AFTER_LEAVE = 'afterLeave'

@@ -1,10 +1,8 @@
 import {
-  YoxInterface,
+  YoxClass,
 } from '../../../yox-type/src/global'
 
 import * as env from '../../../yox-common/src/util/env'
-
-type YoxClass = typeof YoxInterface
 
 /**
  * 把字符串 value 解析成最合适的类型

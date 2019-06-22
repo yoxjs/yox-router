@@ -3,6 +3,7 @@ import {
   RouteTarget,
   routerBeforeHook,
   routerAfterHook,
+  DomUtil,
 } from '../../yox-type/src/type'
 
 import {
@@ -10,7 +11,14 @@ import {
   YoxInterface,
 } from '../../yox-type/src/global'
 
-import * as constant from './constant'
+import {
+  ROUTER_HOOK_BEFORE_ENTER,
+  ROUTER_HOOK_AFTER_ENTER,
+  ROUTER_HOOK_BEFORE_UPDATE,
+  ROUTER_HOOK_AFTER_UPDATE,
+  ROUTER_HOOK_BEFORE_LEAVE,
+  ROUTER_HOOK_AFTER_LEAVE,
+} from './constant'
 
 export type Target = string | RouteTarget
 
@@ -27,10 +35,12 @@ export interface RouterOptions {
   routes: RouteOptions[]
   route404?: RouteOptions
   mode?: 'hash' | 'history'
-  [constant.HOOK_BEFORE_ENTER]?: routerBeforeHook
-  [constant.HOOK_AFTER_ENTER]?: routerAfterHook
-  [constant.HOOK_BEFORE_LEAVE]?: routerBeforeHook
-  [constant.HOOK_AFTER_LEAVE]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_ENTER]?: routerBeforeHook
+  [ROUTER_HOOK_AFTER_ENTER]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_UPDATE]?: routerBeforeHook
+  [ROUTER_HOOK_AFTER_UPDATE]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_LEAVE]?: routerBeforeHook
+  [ROUTER_HOOK_AFTER_LEAVE]?: routerAfterHook
 }
 
 export interface RouteOptions {
@@ -40,10 +50,12 @@ export interface RouteOptions {
   load?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
-  [constant.HOOK_BEFORE_ENTER]?: routerBeforeHook
-  [constant.HOOK_AFTER_ENTER]?: routerAfterHook
-  [constant.HOOK_BEFORE_LEAVE]?: routerBeforeHook
-  [constant.HOOK_AFTER_LEAVE]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_ENTER]?: routerBeforeHook
+  [ROUTER_HOOK_AFTER_ENTER]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_UPDATE]?: routerBeforeHook
+  [ROUTER_HOOK_AFTER_UPDATE]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_LEAVE]?: routerBeforeHook
+  [ROUTER_HOOK_AFTER_LEAVE]?: routerAfterHook
 }
 
 export interface LinkedRoute {
@@ -63,4 +75,12 @@ export interface Pending {
   location: Location
   onComplete: Callback
   onAbort: Callback
+}
+
+export interface Mode {
+  start(domUtil: DomUtil, handler: Function): void
+  stop(domUtil: DomUtil, handler: Function): void
+  push(location: Location, handler: Function): void
+  go(n: number): void
+  current(): string
 }

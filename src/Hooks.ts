@@ -3,7 +3,9 @@ import {
   Location,
 } from '../../yox-type/src/type'
 
-import * as type from './type'
+import {
+  Callback,
+} from './type'
 
 export default class Hooks {
 
@@ -35,7 +37,7 @@ export default class Hooks {
     return this
   }
 
-  next(next: Function, isGuard?: boolean, callback?: type.Callback) {
+  next(next: Function, isGuard?: boolean, callback?: Callback) {
     const task = this.list.shift()
     if (task) {
       if (isGuard) {

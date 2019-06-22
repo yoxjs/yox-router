@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha24
+ * yox-router.js v1.0.0-alpha25
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -9,6 +9,34 @@
   typeof define === 'function' && define.amd ? define(['exports'], factory) :
   (global = global || self, factory(global.YoxRouter = {}));
 }(this, function (exports) { 'use strict';
+
+  var WINDOW = window;
+  var LOCATION = WINDOW.location;
+  var HISTORY = WINDOW.history;
+  // path 中的参数前缀，如 /user/:userId
+  var PREFIX_PARAM = ':';
+  // path 分隔符
+  var SEPARATOR_PATH = '/';
+  // path 和 search 的分隔符
+  var SEPARATOR_SEARCH = '?';
+  // query 分隔符
+  var SEPARATOR_QUERY = '&';
+  // 键值对分隔符
+  var SEPARATOR_PAIR = '=';
+  // 参数中的数组标识
+  var FLAG_ARRAY = '[]';
+  // 导航钩子 - 路由进入之前
+  var ROUTER_HOOK_BEFORE_ENTER = 'beforeEnter';
+  // 导航钩子 - 路由进入之后
+  var ROUTER_HOOK_AFTER_ENTER = 'afterEnter';
+  // 导航钩子 - 路由更新之前
+  var ROUTER_HOOK_BEFORE_UPDATE = 'beforeUpdate';
+  // 导航钩子 - 路由更新之后
+  var ROUTER_HOOK_AFTER_UPDATE = 'afterUpdate';
+  // 导航钩子 - 路由离开之前
+  var ROUTER_HOOK_BEFORE_LEAVE = 'beforeLeave';
+  // 导航钩子 - 路由离开之后
+  var ROUTER_HOOK_AFTER_LEAVE = 'afterLeave';
 
   // 路由钩子
   var HOOK_BEFORE_ROUTE_ENTER = 'beforeRouteEnter';
@@ -86,34 +114,6 @@
       };
       return Hooks;
   }());
-
-  var WINDOW = window;
-  var LOCATION = WINDOW.location;
-  var HISTORY = WINDOW.history;
-  // path 中的参数前缀，如 /user/:userId
-  var PREFIX_PARAM = ':';
-  // path 分隔符
-  var SEPARATOR_PATH = '/';
-  // path 和 search 的分隔符
-  var SEPARATOR_SEARCH = '?';
-  // query 分隔符
-  var SEPARATOR_QUERY = '&';
-  // 键值对分隔符
-  var SEPARATOR_PAIR = '=';
-  // 参数中的数组标识
-  var FLAG_ARRAY = '[]';
-  // 导航钩子 - 路由进入之前
-  var HOOK_BEFORE_ENTER = 'beforeEnter';
-  // 导航钩子 - 路由进入之后
-  var HOOK_AFTER_ENTER = 'afterEnter';
-  // 导航钩子 - 路由更新之前
-  var HOOK_BEFORE_UPDATE = 'beforeUpdate';
-  // 导航钩子 - 路由更新之后
-  var HOOK_AFTER_UPDATE = 'afterUpdate';
-  // 导航钩子 - 路由离开之前
-  var HOOK_BEFORE_LEAVE = 'beforeLeave';
-  // 导航钩子 - 路由离开之后
-  var HOOK_AFTER_LEAVE = 'afterLeave';
 
   /**
    * 把字符串 value 解析成最合适的类型
@@ -204,12 +204,12 @@
 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
   var HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
-  function start(domApi, handler) {
-      domApi.on(WINDOW, HASH_CHANGE, handler);
+  function start(domUtil, handler) {
+      domUtil.on(WINDOW, HASH_CHANGE, handler);
       handler();
   }
-  function stop(domApi, handler) {
-      domApi.off(WINDOW, HASH_CHANGE, handler);
+  function stop(domUtil, handler) {
+      domUtil.off(WINDOW, HASH_CHANGE, handler);
   }
   function push(location, handler) {
       LOCATION.hash = HASH_PREFIX + location.url;
@@ -236,12 +236,12 @@
 
   var POP_STATE = 'popstate';
   var isSupported = 'pushState' in HISTORY;
-  function start$1(domApi, handler) {
-      domApi.on(WINDOW, POP_STATE, handler);
+  function start$1(domUtil, handler) {
+      domUtil.on(WINDOW, POP_STATE, handler);
       handler();
   }
-  function stop$1(domApi, handler) {
-      domApi.off(WINDOW, POP_STATE, handler);
+  function stop$1(domUtil, handler) {
+      domUtil.off(WINDOW, POP_STATE, handler);
   }
   function push$1(location, handler) {
       // 调用 pushState 不会触发 popstate 事件
@@ -831,7 +831,7 @@
           }
           var newRoute = API.object.copy(linkedRoute), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
               instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
-                  instance.hook(newRoute, startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE, startRoute ? HOOK_BEFORE_ENTER : HOOK_BEFORE_UPDATE, TRUE, function () {
+                  instance.hook(newRoute, startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE, startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE, TRUE, function () {
                       instance.route = newRoute;
                       instance.location = location;
                       instance.patchRoute(route, startRoute);
@@ -840,7 +840,7 @@
           };
           instance.hooks.setLocation(location, oldLocation);
           if (oldRoute && oldLocation && location.path !== oldLocation.path) {
-              instance.hook(oldRoute, HOOK_BEFORE_ROUTE_LEAVE, HOOK_BEFORE_LEAVE, TRUE, enterRoute);
+              instance.hook(oldRoute, HOOK_BEFORE_ROUTE_LEAVE, ROUTER_HOOK_BEFORE_LEAVE, TRUE, enterRoute);
               return;
           }
           enterRoute();
@@ -896,7 +896,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha24";
+  var version = "1.0.0-alpha25";
   /**
    * 安装插件
    */
@@ -929,13 +929,13 @@
               }
           },
           'afterMount.hook': function (event) {
-              updateRoute(event.target, HOOK_AFTER_ROUTE_ENTER, HOOK_AFTER_ENTER, TRUE);
+              updateRoute(event.target, HOOK_AFTER_ROUTE_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
           },
           'afterUpdate.hook': function (event) {
-              updateRoute(event.target, HOOK_AFTER_ROUTE_UPDATE, HOOK_AFTER_UPDATE, TRUE);
+              updateRoute(event.target, HOOK_AFTER_ROUTE_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
           },
           'afterDestroy.hook': function (event) {
-              updateRoute(event.target, HOOK_AFTER_ROUTE_LEAVE, HOOK_AFTER_LEAVE);
+              updateRoute(event.target, HOOK_AFTER_ROUTE_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
           }
       };
   }

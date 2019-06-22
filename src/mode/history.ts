@@ -1,8 +1,11 @@
 import {
-  API,
+  DomUtil,
   Location,
-  listener,
 } from '../../../yox-type/src/type'
+
+import {
+  listener,
+} from '../../../yox-type/src/global'
 
 import * as constant from '../constant'
 
@@ -10,13 +13,13 @@ const POP_STATE = 'popstate'
 
 export const isSupported = 'pushState' in constant.HISTORY
 
-export function start(domApi: API, handler: Function) {
-  domApi.on(constant.WINDOW, POP_STATE, handler as listener)
+export function start(domUtil: DomUtil, handler: Function) {
+  domUtil.on(constant.WINDOW, POP_STATE, handler as listener)
   handler()
 }
 
-export function stop(domApi: API, handler: Function) {
-  domApi.off(constant.WINDOW, POP_STATE, handler as listener)
+export function stop(domUtil: DomUtil, handler: Function) {
+  domUtil.off(constant.WINDOW, POP_STATE, handler as listener)
 }
 
 export function push(location: Location, handler: Function) {

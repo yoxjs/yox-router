@@ -1,8 +1,11 @@
 import {
-  API,
+  DomUtil,
   Location,
-  listener,
 } from '../../../yox-type/src/type'
+
+import {
+  listener,
+} from '../../../yox-type/src/global'
 
 import * as constant from '../constant'
 
@@ -11,13 +14,13 @@ const HASH_PREFIX = '#!',
 
 HASH_CHANGE = 'hashchange'
 
-export function start(domApi: API, handler: Function) {
-  domApi.on(constant.WINDOW, HASH_CHANGE, handler as listener)
+export function start(domUtil: DomUtil, handler: Function) {
+  domUtil.on(constant.WINDOW, HASH_CHANGE, handler as listener)
   handler()
 }
 
-export function stop(domApi: API, handler: Function) {
-  domApi.off(constant.WINDOW, HASH_CHANGE, handler as listener)
+export function stop(domUtil: DomUtil, handler: Function) {
+  domUtil.off(constant.WINDOW, HASH_CHANGE, handler as listener)
 }
 
 export function push(location: Location, handler: Function) {

@@ -1,7 +1,5 @@
 import {
   data,
-  listener,
-  CustomEventInterface,
   VNode,
   Directive,
   Location,
@@ -9,24 +7,46 @@ import {
 } from '../../yox-type/src/type'
 
 import {
+  listener,
+  CustomEventInterface,
   YoxOptions,
   YoxInterface,
+  YoxClass,
 } from '../../yox-type/src/global'
 
+import {
+  ROUTER_HOOK_BEFORE_ENTER,
+  ROUTER_HOOK_AFTER_ENTER,
+  ROUTER_HOOK_BEFORE_UPDATE,
+  ROUTER_HOOK_AFTER_UPDATE,
+  ROUTER_HOOK_BEFORE_LEAVE,
+  ROUTER_HOOK_AFTER_LEAVE,
+  SEPARATOR_PATH,
+  PREFIX_PARAM,
+  SEPARATOR_SEARCH,
+} from './constant'
+
+import {
+  Mode,
+  Target,
+  RouterOptions,
+  RouteOptions,
+  LinkedRoute,
+  Pending,
+  Callback,
+  Redirect,
+} from './type'
+
 import * as config from '../../yox-config/src/config'
-import * as routerType from './type'
 
 import * as env from '../../yox-common/src/util/env'
 
 import Hooks from './Hooks'
-import * as constant from './constant'
 import * as queryUtil from './util/query'
 import * as valueUtil from './util/value'
 
 import * as hashMode from './mode/hash'
 import * as historyMode from './mode/history'
-
-type YoxClass = typeof YoxInterface
 
 let API: YoxClass, hookEvents: Record<string, listener>, guid = 0
 
@@ -46,24 +66,24 @@ EVENT_CLICK = 'click'
 function formatPath(path: string, parentPath: string | void) {
 
   // 如果不是 / 开头，表示是相对路径
-  if (!API.string.startsWith(path, constant.SEPARATOR_PATH)) {
+  if (!API.string.startsWith(path, SEPARATOR_PATH)) {
     // 确保 parentPath 以 / 结尾
     if (parentPath) {
-      if (!API.string.endsWith(parentPath, constant.SEPARATOR_PATH)) {
-        parentPath += constant.SEPARATOR_PATH
+      if (!API.string.endsWith(parentPath, SEPARATOR_PATH)) {
+        parentPath += SEPARATOR_PATH
       }
     }
     else {
-      parentPath = constant.SEPARATOR_PATH
+      parentPath = SEPARATOR_PATH
     }
     path = parentPath + path
   }
 
   // 如果 path 以 / 结尾，删掉它
-  if (path !== constant.SEPARATOR_PATH
-    && API.string.endsWith(path, constant.SEPARATOR_PATH)
+  if (path !== SEPARATOR_PATH
+    && API.string.endsWith(path, SEPARATOR_PATH)
   ) {
-    path = API.string.slice(path, 0, -constant.SEPARATOR_PATH.length)
+    path = API.string.slice(path, 0, -SEPARATOR_PATH.length)
   }
 
   return path
@@ -80,24 +100,24 @@ function stringifyUrl(path: string, params: data | void, query: data | void) {
     const terms: string[] = []
 
     API.array.each(
-      path.split(constant.SEPARATOR_PATH),
+      path.split(SEPARATOR_PATH),
       function (item) {
         terms.push(
-          API.string.startsWith(item, constant.PREFIX_PARAM) && params
-            ? params[item.substr(constant.PREFIX_PARAM.length)]
+          API.string.startsWith(item, PREFIX_PARAM) && params
+            ? params[item.substr(PREFIX_PARAM.length)]
             : item
         )
       }
     )
 
-    path = terms.join(constant.SEPARATOR_PATH)
+    path = terms.join(SEPARATOR_PATH)
 
   }
 
   if (query) {
     const queryStr = queryUtil.stringify(API, query)
     if (queryStr) {
-      path += constant.SEPARATOR_SEARCH + queryStr
+      path += SEPARATOR_SEARCH + queryStr
     }
   }
 
@@ -105,7 +125,7 @@ function stringifyUrl(path: string, params: data | void, query: data | void) {
 
 }
 
-function toUrl(target: routerType.Target, name2Path: data): string {
+function toUrl(target: Target, name2Path: data): string {
 
   if (API.is.string(target)) {
     return formatPath(target as string)
@@ -134,7 +154,7 @@ function toUrl(target: routerType.Target, name2Path: data): string {
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: routerType.LinkedRoute, location: Location, options: YoxOptions) {
+function filterProps(route: LinkedRoute, location: Location, options: YoxOptions) {
   const result: data = {}, propTypes = options.propTypes
   if (propTypes) {
 
@@ -169,13 +189,13 @@ function filterProps(route: routerType.LinkedRoute, location: Location, options:
  * 是否是叶子节点
  * 如果把叶子节点放在 if 中，会出现即使不是定义时的叶子节点，却是运行时的叶子节点
  */
-function isLeafRoute(route: routerType.LinkedRoute) {
+function isLeafRoute(route: LinkedRoute) {
   const child = route.child
   return !child || !child.context
 }
 
 function updateRoute(instance: YoxInterface, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
-  const route = instance[ROUTE] as routerType.LinkedRoute
+  const route = instance[ROUTE] as LinkedRoute
   if (route) {
     route.context = upsert ? instance : env.UNDEFINED
     if (isLeafRoute(route)) {
@@ -198,23 +218,23 @@ export class Router {
 
   el: Element
 
-  options: routerType.RouterOptions
+  options: RouterOptions
 
-  routes: routerType.LinkedRoute[]
+  routes: LinkedRoute[]
 
-  route404: routerType.LinkedRoute
+  route404: LinkedRoute
 
   name2Path: Record<string, string>
 
-  path2Route: Record<string, routerType.LinkedRoute>
+  path2Route: Record<string, LinkedRoute>
 
-  mode: typeof hashMode
+  mode: Mode
 
   history: Location[]
 
   cursor: number
 
-  pending?: routerType.Pending
+  pending?: Pending
 
   // 路由钩子
   hooks: Hooks
@@ -223,12 +243,12 @@ export class Router {
   handler: Function
 
   // 当前渲染的路由
-  route?: routerType.LinkedRoute
+  route?: LinkedRoute
 
   // 当前地址栏的路径和参数
   location?: Location
 
-  constructor(options: routerType.RouterOptions) {
+  constructor(options: RouterOptions) {
 
     const instance = this, el = options.el, route404 = options.route404 || default404
 
@@ -300,17 +320,17 @@ export class Router {
   /**
    * 添加一个新的路由
    */
-  add(routeOptions: routerType.RouteOptions) {
+  add(routeOptions: RouteOptions) {
 
     const instance = this,
 
-    newRoutes: routerType.LinkedRoute[] = [],
+    newRoutes: LinkedRoute[] = [],
 
     pathStack: string[] = [],
 
-    routeStack: routerType.LinkedRoute[] = [],
+    routeStack: LinkedRoute[] = [],
 
-    addRoute = function (routeOptions: routerType.RouteOptions) {
+    addRoute = function (routeOptions: RouteOptions) {
 
       let { name, component, children, load } = routeOptions,
 
@@ -320,16 +340,16 @@ export class Router {
 
       path = formatPath(routeOptions.path, parentPath),
 
-      route: routerType.LinkedRoute = { path, route: routeOptions },
+      route: LinkedRoute = { path, route: routeOptions },
 
       params: string[] = []
 
       API.array.each(
-        path.split(constant.SEPARATOR_PATH),
+        path.split(SEPARATOR_PATH),
         function (item) {
-          if (API.string.startsWith(item, constant.PREFIX_PARAM)) {
+          if (API.string.startsWith(item, PREFIX_PARAM)) {
             params.push(
-              item.substr(constant.PREFIX_PARAM.length)
+              item.substr(PREFIX_PARAM.length)
             )
           }
         }
@@ -402,7 +422,7 @@ export class Router {
   /**
    * 删除一个已注册的路由
    */
-  remove(route: routerType.LinkedRoute) {
+  remove(route: LinkedRoute) {
 
     const instance = this
 
@@ -438,7 +458,7 @@ export class Router {
    * })
    *
    */
-  push(target: routerType.Target) {
+  push(target: Target) {
 
     const instance = this, { mode } = instance
 
@@ -462,7 +482,7 @@ export class Router {
   /**
    * 不改变 URL，只修改路由组件
    */
-  replace(target: routerType.Target) {
+  replace(target: Target) {
 
     const instance = this
 
@@ -532,7 +552,7 @@ export class Router {
   /**
    * 钩子函数
    */
-  hook(route: routerType.LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: routerType.Callback) {
+  hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Callback) {
 
     const instance = this, { location, hooks, pending } = instance
 
@@ -545,7 +565,7 @@ export class Router {
       // 最后调用路由实例的钩子
       .add(instance.options[hook], instance)
 
-    const next = function (value?: false | routerType.Target) {
+    const next = function (value?: false | Target) {
       if (value === env.UNDEFINED) {
         hooks.next(next, isGuard, callback)
       }
@@ -601,9 +621,9 @@ export class Router {
 
   private setUrl(
     url: string,
-    onComplete: routerType.Callback,
-    onAbort: routerType.Callback,
-    callback: (locaiton: Location, pending: routerType.Pending) => void
+    onComplete: Callback,
+    onAbort: Callback,
+    callback: (locaiton: Location, pending: Pending) => void
   ) {
 
     // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
@@ -634,7 +654,7 @@ export class Router {
 
   private parseLocation(url: string, callback: (location?: Location) => void) {
 
-    let realpath: string, search: string | void, index = url.indexOf(constant.SEPARATOR_SEARCH)
+    let realpath: string, search: string | void, index = url.indexOf(SEPARATOR_SEARCH)
 
     if (index >= 0) {
       realpath = url.slice(0, index)
@@ -647,29 +667,29 @@ export class Router {
     // 匹配已注册的 route
     const instance = this,
 
-    realpathTerms = realpath.split(constant.SEPARATOR_PATH),
+    realpathTerms = realpath.split(SEPARATOR_PATH),
 
     length = realpathTerms.length,
 
     matchRoute = function (
-      routes: routerType.LinkedRoute[],
-      callback: (route?: routerType.LinkedRoute, params?: data) => void
+      routes: LinkedRoute[],
+      callback: (route?: LinkedRoute, params?: data) => void
     ) {
 
-      let index = 0, route: routerType.LinkedRoute | void
+      let index = 0, route: LinkedRoute | void
 
       loop: while (route = routes[index++]) {
         const path = route.path
 
         // 动态路由
         if (route.params) {
-          const pathTerms = path.split(constant.SEPARATOR_PATH)
+          const pathTerms = path.split(SEPARATOR_PATH)
           // path 段数量必须一致，否则没有比较的意义
           if (length === pathTerms.length) {
             const params: data = {}
             for (let i = 0; i < length; i++) {
-              if (API.string.startsWith(pathTerms[i], constant.PREFIX_PARAM)) {
-                params[pathTerms[i].substr(constant.PREFIX_PARAM.length)] = valueUtil.parse(API, realpathTerms[i])
+              if (API.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
+                params[pathTerms[i].substr(PREFIX_PARAM.length)] = valueUtil.parse(API, realpathTerms[i])
               }
               // 非参数段不相同
               else if (pathTerms[i] !== realpathTerms[i]) {
@@ -684,7 +704,7 @@ export class Router {
         else if (route.load && API.string.startsWith(realpath, path)) {
           route.load(
             function (lazyRoute) {
-              instance.remove(route as routerType.LinkedRoute)
+              instance.remove(route as LinkedRoute)
               matchRoute(
                 instance.add(lazyRoute),
                 callback
@@ -731,12 +751,12 @@ export class Router {
   }
 
   private diffRoute(
-    route: routerType.LinkedRoute,
-    oldRoute: routerType.LinkedRoute | void,
-    onComplete: (route: routerType.LinkedRoute, startRoute: routerType.LinkedRoute | void) => void,
-    startRoute: routerType.LinkedRoute | void,
-    childRoute: routerType.LinkedRoute | void,
-    oldTopRoute: routerType.LinkedRoute | void
+    route: LinkedRoute,
+    oldRoute: LinkedRoute | void,
+    onComplete: (route: LinkedRoute, startRoute: LinkedRoute | void) => void,
+    startRoute: LinkedRoute | void,
+    childRoute: LinkedRoute | void,
+    oldTopRoute: LinkedRoute | void
   ) {
 
     // 更新链路
@@ -796,8 +816,8 @@ export class Router {
   }
 
   private patchRoute(
-    route: routerType.LinkedRoute,
-    startRoute: routerType.LinkedRoute | void
+    route: LinkedRoute,
+    startRoute: LinkedRoute | void
   ) {
 
     const instance = this, location = instance.location as Location
@@ -870,7 +890,7 @@ export class Router {
           route.context = env.UNDEFINED
         }
         if (route.child) {
-          route = route.child as routerType.LinkedRoute
+          route = route.child as LinkedRoute
           continue
         }
       }
@@ -888,10 +908,10 @@ export class Router {
 
     if (redirect) {
       if (API.is.func(redirect)) {
-        redirect = (redirect as routerType.Redirect)(location)
+        redirect = (redirect as Redirect)(location)
       }
       if (redirect) {
-        instance.push(redirect as routerType.Target)
+        instance.push(redirect as Target)
         return
       }
     }
@@ -910,7 +930,7 @@ export class Router {
           instance.hook(
             newRoute,
             startRoute ? config.HOOK_BEFORE_ROUTE_ENTER : config.HOOK_BEFORE_ROUTE_UPDATE,
-            startRoute ? constant.HOOK_BEFORE_ENTER : constant.HOOK_BEFORE_UPDATE,
+            startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE,
             env.TRUE,
             function () {
 
@@ -931,7 +951,7 @@ export class Router {
       instance.hook(
         oldRoute,
         config.HOOK_BEFORE_ROUTE_LEAVE,
-        constant.HOOK_BEFORE_LEAVE,
+        ROUTER_HOOK_BEFORE_LEAVE,
         env.TRUE,
         enterRoute
       )
@@ -992,7 +1012,7 @@ RouterView: YoxOptions = {
 
     const context = options.context as YoxInterface,
 
-    route = context[ROUTE].child as routerType.LinkedRoute
+    route = context[ROUTE].child as LinkedRoute
 
     if (route) {
 
@@ -1043,7 +1063,7 @@ export function install(Yox: YoxClass): void {
           context = context.$context as YoxInterface
 
           const router = context[ROUTER] as Router,
-          route = context[ROUTE].child as routerType.LinkedRoute
+          route = context[ROUTE].child as LinkedRoute
 
           if (route) {
             const extensions = options.extensions = {}
@@ -1061,7 +1081,7 @@ export function install(Yox: YoxClass): void {
       updateRoute(
         event.target as YoxInterface,
         config.HOOK_AFTER_ROUTE_ENTER,
-        constant.HOOK_AFTER_ENTER,
+        ROUTER_HOOK_AFTER_ENTER,
         env.TRUE
       )
     },
@@ -1069,7 +1089,7 @@ export function install(Yox: YoxClass): void {
       updateRoute(
         event.target as YoxInterface,
         config.HOOK_AFTER_ROUTE_UPDATE,
-        constant.HOOK_AFTER_UPDATE,
+        ROUTER_HOOK_AFTER_UPDATE,
         env.TRUE
       )
     },
@@ -1077,7 +1097,7 @@ export function install(Yox: YoxClass): void {
       updateRoute(
         event.target as YoxInterface,
         config.HOOK_AFTER_ROUTE_LEAVE,
-        constant.HOOK_AFTER_LEAVE
+        ROUTER_HOOK_AFTER_LEAVE
       )
     }
   }
