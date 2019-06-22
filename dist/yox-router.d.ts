@@ -428,7 +428,7 @@ export declare type Target = string | RouteTarget;
 export declare type Redirect = (to: Location) => Target;
 export declare type Callback = () => void;
 export declare type RouteCallback = (route: RouteOptions) => void;
-export declare type RouteLoader = (callback: RouteCallback) => void;
+export declare type RouteLoader = (callback: RouteCallback) => Promise<RouteOptions> | void;
 export interface RouterOptions {
 	el: Element | string;
 	routes: RouteOptions[];

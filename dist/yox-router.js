@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha25
+ * yox-router.js v1.0.0-alpha26
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -687,10 +687,14 @@
                   }
                   // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
                   else if (route.load && API.string.startsWith(realpath, path)) {
-                      route.load(function (lazyRoute) {
+                      var routeCallback = function (lazyRoute) {
                           instance.remove(route);
-                          matchRoute(instance.add(lazyRoute), callback);
-                      });
+                          matchRoute(instance.add(lazyRoute['default'] || lazyRoute), callback);
+                      };
+                      var promise = route.load(routeCallback);
+                      if (promise) {
+                          promise.then(routeCallback);
+                      }
                       return;
                   }
                   else if (path === realpath) {
@@ -896,7 +900,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha25";
+  var version = "1.0.0-alpha26";
   /**
    * 安装插件
    */
