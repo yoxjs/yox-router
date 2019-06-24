@@ -1,6 +1,6 @@
 {
   "name": "yox-router",
-  "version": "1.0.0-alpha26",
+  "version": "1.0.0-alpha27",
   "description": "Official Router for Yox.js",
   "main": "dist/yox-router.js",
   "types": "dist/yox-router.d.ts",
