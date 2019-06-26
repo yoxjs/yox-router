@@ -1,5 +1,5 @@
 /**
- * yox.js v1.0.0-alpha.71
+ * yox.js v1.0.0-alpha.79
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -47,6 +47,10 @@
    * Single instance for document in browser
    */
   var DOCUMENT = typeof document !== RAW_UNDEFINED ? document : UNDEFINED;
+  /**
+   * Single instance for global in nodejs or browser
+   */
+  var GLOBAL = typeof global !== RAW_UNDEFINED ? global : WINDOW;
   /**
    * tap 事件
    *
@@ -925,22 +929,37 @@
   /**
    * 当前是否是源码调试，如果开启了代码压缩，empty function 里的注释会被干掉
    */
-  level = /yox/.test(toString(EMPTY_FUNCTION)) ? DEBUG : WARN,
+  defaultLogLevel = /yox/.test(toString(EMPTY_FUNCTION)) ? DEBUG : WARN,
   /**
    * console 样式前缀
+   * ie 和 edge 不支持 console.log 样式
    */
-  stylePrefix = '%c';
+  stylePrefix = WINDOW && /edge|msie|trident/i.test(WINDOW.navigator.userAgent)
+      ? EMPTY_STRING
+      : '%c',
+  /**
+   * 日志打印函数
+   */
+  printLog = nativeConsole
+      ? stylePrefix
+          ? function (tag, msg, style) {
+              nativeConsole.log(stylePrefix + tag, style, msg);
+          }
+          : function (tag, msg) {
+              nativeConsole.log(tag, msg);
+          }
+      : EMPTY_FUNCTION;
   /**
    * 全局调试开关
    */
-  function getLevel() {
-      if (WINDOW) {
-          var logLevel = WINDOW['YOX_LOG_LEVEL'];
+  function getLogLevel() {
+      if (GLOBAL) {
+          var logLevel = GLOBAL['YOX_LOG_LEVEL'];
           if (logLevel >= DEBUG && logLevel <= FATAL) {
               return logLevel;
           }
       }
-      return level;
+      return defaultLogLevel;
   }
   function getStyle(backgroundColor) {
       return "background-color:" + backgroundColor + ";border-radius:12px;color:#fff;font-size:10px;padding:3px 6px;";
@@ -951,8 +970,8 @@
    * @param msg
    */
   function debug(msg, tag) {
-      if (nativeConsole && getLevel() <= DEBUG) {
-          nativeConsole.log(stylePrefix + (tag || 'Yox debug'), getStyle('#999'), msg);
+      if (getLogLevel() <= DEBUG) {
+          printLog(tag || 'Yox debug', msg, getStyle('#999'));
       }
   }
   /**
@@ -961,8 +980,8 @@
    * @param msg
    */
   function info(msg, tag) {
-      if (nativeConsole && getLevel() <= INFO) {
-          nativeConsole.log(stylePrefix + (tag || 'Yox info'), getStyle('#2db7f5'), msg);
+      if (getLogLevel() <= INFO) {
+          printLog(tag || 'Yox info', msg, getStyle('#2db7f5'));
       }
   }
   /**
@@ -971,8 +990,8 @@
    * @param msg
    */
   function warn(msg, tag) {
-      if (nativeConsole && getLevel() <= WARN) {
-          nativeConsole.warn(stylePrefix + (tag || 'Yox warn'), getStyle('#f90'), msg);
+      if (getLogLevel() <= WARN) {
+          printLog(tag || 'Yox warn', msg, getStyle('#f90'));
       }
   }
   /**
@@ -981,8 +1000,8 @@
    * @param msg
    */
   function error(msg, tag) {
-      if (nativeConsole && getLevel() <= ERROR) {
-          nativeConsole.error(stylePrefix + (tag || 'Yox error'), getStyle('#ed4014'), msg);
+      if (getLogLevel() <= ERROR) {
+          printLog(tag || 'Yox error', msg, getStyle('#ed4014'));
       }
   }
   /**
@@ -991,7 +1010,7 @@
    * @param msg
    */
   function fatal(msg, tag) {
-      if (getLevel() <= FATAL) {
+      if (getLogLevel() <= FATAL) {
           throw new Error("[" + (tag || 'Yox fatal') + "]: " + msg);
       }
   }
@@ -1896,6 +1915,288 @@
       }
       else {
           destroyVnode(api, vnode);
+      }
+  }
+
+  /**
+   * 元素 节点
+   */
+  var ELEMENT = 1;
+  /**
+   * 属性 节点
+   */
+  var ATTRIBUTE = 2;
+  /**
+   * 指令 节点
+   */
+  var DIRECTIVE = 3;
+  /**
+   * 属性 节点
+   */
+  var PROPERTY = 4;
+  /**
+   * 文本 节点
+   */
+  var TEXT = 5;
+  /**
+   * if 节点
+   */
+  var IF = 6;
+  /**
+   * else if 节点
+   */
+  var ELSE_IF = 7;
+  /**
+   * else 节点
+   */
+  var ELSE = 8;
+  /**
+   * each 节点
+   */
+  var EACH = 9;
+  /**
+   * partial 节点
+   */
+  var PARTIAL = 10;
+  /**
+   * import 节点
+   */
+  var IMPORT = 11;
+  /**
+   * 表达式 节点
+   */
+  var EXPRESSION = 12;
+  /**
+   * 延展操作 节点
+   */
+  var SPREAD = 13;
+
+  // 特殊标签
+  var specialTags = {};
+  // 特殊属性
+  var specialAttrs = {};
+  // 名称 -> 类型的映射
+  var name2Type = {};
+  specialTags[RAW_SLOT] =
+      specialTags[RAW_TEMPLATE] =
+          specialAttrs[RAW_KEY] =
+              specialAttrs[RAW_REF] =
+                  specialAttrs[RAW_SLOT] = TRUE;
+  name2Type['if'] = IF;
+  name2Type['each'] = EACH;
+  name2Type['partial'] = PARTIAL;
+
+  var helper = /*#__PURE__*/Object.freeze({
+    specialTags: specialTags,
+    specialAttrs: specialAttrs,
+    name2Type: name2Type
+  });
+
+  function createAttribute(name) {
+      return {
+          type: ATTRIBUTE,
+          isStatic: TRUE,
+          name: name
+      };
+  }
+  function createDirective(ns, name, value, expr, children) {
+      return {
+          type: DIRECTIVE,
+          ns: ns,
+          name: name,
+          key: join$1(ns, name),
+          value: value,
+          expr: expr,
+          children: children
+      };
+  }
+  function createProperty(name, hint, value, expr, children) {
+      return {
+          type: PROPERTY,
+          isStatic: TRUE,
+          name: name,
+          hint: hint,
+          value: value,
+          expr: expr,
+          children: children
+      };
+  }
+  function createEach(from, to, equal, index) {
+      return {
+          type: EACH,
+          from: from,
+          to: to,
+          equal: equal,
+          index: index,
+          isComplex: TRUE
+      };
+  }
+  function createElement(tag, isSvg, isComponent) {
+      // 是 svg 就不可能是组件
+      // 加这个判断的原因是，svg 某些标签含有 连字符 和 大写字母，比较蛋疼
+      if (isSvg) {
+          isComponent = FALSE;
+      }
+      return {
+          type: ELEMENT,
+          tag: tag,
+          isSvg: isSvg,
+          isStyle: tag === 'style',
+          // 只有 <option> 没有 value 属性时才为 true
+          isOption: FALSE,
+          isComponent: isComponent,
+          isStatic: !isComponent && tag !== RAW_SLOT
+      };
+  }
+  function createElse() {
+      return {
+          type: ELSE
+      };
+  }
+  function createElseIf(expr) {
+      return {
+          type: ELSE_IF,
+          expr: expr
+      };
+  }
+  function createExpression(expr, safe) {
+      return {
+          type: EXPRESSION,
+          expr: expr,
+          safe: safe,
+          isLeaf: TRUE
+      };
+  }
+  function createIf(expr) {
+      return {
+          type: IF,
+          expr: expr
+      };
+  }
+  function createImport(name) {
+      return {
+          type: IMPORT,
+          name: name,
+          isComplex: TRUE,
+          isLeaf: TRUE
+      };
+  }
+  function createPartial(name) {
+      return {
+          type: PARTIAL,
+          name: name,
+          isComplex: TRUE
+      };
+  }
+  function createSpread(expr, binding) {
+      return {
+          type: SPREAD,
+          expr: expr,
+          binding: binding,
+          isLeaf: TRUE
+      };
+  }
+  function createText(text) {
+      return {
+          type: TEXT,
+          text: text,
+          isStatic: TRUE,
+          isLeaf: TRUE
+      };
+  }
+
+  // 常见的自闭合标签
+  var selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','),
+  // 常见的 svg 标签
+  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','),
+  // 常见的字符串类型的属性
+  // 注意：autocomplete,autocapitalize 不是布尔类型
+  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','),
+  // 常见的数字类型的属性
+  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','),
+  // 常见的布尔类型的属性
+  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','),
+  // 某些属性 attribute name 和 property name 不同
+  attr2Prop = {};
+  // 列举几个常见的
+  attr2Prop['for'] = 'htmlFor';
+  attr2Prop['class'] = 'className';
+  attr2Prop['accesskey'] = 'accessKey';
+  attr2Prop['style'] = 'style.cssText';
+  attr2Prop['novalidate'] = 'noValidate';
+  attr2Prop['readonly'] = 'readOnly';
+  attr2Prop['tabindex'] = 'tabIndex';
+  attr2Prop['minlength'] = 'minLength';
+  attr2Prop['maxlength'] = 'maxLength';
+  function isSelfClosing(tagName) {
+      return has(selfClosingTagNames, tagName);
+  }
+  function isSvg(tagName) {
+      return has(svgTagNames, tagName);
+  }
+  function createAttribute$1(element, name) {
+      // 组件用驼峰格式
+      if (element.isComponent) {
+          return createAttribute(camelize(name));
+      }
+      // 原生 dom 属性
+      else {
+          // 把 attr 优化成 prop
+          var lowerName = lower(name);
+          // <slot> 、<template> 或 svg 中的属性不用识别为 property
+          if (specialTags[element.tag] || element.isSvg) {
+              return createAttribute(name);
+          }
+          // 尝试识别成 property
+          else if (has(stringProperyNames, lowerName)) {
+              return createProperty(attr2Prop[lowerName] || lowerName, HINT_STRING);
+          }
+          else if (has(numberProperyNames, lowerName)) {
+              return createProperty(attr2Prop[lowerName] || lowerName, HINT_NUMBER);
+          }
+          else if (has(booleanProperyNames, lowerName)) {
+              return createProperty(attr2Prop[lowerName] || lowerName, HINT_BOOLEAN);
+          }
+          // 没辙，还是个 attribute
+          return createAttribute(name);
+      }
+  }
+  function getAttributeDefaultValue(element, name) {
+      // 比如 <Dog isLive>
+      if (element.isComponent) {
+          return TRUE;
+      }
+      // <div data-name checked>
+      else {
+          return startsWith(name, 'data-')
+              ? EMPTY_STRING
+              : name;
+      }
+  }
+  function compatElement(element) {
+      var tag = element.tag, attrs = element.attrs, hasType = FALSE, hasValue = FALSE;
+      if (attrs) {
+          each(attrs, function (attr) {
+              var name = attr.type === PROPERTY
+                  ? attr.name
+                  : UNDEFINED;
+              if (name === 'type') {
+                  hasType = TRUE;
+              }
+              else if (name === RAW_VALUE) {
+                  hasValue = TRUE;
+              }
+          });
+      }
+      // 补全 style 标签的 type
+      // style 如果没有 type 则加一个 type="text/css"
+      // 因为低版本 IE 没这个属性，没法正常渲染样式
+      if (element.isStyle && !hasType) {
+          push(element.attrs || (element.attrs = []), createProperty('type', HINT_STRING, 'text/css'));
+      }
+      // 低版本 IE 需要给 option 标签强制加 value
+      else if (tag === 'option' && !hasValue) {
+          element.isOption = TRUE;
       }
   }
 
@@ -2886,193 +3187,6 @@
       return isIdentifierStart(code) || isDigit(code);
   }
 
-  /**
-   * 元素 节点
-   */
-  var ELEMENT = 1;
-  /**
-   * 属性 节点
-   */
-  var ATTRIBUTE = 2;
-  /**
-   * 指令 节点
-   */
-  var DIRECTIVE = 3;
-  /**
-   * 属性 节点
-   */
-  var PROPERTY = 4;
-  /**
-   * 文本 节点
-   */
-  var TEXT = 5;
-  /**
-   * if 节点
-   */
-  var IF = 6;
-  /**
-   * else if 节点
-   */
-  var ELSE_IF = 7;
-  /**
-   * else 节点
-   */
-  var ELSE = 8;
-  /**
-   * each 节点
-   */
-  var EACH = 9;
-  /**
-   * partial 节点
-   */
-  var PARTIAL = 10;
-  /**
-   * import 节点
-   */
-  var IMPORT = 11;
-  /**
-   * 表达式 节点
-   */
-  var EXPRESSION = 12;
-  /**
-   * 延展操作 节点
-   */
-  var SPREAD = 13;
-
-  // 特殊标签
-  var specialTags = {};
-  // 特殊属性
-  var specialAttrs = {};
-  // 名称 -> 类型的映射
-  var name2Type = {};
-  specialTags[RAW_SLOT] =
-      specialTags[RAW_TEMPLATE] =
-          specialAttrs[RAW_KEY] =
-              specialAttrs[RAW_REF] =
-                  specialAttrs[RAW_SLOT] = TRUE;
-  name2Type['if'] = IF;
-  name2Type['each'] = EACH;
-  name2Type['partial'] = PARTIAL;
-
-  var helper = /*#__PURE__*/Object.freeze({
-    specialTags: specialTags,
-    specialAttrs: specialAttrs,
-    name2Type: name2Type
-  });
-
-  function createAttribute(name) {
-      return {
-          type: ATTRIBUTE,
-          isStatic: TRUE,
-          name: name
-      };
-  }
-  function createDirective(ns, name, value, expr, children) {
-      return {
-          type: DIRECTIVE,
-          ns: ns,
-          name: name,
-          key: join$1(ns, name),
-          value: value,
-          expr: expr,
-          children: children
-      };
-  }
-  function createProperty(name, hint, value, expr, children) {
-      return {
-          type: PROPERTY,
-          isStatic: TRUE,
-          name: name,
-          hint: hint,
-          value: value,
-          expr: expr,
-          children: children
-      };
-  }
-  function createEach(from, to, equal, index) {
-      return {
-          type: EACH,
-          from: from,
-          to: to,
-          equal: equal,
-          index: index,
-          isComplex: TRUE
-      };
-  }
-  function createElement(tag, isSvg, isComponent) {
-      // 是 svg 就不可能是组件
-      // 加这个判断的原因是，svg 某些标签含有 连字符 和 大写字母，比较蛋疼
-      if (isSvg) {
-          isComponent = FALSE;
-      }
-      return {
-          type: ELEMENT,
-          tag: tag,
-          isSvg: isSvg,
-          isStyle: tag === 'style',
-          // 只有 <option> 没有 value 属性时才为 true
-          isOption: FALSE,
-          isComponent: isComponent,
-          isStatic: !isComponent && tag !== RAW_SLOT
-      };
-  }
-  function createElse() {
-      return {
-          type: ELSE
-      };
-  }
-  function createElseIf(expr) {
-      return {
-          type: ELSE_IF,
-          expr: expr
-      };
-  }
-  function createExpression(expr, safe) {
-      return {
-          type: EXPRESSION,
-          expr: expr,
-          safe: safe,
-          isLeaf: TRUE
-      };
-  }
-  function createIf(expr) {
-      return {
-          type: IF,
-          expr: expr
-      };
-  }
-  function createImport(name) {
-      return {
-          type: IMPORT,
-          name: name,
-          isComplex: TRUE,
-          isLeaf: TRUE
-      };
-  }
-  function createPartial(name) {
-      return {
-          type: PARTIAL,
-          name: name,
-          isComplex: TRUE
-      };
-  }
-  function createSpread(expr, binding) {
-      return {
-          type: SPREAD,
-          expr: expr,
-          binding: binding,
-          isLeaf: TRUE
-      };
-  }
-  function createText(text) {
-      return {
-          type: TEXT,
-          text: text,
-          isStatic: TRUE,
-          isLeaf: TRUE
-      };
-  }
-
   // 当前不位于 block 之间
   var BLOCK_MODE_NONE = 1,
   // {{ x }}
@@ -3106,30 +3220,7 @@
   // 首字母大写，或中间包含 -
   componentNamePattern = /^[$A-Z]|-/,
   // 自闭合标签
-  selfClosingTagPattern = /^\s*(\/)?>/,
-  // 常见的自闭合标签
-  selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','),
-  // 常见的 svg 标签
-  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','),
-  // 常见的字符串类型的属性
-  // 注意：autocomplete,autocapitalize 不是布尔类型
-  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','),
-  // 常见的数字类型的属性
-  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','),
-  // 常见的布尔类型的属性
-  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','),
-  // 某些属性 attribute name 和 property name 不同
-  attr2Prop = {};
-  // 列举几个常见的
-  attr2Prop['for'] = 'htmlFor';
-  attr2Prop['class'] = 'className';
-  attr2Prop['accesskey'] = 'accessKey';
-  attr2Prop['style'] = 'style.cssText';
-  attr2Prop['novalidate'] = 'noValidate';
-  attr2Prop['readonly'] = 'readOnly';
-  attr2Prop['tabindex'] = 'tabIndex';
-  attr2Prop['minlength'] = 'minLength';
-  attr2Prop['maxlength'] = 'maxLength';
+  selfClosingTagPattern = /^\s*(\/)?>/;
   /**
    * 截取前缀之后的字符串
    */
@@ -3172,7 +3263,7 @@
           if (lastNode && lastNode.type === ELEMENT) {
               var element = lastNode;
               if (element.tag !== popingTagName
-                  && has(selfClosingTagNames, element.tag)) {
+                  && isSelfClosing(element.tag)) {
                   popStack(element.type, element.tag);
               }
           }
@@ -3373,21 +3464,13 @@
               prop.binding = TRUE;
           }
       }, processAttributeEmptyChildren = function (element, attr) {
-          var name = attr.name;
           if (isSpecialAttr(element, attr)) {
               {
-                  fatal$1(name + " \u5FD8\u4E86\u5199\u503C\u5427\uFF1F");
+                  fatal$1(attr.name + " \u5FD8\u4E86\u5199\u503C\u5427\uFF1F");
               }
           }
-          // 比如 <Dog isLive>
-          else if (element.isComponent) {
-              attr.value = TRUE;
-          }
-          // <div data-name checked>
           else {
-              attr.value = startsWith(name, 'data-')
-                  ? EMPTY_STRING
-                  : name;
+              attr.value = getAttributeDefaultValue(element, attr.name);
           }
       }, processAttributeSingleText = function (attr, child) {
           attr.value = child.text;
@@ -3506,7 +3589,7 @@
               replaceChild(partial);
           }
       }, checkElement = function (element) {
-          var tag = element.tag, attrs = element.attrs, slot = element.slot, children = element.children, isTemplate = tag === RAW_TEMPLATE;
+          var tag = element.tag, slot = element.slot, isTemplate = tag === RAW_TEMPLATE;
           {
               if (isTemplate) {
                   if (element.key) {
@@ -3515,7 +3598,7 @@
                   else if (element.ref) {
                       fatal$1("<template> \u4E0D\u652F\u6301 ref");
                   }
-                  else if (attrs) {
+                  else if (element.attrs) {
                       fatal$1("<template> \u4E0D\u652F\u6301\u5C5E\u6027\u6216\u6307\u4EE4");
                   }
                   else if (!slot) {
@@ -3524,38 +3607,15 @@
               }
           }
           // 没有子节点，则意味着这个插槽没任何意义
-          if (isTemplate && slot && !children) {
+          if (isTemplate && slot && !element.children) {
               replaceChild(element);
           }
           // <slot /> 如果没写 name，自动加上默认名称
           else if (tag === RAW_SLOT && !element.name) {
               element.name = SLOT_NAME_DEFAULT;
           }
-          // 补全 style 标签的 type
-          // style 如果没有 type 则加一个 type="text/css"
-          // 因为低版本 IE 没这个属性，没法正常渲染样式
           else {
-              var hasType_1 = FALSE, hasValue_1 = FALSE;
-              if (attrs) {
-                  each(attrs, function (attr) {
-                      var name = attr.type === PROPERTY
-                          ? attr.name
-                          : UNDEFINED;
-                      if (name === 'type') {
-                          hasType_1 = TRUE;
-                      }
-                      else if (name === RAW_VALUE) {
-                          hasValue_1 = TRUE;
-                      }
-                  });
-              }
-              if (element.isStyle && !hasType_1) {
-                  push(element.attrs || (element.attrs = []), createProperty('type', HINT_STRING, 'text/css'));
-              }
-              // 低版本 IE 需要给 option 标签强制加 value
-              else if (tag === 'option' && !hasValue_1) {
-                  element.isOption = TRUE;
-              }
+              compatElement(element);
           }
       }, checkDirective = function (element, directive) {
           {
@@ -3750,7 +3810,7 @@
                                   }
                               }
                           }
-                          var node = createElement(tag, has(svgTagNames, tag), componentNamePattern.test(tag));
+                          var node = createElement(tag, isSvg(tag), componentNamePattern.test(tag));
                           addChild(node);
                           currentElement = node;
                       }
@@ -3822,33 +3882,7 @@
                           node = createDirective(DIRECTIVE_CUSTOM, camelize(custom));
                       }
                       else {
-                          // 组件用驼峰格式
-                          if (currentElement.isComponent) {
-                              node = createAttribute(camelize(name));
-                          }
-                          // 原生 dom 属性
-                          else {
-                              // 把 attr 优化成 prop
-                              var lowerName = lower(name);
-                              // <slot> 、<template> 或 svg 中的属性不用识别为 property
-                              if (specialTags[currentElement.tag] || currentElement.isSvg) {
-                                  node = createAttribute(name);
-                              }
-                              // 尝试识别成 property
-                              else if (has(stringProperyNames, lowerName)) {
-                                  node = createProperty(attr2Prop[lowerName] || lowerName, HINT_STRING);
-                              }
-                              else if (has(numberProperyNames, lowerName)) {
-                                  node = createProperty(attr2Prop[lowerName] || lowerName, HINT_NUMBER);
-                              }
-                              else if (has(booleanProperyNames, lowerName)) {
-                                  node = createProperty(attr2Prop[lowerName] || lowerName, HINT_BOOLEAN);
-                              }
-                              // 没辙，还是个 attribute
-                              else {
-                                  node = createAttribute(name);
-                              }
-                          }
+                          node = createAttribute$1(currentElement, name);
                       }
                       addChild(node);
                       // 这里先记下，下一个 handler 要匹配结束引号
@@ -6401,7 +6435,7 @@
       return isDef(this.get(SLOT_DATA_PREFIX + name));
   }
 
-  var globalDirectives = {}, globalTransitions = {}, globalComponents = {}, globalPartials = {}, globalFilters = {}, compileCache = {}, LOADER_QUEUE = '$queue', TEMPLATE_COMPUTED = '$$', selectorPattern = /^[#.][-\w+]+$/;
+  var globalDirectives = {}, globalTransitions = {}, globalComponents = {}, globalPartials = {}, globalFilters = {}, compileCache = {}, TEMPLATE_COMPUTED = '$$', selectorPattern = /^[#.][-\w+]+$/;
   var Yox = /** @class */ (function () {
       function Yox(options) {
           var instance = this, $options = options || EMPTY_OBJECT;
@@ -6507,9 +6541,6 @@
                       }
                   }
               }
-              else {
-                  template = UNDEFINED;
-              }
               // 检查 el
               if (el) {
                   if (string(el)) {
@@ -6607,6 +6638,12 @@
           plugin.install(Yox);
       };
       /**
+       * 创建组件对象
+       */
+      Yox.create = function (options) {
+          return options;
+      };
+      /**
        * 因为组件采用的是异步更新机制，为了在更新之后进行一些操作，可使用 nextTick
        */
       Yox.nextTick = function (task, context) {
@@ -6633,6 +6670,9 @@
                   : new Function("return " + template)();
           }
       };
+      /**
+       * 注册全局指令
+       */
       Yox.directive = function (name, directive) {
           {
               if (string(name) && !directive) {
@@ -6641,6 +6681,9 @@
               setResource(globalDirectives, name, directive);
           }
       };
+      /**
+       * 注册全局过渡动画
+       */
       Yox.transition = function (name, transition) {
           {
               if (string(name) && !transition) {
@@ -6649,6 +6692,9 @@
               setResource(globalTransitions, name, transition);
           }
       };
+      /**
+       * 注册全局组件
+       */
       Yox.component = function (name, component) {
           {
               if (string(name) && !component) {
@@ -6657,6 +6703,9 @@
               setResource(globalComponents, name, component);
           }
       };
+      /**
+       * 注册全局子模板
+       */
       Yox.partial = function (name, partial) {
           {
               if (string(name) && !partial) {
@@ -6665,6 +6714,9 @@
               setResource(globalPartials, name, partial, Yox.compile);
           }
       };
+      /**
+       * 注册全局过滤器
+       */
       Yox.filter = function (name, filter) {
           {
               if (string(name) && !filter) {
@@ -6703,19 +6755,19 @@
           }
       };
       /**
-       * 监听事件
+       * 监听事件，支持链式调用
        */
       Yox.prototype.on = function (type, listener) {
           return addEvents(this, type, listener);
       };
       /**
-       * 监听一次事件
+       * 监听一次事件，支持链式调用
        */
       Yox.prototype.once = function (type, listener) {
           return addEvents(this, type, listener, TRUE);
       };
       /**
-       * 取消监听事件
+       * 取消监听事件，支持链式调用
        */
       Yox.prototype.off = function (type, listener) {
           this.$emitter.off(type, listener);
@@ -6759,14 +6811,14 @@
           return isComplete;
       };
       /**
-       * 监听数据变化
+       * 监听数据变化，支持链式调用
        */
       Yox.prototype.watch = function (keypath, watcher, immediate) {
           this.$observer.watch(keypath, watcher, immediate);
           return this;
       };
       /**
-       * 取消监听数据变化
+       * 取消监听数据变化，支持链式调用
        */
       Yox.prototype.unwatch = function (keypath, watcher) {
           this.$observer.unwatch(keypath, watcher);
@@ -6781,10 +6833,9 @@
       Yox.prototype.loadComponent = function (name, callback) {
           {
               if (!loadComponent(this.$components, name, callback)) {
-                  var hasComponent = loadComponent(globalComponents, name, callback);
                   {
-                      if (!hasComponent) {
-                          error("Component [" + name + "] is not found.");
+                      if (!loadComponent(globalComponents, name, callback)) {
+                          error("Component \"" + name + "\" is not found.");
                       }
                   }
               }
@@ -6832,6 +6883,9 @@
               return child;
           }
       };
+      /**
+       * 注册当前组件级别的指令
+       */
       Yox.prototype.directive = function (name, directive) {
           {
               var instance = this, $directives = instance.$directives;
@@ -6841,6 +6895,9 @@
               setResource($directives || (instance.$directives = {}), name, directive);
           }
       };
+      /**
+       * 注册当前组件级别的过渡动画
+       */
       Yox.prototype.transition = function (name, transition) {
           {
               var instance = this, $transitions = instance.$transitions;
@@ -6850,6 +6907,9 @@
               setResource($transitions || (instance.$transitions = {}), name, transition);
           }
       };
+      /**
+       * 注册当前组件级别的组件
+       */
       Yox.prototype.component = function (name, component) {
           {
               var instance = this, $components = instance.$components;
@@ -6859,6 +6919,9 @@
               setResource($components || (instance.$components = {}), name, component);
           }
       };
+      /**
+       * 注册当前组件级别的子模板
+       */
       Yox.prototype.partial = function (name, partial) {
           {
               var instance = this, $partials = instance.$partials;
@@ -6868,6 +6931,9 @@
               setResource($partials || (instance.$partials = {}), name, partial, Yox.compile);
           }
       };
+      /**
+       * 注册当前组件级别的过滤器
+       */
       Yox.prototype.filter = function (name, filter) {
           {
               var instance = this, $filters = instance.$filters;
@@ -7091,18 +7157,18 @@
       /**
        * core 版本
        */
-      Yox.version = "1.0.0-alpha.71";
+      Yox.version = "1.0.0-alpha.79";
       /**
        * 方便外部共用的通用逻辑，特别是写插件，减少重复代码
        */
       Yox.is = is;
+      Yox.dom = domApi;
       Yox.array = array$1;
       Yox.object = object$1;
       Yox.string = string$1;
       Yox.logger = logger;
       Yox.Event = CustomEvent;
       Yox.Emitter = Emitter;
-      Yox.dom = domApi;
       return Yox;
   }());
   var toString$2 = Object.prototype.toString;
@@ -7190,25 +7256,26 @@
       }
       return instance;
   }
-  function loadComponent(data, name, callback) {
-      if (data && data[name]) {
-          var component_1 = data[name];
+  function loadComponent(registry, name, callback) {
+      if (registry && registry[name]) {
+          var component_1 = registry[name];
           // 注册的是异步加载函数
           if (func(component_1)) {
-              var loader_1 = component_1, queue_1 = loader_1[LOADER_QUEUE];
-              if (queue_1) {
-                  push(queue_1, callback);
-              }
-              else {
-                  queue_1 = component_1[LOADER_QUEUE] = [callback];
-                  loader_1(function (options) {
-                      loader_1[LOADER_QUEUE] = UNDEFINED;
-                      data[name] = options;
-                      each(queue_1, function (callback) {
-                          callback(options);
-                      });
+              registry[name] = [callback];
+              var componentCallback_1 = function (result) {
+                  var queue = registry[name], options = result['default'] || result;
+                  registry[name] = options;
+                  each(queue, function (callback) {
+                      callback(options);
                   });
+              }, promise = component_1(componentCallback_1);
+              if (promise) {
+                  promise.then(componentCallback_1);
               }
+          }
+          // 正在加载中
+          else if (array(component_1)) {
+              push(component_1, callback);
           }
           // 不是异步加载函数，直接同步返回
           else {
@@ -7217,21 +7284,21 @@
           return TRUE;
       }
   }
-  function getResource(data, name, lookup) {
-      if (data && data[name]) {
-          return data[name];
+  function getResource(registry, name, lookup) {
+      if (registry && registry[name]) {
+          return registry[name];
       }
       else if (lookup) {
           return lookup(name);
       }
   }
-  function setResource(data, name, value, formatValue) {
+  function setResource(registry, name, value, formatValue) {
       if (string(name)) {
-          data[name] = formatValue ? formatValue(value) : value;
+          registry[name] = formatValue ? formatValue(value) : value;
       }
       else {
           each$2(name, function (value, key) {
-              data[key] = formatValue ? formatValue(value) : value;
+              registry[key] = formatValue ? formatValue(value) : value;
           });
       }
   }
