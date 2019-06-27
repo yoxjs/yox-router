@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha29
+ * yox-router.js v1.0.0-alpha30
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -118,12 +118,12 @@
   /**
    * 把字符串 value 解析成最合适的类型
    */
-  function parse(Yox, value) {
+  function parse(API, value) {
       var result;
-      if (Yox.is.numeric(value)) {
+      if (API.is.numeric(value)) {
           result = +value;
       }
-      else if (Yox.is.string(value)) {
+      else if (API.is.string(value)) {
           if (value === RAW_TRUE) {
               result = TRUE;
           }
@@ -139,11 +139,11 @@
       }
       return result;
   }
-  function stringify(Yox, value) {
-      if (Yox.is.string(value)) {
+  function stringify(API, value) {
+      if (API.is.string(value)) {
           return encodeURIComponent(value);
       }
-      else if (Yox.is.number(value) || Yox.is.boolean(value)) {
+      else if (API.is.number(value) || API.is.boolean(value)) {
           return value.toString();
       }
       else if (value === NULL) {
@@ -154,18 +154,18 @@
   /**
    * 把 GET 参数解析成对象
    */
-  function parse$1(Yox, query) {
+  function parse$1(API, query) {
       var result;
-      Yox.array.each(query.split(SEPARATOR_QUERY), function (term) {
-          var terms = term.split(SEPARATOR_PAIR), key = Yox.string.trim(terms[0]), value = terms[1];
+      API.array.each(query.split(SEPARATOR_QUERY), function (term) {
+          var terms = term.split(SEPARATOR_PAIR), key = API.string.trim(terms[0]), value = terms[1];
           if (key) {
               if (!result) {
                   result = {};
               }
-              value = parse(Yox, value);
-              if (Yox.string.endsWith(key, FLAG_ARRAY)) {
-                  key = Yox.string.slice(key, 0, -FLAG_ARRAY.length);
-                  Yox.array.push(result[key] || (result[key] = []), value);
+              value = parse(API, value);
+              if (API.string.endsWith(key, FLAG_ARRAY)) {
+                  key = API.string.slice(key, 0, -FLAG_ARRAY.length);
+                  API.array.push(result[key] || (result[key] = []), value);
               }
               else {
                   result[key] = value;
@@ -177,21 +177,21 @@
   /**
    * 把对象解析成 key1=value1&key2=value2
    */
-  function stringify$1(Yox, query) {
+  function stringify$1(API, query) {
       var result = [];
       var _loop_1 = function (key) {
           var value = query[key];
-          if (Yox.is.array(value)) {
-              Yox.array.each(value, function (value) {
-                  var str = stringify(Yox, value);
-                  if (Yox.is.string(str)) {
+          if (API.is.array(value)) {
+              API.array.each(value, function (value) {
+                  var str = stringify(API, value);
+                  if (API.is.string(str)) {
                       result.push(key + FLAG_ARRAY + SEPARATOR_PAIR + str);
                   }
               });
           }
           else {
-              var str = stringify(Yox, value);
-              if (Yox.is.string(str)) {
+              var str = stringify(API, value);
+              if (API.is.string(str)) {
                   result.push(key + SEPARATOR_PAIR + str);
               }
           }
@@ -900,7 +900,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha29";
+  var version = "1.0.0-alpha30";
   /**
    * 安装插件
    */

@@ -1,13 +1,13 @@
 import {
   Location,
   RouteTarget,
-  routerBeforeHook,
-  routerAfterHook,
+  RouterBeforeHook,
+  RouterAfterHook,
   DomUtil,
 } from '../../yox-type/src/type'
 
 import {
-  YoxOptions,
+  YoxTypedOptions,
   YoxInterface,
 } from '../../yox-type/src/global'
 
@@ -19,6 +19,10 @@ import {
   ROUTER_HOOK_BEFORE_LEAVE,
   ROUTER_HOOK_AFTER_LEAVE,
 } from './constant'
+
+import Yox from '../../yox/src/Yox'
+
+export type API = typeof Yox
 
 export type Target = string | RouteTarget
 
@@ -35,27 +39,27 @@ export interface RouterOptions {
   routes: RouteOptions[]
   route404?: RouteOptions
   mode?: 'hash' | 'history'
-  [ROUTER_HOOK_BEFORE_ENTER]?: routerBeforeHook
-  [ROUTER_HOOK_AFTER_ENTER]?: routerAfterHook
-  [ROUTER_HOOK_BEFORE_UPDATE]?: routerBeforeHook
-  [ROUTER_HOOK_AFTER_UPDATE]?: routerAfterHook
-  [ROUTER_HOOK_BEFORE_LEAVE]?: routerBeforeHook
-  [ROUTER_HOOK_AFTER_LEAVE]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_ENTER]?: RouterBeforeHook
+  [ROUTER_HOOK_AFTER_ENTER]?: RouterAfterHook
+  [ROUTER_HOOK_BEFORE_UPDATE]?: RouterBeforeHook
+  [ROUTER_HOOK_AFTER_UPDATE]?: RouterAfterHook
+  [ROUTER_HOOK_BEFORE_LEAVE]?: RouterBeforeHook
+  [ROUTER_HOOK_AFTER_LEAVE]?: RouterAfterHook
 }
 
 export interface RouteOptions {
   path: string
-  component?: YoxOptions
+  component?: YoxTypedOptions
   name?: string
   load?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
-  [ROUTER_HOOK_BEFORE_ENTER]?: routerBeforeHook
-  [ROUTER_HOOK_AFTER_ENTER]?: routerAfterHook
-  [ROUTER_HOOK_BEFORE_UPDATE]?: routerBeforeHook
-  [ROUTER_HOOK_AFTER_UPDATE]?: routerAfterHook
-  [ROUTER_HOOK_BEFORE_LEAVE]?: routerBeforeHook
-  [ROUTER_HOOK_AFTER_LEAVE]?: routerAfterHook
+  [ROUTER_HOOK_BEFORE_ENTER]?: RouterBeforeHook
+  [ROUTER_HOOK_AFTER_ENTER]?: RouterAfterHook
+  [ROUTER_HOOK_BEFORE_UPDATE]?: RouterBeforeHook
+  [ROUTER_HOOK_AFTER_UPDATE]?: RouterAfterHook
+  [ROUTER_HOOK_BEFORE_LEAVE]?: RouterBeforeHook
+  [ROUTER_HOOK_AFTER_LEAVE]?: RouterAfterHook
 }
 
 export interface LinkedRoute {
@@ -63,7 +67,7 @@ export interface LinkedRoute {
   route: RouteOptions
   name?: string
   load?: RouteLoader
-  component?: YoxOptions
+  component?: YoxTypedOptions
   params?: string[]
   context?: YoxInterface
   parent?: LinkedRoute

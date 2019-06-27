@@ -1,18 +1,16 @@
-import {
-  YoxClass,
-} from '../../../yox-type/src/global'
+import { API } from '../type'
 
 import * as env from '../../../yox-common/src/util/env'
 
 /**
  * 把字符串 value 解析成最合适的类型
  */
-export function parse(Yox: YoxClass, value: string) {
+export function parse(API: API, value: string) {
   let result: any
-  if (Yox.is.numeric(value)) {
+  if (API.is.numeric(value)) {
     result = +value
   }
-  else if (Yox.is.string(value)) {
+  else if (API.is.string(value)) {
     if (value === env.RAW_TRUE) {
       result = env.TRUE
     }
@@ -29,11 +27,11 @@ export function parse(Yox: YoxClass, value: string) {
   return result
 }
 
-export function stringify(Yox: YoxClass, value: any): string | void {
-  if (Yox.is.string(value)) {
+export function stringify(API: API, value: any): string | void {
+  if (API.is.string(value)) {
     return encodeURIComponent(value)
   }
-  else if (Yox.is.number(value) || Yox.is.boolean(value)) {
+  else if (API.is.number(value) || API.is.boolean(value)) {
     return value.toString()
   }
   else if (value === env.NULL) {
