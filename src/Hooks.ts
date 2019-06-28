@@ -1,7 +1,10 @@
 import {
   Task,
-  Location,
 } from '../../yox-type/src/type'
+
+import {
+  Location,
+} from '../../yox-type/src/router'
 
 import {
   Callback,

@@ -7,7 +7,7 @@ import * as valueUtil from './value'
  * 把 GET 参数解析成对象
  */
 export function parse(API: API, query: string) {
-  let result: Object | undefined
+  let result: object | undefined
   API.array.each(
     query.split(constant.SEPARATOR_QUERY),
     function (term) {
@@ -43,7 +43,7 @@ export function parse(API: API, query: string) {
 /**
  * 把对象解析成 key1=value1&key2=value2
  */
-export function stringify(API: API, query: Object) {
+export function stringify(API: API, query: object) {
   const result: string[] = []
   for (let key in query) {
     const value = query[key]

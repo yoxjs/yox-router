@@ -1,15 +1,24 @@
 import {
   Location,
   RouteTarget,
+} from '../../yox-type/src/router'
+
+import {
   RouterBeforeHook,
   RouterAfterHook,
-  DomUtil,
 } from '../../yox-type/src/type'
 
 import {
-  YoxTypedOptions,
+  DomApi,
+} from '../../yox-type/src/api'
+
+import {
+  TypedComponentOptions,
+} from '../../yox-type/src/options'
+
+import {
   YoxInterface,
-} from '../../yox-type/src/global'
+} from '../../yox-type/src/yox'
 
 import {
   ROUTER_HOOK_BEFORE_ENTER,
@@ -49,7 +58,7 @@ export interface RouterOptions {
 
 export interface RouteOptions {
   path: string
-  component?: YoxTypedOptions
+  component?: TypedComponentOptions
   name?: string
   load?: RouteLoader
   redirect?: Target | Redirect
@@ -67,7 +76,7 @@ export interface LinkedRoute {
   route: RouteOptions
   name?: string
   load?: RouteLoader
-  component?: YoxTypedOptions
+  component?: TypedComponentOptions
   params?: string[]
   context?: YoxInterface
   parent?: LinkedRoute
@@ -82,8 +91,8 @@ export interface Pending {
 }
 
 export interface Mode {
-  start(domUtil: DomUtil, handler: Function): void
-  stop(domUtil: DomUtil, handler: Function): void
+  start(domApi: DomApi, handler: Function): void
+  stop(domApi: DomApi, handler: Function): void
   push(location: Location, handler: Function): void
   go(n: number): void
   current(): string

@@ -1,17 +1,29 @@
 import {
   Data,
-  VNode,
-  Directive,
-  Location,
-  RouteTarget,
+  Listener,
 } from '../../yox-type/src/type'
 
 import {
-  Listener,
+  Location,
+  RouteTarget,
+} from '../../yox-type/src/router'
+
+import {
+  VNode,
+  Directive,
+} from '../../yox-type/src/vnode'
+
+import {
+  TypedComponentOptions,
+} from '../../yox-type/src/options'
+
+import {
   CustomEventInterface,
-  YoxTypedOptions,
+} from '../../yox-type/src/emitter'
+
+import {
   YoxInterface,
-} from '../../yox-type/src/global'
+} from '../../yox-type/src/yox'
 
 import {
   ROUTER_HOOK_BEFORE_ENTER,
@@ -155,7 +167,7 @@ function toUrl(target: Target, name2Path: Data): string {
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: LinkedRoute, location: Location, options: YoxTypedOptions) {
+function filterProps(route: LinkedRoute, location: Location, options: TypedComponentOptions) {
   const result: Data = {}, propTypes = options.propTypes
   if (propTypes) {
 
@@ -560,7 +572,7 @@ export class Router {
     hooks
       .clear()
       // 先调用组件的钩子
-      .add((route.component as YoxTypedOptions)[componentHook], route.context)
+      .add((route.component as TypedComponentOptions)[componentHook], route.context)
       // 再调用路由配置的钩子
       .add(route.route[hook], route.route)
       // 最后调用路由实例的钩子
@@ -839,7 +851,7 @@ export class Router {
             filterProps(
               parent,
               location,
-              parent.component as YoxTypedOptions
+              parent.component as TypedComponentOptions
             )
           )
 
@@ -863,13 +875,13 @@ export class Router {
           extensions[ROUTER] = instance
           extensions[ROUTE] = route
 
-          const options: YoxTypedOptions = API.object.extend(
+          const options: TypedComponentOptions = API.object.extend(
             {
               el: instance.el,
-              props: filterProps(route, location, component as YoxTypedOptions),
+              props: filterProps(route, location, component as TypedComponentOptions),
               extensions,
             },
-            component as YoxTypedOptions
+            component as TypedComponentOptions
           )
 
           options.events = options.events
@@ -886,7 +898,7 @@ export class Router {
         if (context.$vnode) {
           context[ROUTE] = route
           context.forceUpdate(
-            filterProps(route, location, component as YoxTypedOptions)
+            filterProps(route, location, component as TypedComponentOptions)
           )
         }
         else {
@@ -1009,7 +1021,7 @@ directive = {
   },
 },
 
-RouterView: YoxTypedOptions = {
+RouterView: TypedComponentOptions = {
   template: '<$' + ROUTE_COMPONENT + '/>',
   beforeCreate(options) {
 
@@ -1059,7 +1071,7 @@ export function install(Yox: API): void {
   hookEvents = {
     'beforeCreate.hook': function (event: CustomEventInterface, data?: Data) {
       if (data) {
-        let options = data as YoxTypedOptions, { context } = options
+        let options = data as TypedComponentOptions, { context } = options
         // 当前组件是 <router-view> 中的动态组件
         if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
           // 找到渲染 <router-view> 的父级组件，它是一定存在的

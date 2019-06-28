@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha30
+ * yox-router.js v1.0.0-alpha31
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -204,12 +204,12 @@
 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
   var HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
-  function start(domUtil, handler) {
-      domUtil.on(WINDOW, HASH_CHANGE, handler);
+  function start(domApi, handler) {
+      domApi.on(WINDOW, HASH_CHANGE, handler);
       handler();
   }
-  function stop(domUtil, handler) {
-      domUtil.off(WINDOW, HASH_CHANGE, handler);
+  function stop(domApi, handler) {
+      domApi.off(WINDOW, HASH_CHANGE, handler);
   }
   function push(location, handler) {
       LOCATION.hash = HASH_PREFIX + location.url;
@@ -236,12 +236,12 @@
 
   var POP_STATE = 'popstate';
   var isSupported = 'pushState' in HISTORY;
-  function start$1(domUtil, handler) {
-      domUtil.on(WINDOW, POP_STATE, handler);
+  function start$1(domApi, handler) {
+      domApi.on(WINDOW, POP_STATE, handler);
       handler();
   }
-  function stop$1(domUtil, handler) {
-      domUtil.off(WINDOW, POP_STATE, handler);
+  function stop$1(domApi, handler) {
+      domApi.off(WINDOW, POP_STATE, handler);
   }
   function push$1(location, handler) {
       // 调用 pushState 不会触发 popstate 事件
@@ -900,7 +900,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha30";
+  var version = "1.0.0-alpha31";
   /**
    * 安装插件
    */
