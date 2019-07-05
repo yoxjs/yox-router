@@ -14,7 +14,7 @@ import {
 } from '../../yox-type/src/vnode'
 
 import {
-  TypedComponentOptions,
+  ComponentOptions,
 } from '../../yox-type/src/options'
 
 import {
@@ -167,7 +167,7 @@ function toUrl(target: Target, name2Path: Data): string {
  * 1. 避免传入不符预期的数据
  * 2. 避免覆盖 data 定义的数据
  */
-function filterProps(route: LinkedRoute, location: Location, options: TypedComponentOptions) {
+function filterProps(route: LinkedRoute, location: Location, options: ComponentOptions) {
   const result: Data = {}, propTypes = options.propTypes
   if (propTypes) {
 
@@ -572,7 +572,7 @@ export class Router {
     hooks
       .clear()
       // 先调用组件的钩子
-      .add((route.component as TypedComponentOptions)[componentHook], route.context)
+      .add((route.component as ComponentOptions)[componentHook], route.context)
       // 再调用路由配置的钩子
       .add(route.route[hook], route.route)
       // 最后调用路由实例的钩子
@@ -851,7 +851,7 @@ export class Router {
             filterProps(
               parent,
               location,
-              parent.component as TypedComponentOptions
+              parent.component as ComponentOptions
             )
           )
 
@@ -875,13 +875,13 @@ export class Router {
           extensions[ROUTER] = instance
           extensions[ROUTE] = route
 
-          const options: TypedComponentOptions = API.object.extend(
+          const options: ComponentOptions = API.object.extend(
             {
               el: instance.el,
-              props: filterProps(route, location, component as TypedComponentOptions),
+              props: filterProps(route, location, component as ComponentOptions),
               extensions,
             },
-            component as TypedComponentOptions
+            component as ComponentOptions
           )
 
           options.events = options.events
@@ -898,7 +898,7 @@ export class Router {
         if (context.$vnode) {
           context[ROUTE] = route
           context.forceUpdate(
-            filterProps(route, location, component as TypedComponentOptions)
+            filterProps(route, location, component as ComponentOptions)
           )
         }
         else {
@@ -1021,7 +1021,7 @@ directive = {
   },
 },
 
-RouterView: TypedComponentOptions = {
+RouterView: ComponentOptions = {
   template: '<$' + ROUTE_COMPONENT + '/>',
   beforeCreate(options) {
 
@@ -1071,7 +1071,7 @@ export function install(Yox: API): void {
   hookEvents = {
     'beforeCreate.hook': function (event: CustomEventInterface, data?: Data) {
       if (data) {
-        let options = data as TypedComponentOptions, { context } = options
+        let options = data as ComponentOptions, { context } = options
         // 当前组件是 <router-view> 中的动态组件
         if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
           // 找到渲染 <router-view> 的父级组件，它是一定存在的

@@ -13,7 +13,7 @@ import {
 } from '../../yox-type/src/api'
 
 import {
-  TypedComponentOptions,
+  ComponentOptions,
 } from '../../yox-type/src/options'
 
 import {
@@ -58,7 +58,7 @@ export interface RouterOptions {
 
 export interface RouteOptions {
   path: string
-  component?: TypedComponentOptions
+  component?: ComponentOptions
   name?: string
   load?: RouteLoader
   redirect?: Target | Redirect
@@ -76,7 +76,7 @@ export interface LinkedRoute {
   route: RouteOptions
   name?: string
   load?: RouteLoader
-  component?: TypedComponentOptions
+  component?: ComponentOptions
   params?: string[]
   context?: YoxInterface
   parent?: LinkedRoute
