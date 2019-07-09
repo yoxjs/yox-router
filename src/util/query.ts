@@ -1,6 +1,13 @@
-import { API } from '../type'
+import {
+  API,
+} from '../type'
 
-import * as constant from '../constant'
+import {
+  SEPARATOR_QUERY,
+  SEPARATOR_PAIR,
+  FLAG_ARRAY,
+} from '../constant'
+
 import * as valueUtil from './value'
 
 /**
@@ -9,10 +16,10 @@ import * as valueUtil from './value'
 export function parse(API: API, query: string) {
   let result: object | undefined
   API.array.each(
-    query.split(constant.SEPARATOR_QUERY),
+    query.split(SEPARATOR_QUERY),
     function (term) {
 
-      let terms = term.split(constant.SEPARATOR_PAIR),
+      let terms = term.split(SEPARATOR_PAIR),
 
       key = API.string.trim(terms[0]),
 
@@ -23,8 +30,8 @@ export function parse(API: API, query: string) {
           result = {}
         }
         value = valueUtil.parse(API, value)
-        if (API.string.endsWith(key, constant.FLAG_ARRAY)) {
-          key = API.string.slice(key, 0, -constant.FLAG_ARRAY.length)
+        if (API.string.endsWith(key, FLAG_ARRAY)) {
+          key = API.string.slice(key, 0, -FLAG_ARRAY.length)
           API.array.push(
             result[key] || (result[key] = []),
             value
@@ -54,7 +61,7 @@ export function stringify(API: API, query: object) {
           const str = valueUtil.stringify(API, value)
           if (API.is.string(str)) {
             result.push(
-              key + constant.FLAG_ARRAY + constant.SEPARATOR_PAIR + str
+              key + FLAG_ARRAY + SEPARATOR_PAIR + str
             )
           }
         }
@@ -64,10 +71,10 @@ export function stringify(API: API, query: object) {
       const str = valueUtil.stringify(API, value)
       if (API.is.string(str)) {
         result.push(
-          key + constant.SEPARATOR_PAIR + str
+          key + SEPARATOR_PAIR + str
         )
       }
     }
   }
-  return result.join(constant.SEPARATOR_QUERY)
+  return result.join(SEPARATOR_QUERY)
 }

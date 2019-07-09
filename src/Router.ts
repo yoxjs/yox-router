@@ -32,8 +32,8 @@ import {
   ROUTER_HOOK_AFTER_UPDATE,
   ROUTER_HOOK_BEFORE_LEAVE,
   ROUTER_HOOK_AFTER_LEAVE,
-  SEPARATOR_PATH,
   PREFIX_PARAM,
+  SEPARATOR_PATH,
   SEPARATOR_SEARCH,
 } from './constant'
 
@@ -50,7 +50,14 @@ import {
   RouteCallback,
 } from './type'
 
-import * as config from '../../yox-config/src/config'
+import {
+  HOOK_BEFORE_ROUTE_ENTER,
+  HOOK_AFTER_ROUTE_ENTER,
+  HOOK_BEFORE_ROUTE_UPDATE,
+  HOOK_AFTER_ROUTE_UPDATE,
+  HOOK_BEFORE_ROUTE_LEAVE,
+  HOOK_AFTER_ROUTE_LEAVE,
+} from '../../yox-config/src/config'
 
 import * as env from '../../yox-common/src/util/env'
 
@@ -944,7 +951,7 @@ export class Router {
         function (route, startRoute) {
           instance.hook(
             newRoute,
-            startRoute ? config.HOOK_BEFORE_ROUTE_ENTER : config.HOOK_BEFORE_ROUTE_UPDATE,
+            startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE,
             startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE,
             env.TRUE,
             function () {
@@ -965,7 +972,7 @@ export class Router {
     if (oldRoute && oldLocation && location.path !== oldLocation.path) {
       instance.hook(
         oldRoute,
-        config.HOOK_BEFORE_ROUTE_LEAVE,
+        HOOK_BEFORE_ROUTE_LEAVE,
         ROUTER_HOOK_BEFORE_LEAVE,
         env.TRUE,
         enterRoute
@@ -1095,7 +1102,7 @@ export function install(Yox: API): void {
     'afterMount.hook': function (event: CustomEventInterface) {
       updateRoute(
         event.target as YoxInterface,
-        config.HOOK_AFTER_ROUTE_ENTER,
+        HOOK_AFTER_ROUTE_ENTER,
         ROUTER_HOOK_AFTER_ENTER,
         env.TRUE
       )
@@ -1103,7 +1110,7 @@ export function install(Yox: API): void {
     'afterUpdate.hook': function (event: CustomEventInterface) {
       updateRoute(
         event.target as YoxInterface,
-        config.HOOK_AFTER_ROUTE_UPDATE,
+        HOOK_AFTER_ROUTE_UPDATE,
         ROUTER_HOOK_AFTER_UPDATE,
         env.TRUE
       )
@@ -1111,7 +1118,7 @@ export function install(Yox: API): void {
     'afterDestroy.hook': function (event: CustomEventInterface) {
       updateRoute(
         event.target as YoxInterface,
-        config.HOOK_AFTER_ROUTE_LEAVE,
+        HOOK_AFTER_ROUTE_LEAVE,
         ROUTER_HOOK_AFTER_LEAVE
       )
     }

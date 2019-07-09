@@ -1,4 +1,6 @@
-import { API } from '../type'
+import {
+  API,
+} from '../type'
 
 import * as env from '../../../yox-common/src/util/env'
 
