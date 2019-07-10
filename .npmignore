@@ -1,4 +1,6 @@
 test
+docs
+example
 node_modules
 build
 .gitignore
