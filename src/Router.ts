@@ -50,7 +50,7 @@ import {
   RouterOptions,
   RouteOptions,
   LinkedRoute,
-  Pending,
+  RoutePending,
   Redirect,
   RouteCallback,
 } from './type'
@@ -260,7 +260,7 @@ export class Router {
 
   cursor: number
 
-  pending?: Pending
+  pending?: RoutePending
 
   // 路由钩子
   hooks: Hooks
@@ -651,7 +651,7 @@ export class Router {
     url: string,
     onComplete: Function,
     onAbort: Function,
-    callback: (locaiton: Location, pending: Pending) => void
+    callback: (locaiton: Location, pending: RoutePending) => void
   ) {
 
     // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
