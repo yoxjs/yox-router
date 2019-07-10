@@ -51,7 +51,6 @@ import {
   RouteOptions,
   LinkedRoute,
   Pending,
-  Callback,
   Redirect,
   RouteCallback,
 } from './type'
@@ -66,6 +65,7 @@ import {
 } from '../../yox-config/src/config'
 
 import Hooks from './Hooks'
+
 import * as queryUtil from './util/query'
 import * as valueUtil from './util/value'
 
@@ -580,7 +580,7 @@ export class Router {
   /**
    * 钩子函数
    */
-  hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Callback) {
+  hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Function) {
 
     const instance = this, { location, hooks, pending } = instance
 
@@ -649,8 +649,8 @@ export class Router {
 
   private setUrl(
     url: string,
-    onComplete: Callback,
-    onAbort: Callback,
+    onComplete: Function,
+    onAbort: Function,
     callback: (locaiton: Location, pending: Pending) => void
   ) {
 

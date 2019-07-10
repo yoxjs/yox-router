@@ -37,8 +37,6 @@ export type Target = string | RouteTarget
 
 export type Redirect = (to: Location) => Target
 
-export type Callback = () => void
-
 export type RouteCallback = (route: RouteOptions) => void
 
 export type RouteLoader = (callback: RouteCallback) => Promise<any> | void
@@ -86,8 +84,8 @@ export interface LinkedRoute {
 export interface Pending {
   cursor?: number
   location: Location
-  onComplete: Callback
-  onAbort: Callback
+  onComplete: Function
+  onAbort: Function
 }
 
 export interface Mode {

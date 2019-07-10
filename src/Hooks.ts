@@ -6,10 +6,6 @@ import {
   Location,
 } from '../../yox-type/src/router'
 
-import {
-  Callback,
-} from './type'
-
 export default class Hooks {
 
   list: Task[]
@@ -40,7 +36,7 @@ export default class Hooks {
     return this
   }
 
-  next(next: Function, isGuard?: boolean, callback?: Callback) {
+  next(next: Function, isGuard?: boolean, callback?: Function) {
     const task = this.list.shift()
     if (task) {
       if (isGuard) {
