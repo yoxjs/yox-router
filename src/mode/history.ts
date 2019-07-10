@@ -20,13 +20,13 @@ const POP_STATE = 'popstate'
 
 export const isSupported = 'pushState' in HISTORY
 
-export function start(domApi: DomApi, handler: Function) {
-  domApi.on(WINDOW, POP_STATE, handler as Listener)
+export function start(api: DomApi, handler: Function) {
+  api.on(WINDOW, POP_STATE, handler as Listener)
   handler()
 }
 
-export function stop(domApi: DomApi, handler: Function) {
-  domApi.off(WINDOW, POP_STATE, handler)
+export function stop(api: DomApi, handler: Function) {
+  api.off(WINDOW, POP_STATE, handler)
 }
 
 export function push(location: Location, handler: Function) {

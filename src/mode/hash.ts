@@ -22,13 +22,13 @@ const HASH_PREFIX = '#!',
 
 HASH_CHANGE = 'hashchange'
 
-export function start(domApi: DomApi, handler: Function) {
-  domApi.on(WINDOW, HASH_CHANGE, handler as Listener)
+export function start(api: DomApi, handler: Function) {
+  api.on(WINDOW, HASH_CHANGE, handler as Listener)
   handler()
 }
 
-export function stop(domApi: DomApi, handler: Function) {
-  domApi.off(WINDOW, HASH_CHANGE, handler)
+export function stop(api: DomApi, handler: Function) {
+  api.off(WINDOW, HASH_CHANGE, handler)
 }
 
 export function push(location: Location, handler: Function) {

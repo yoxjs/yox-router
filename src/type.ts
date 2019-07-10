@@ -89,8 +89,8 @@ export interface Pending {
 }
 
 export interface Mode {
-  start(domApi: DomApi, handler: Function): void
-  stop(domApi: DomApi, handler: Function): void
+  start(api: DomApi, handler: Function): void
+  stop(api: DomApi, handler: Function): void
   push(location: Location, handler: Function): void
   go(n: number): void
   current(): string

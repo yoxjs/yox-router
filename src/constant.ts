@@ -1,6 +1,7 @@
 export const WINDOW = window
 
 export const LOCATION = WINDOW.location
+
 export const HISTORY = WINDOW.history
 
 export const UNDEFINED = void 0
