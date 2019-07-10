@@ -156,7 +156,7 @@ function toUrl(target: Target, name2Path: Data): string {
     path = name2Path[name]
     if (process.env.NODE_ENV === 'development') {
       if (!API.is.string(path)) {
-        API.logger.error(`The route of name[${name}] is not found.`)
+        API.logger.error(`The route of name "${name}" is not found.`)
       }
     }
   }
@@ -280,7 +280,7 @@ export class Router {
 
     if (process.env.NODE_ENV === 'development') {
       if (!instance.el) {
-        API.logger.error(`router.el is not an element.`)
+        API.logger.error(`The "el" option must be an element or a selector.`)
         return
       }
     }
@@ -413,7 +413,7 @@ export class Router {
         if (name) {
           if (process.env.NODE_ENV === 'development') {
             if (API.object.has(instance.name2Path, name)) {
-              API.logger.error(`Name[${name}] of the route is existed.`)
+              API.logger.error(`The name "${name}" of the route is existed.`)
               return
             }
           }
@@ -422,7 +422,7 @@ export class Router {
 
         if (process.env.NODE_ENV === 'development') {
           if (API.object.has(instance.path2Route, path)) {
-            API.logger.error(`path [${path}] of the route is existed.`)
+            API.logger.error(`The path "${path}" of the route is existed.`)
             return
           }
         }
@@ -664,7 +664,7 @@ export class Router {
           )
         }
         else if (process.env.NODE_ENV === 'development') {
-          API.logger.error(`"${url}" can't match a route.`)
+          API.logger.error(`The url "${url}" can't match a route.`)
         }
 
       }

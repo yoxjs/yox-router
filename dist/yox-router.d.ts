@@ -644,7 +644,6 @@ export declare type YoxClass = typeof Yox;
 export declare type EmitterClass = typeof Emitter;
 export declare type CustomEventClass = typeof CustomEvent;
 export declare type YoxPlugin = {
-	version: string;
 	install(Yox: YoxClass): void;
 };
 declare class Yox<Computed, Watchers, Events, Methods> implements YoxInterface {
@@ -890,7 +889,7 @@ export declare type Target = string | RouteTarget;
 export declare type Redirect = (to: Location) => Target;
 export declare type Callback = () => void;
 export declare type RouteCallback = (route: RouteOptions) => void;
-export declare type RouteLoader = (callback: RouteCallback) => Promise<RouteOptions> | void;
+export declare type RouteLoader = (callback: RouteCallback) => Promise<any> | void;
 export interface RouterOptions {
 	el: Element | string;
 	routes: RouteOptions[];

@@ -1,6 +1,6 @@
 {
   "name": "yox-router",
-  "version": "1.0.0-alpha.34",
+  "version": "1.0.0-alpha.35",
   "description": "Official Router for Yox.js",
   "main": "dist/yox-router.js",
   "module": "dist/yox-router.esm.js",

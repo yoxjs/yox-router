@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.34
+ * yox-router.js v1.0.0-alpha.35
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -321,7 +321,7 @@
           path = name2Path[name];
           {
               if (!API.is.string(path)) {
-                  API.logger.error("The route of name[" + name + "] is not found.");
+                  API.logger.error("The route of name \"" + name + "\" is not found.");
               }
           }
       }
@@ -394,7 +394,7 @@
               : el;
           {
               if (!instance.el) {
-                  API.logger.error("router.el is not an element.");
+                  API.logger.error("The \"el\" option must be an element or a selector.");
                   return;
               }
           }
@@ -473,7 +473,7 @@
                   if (name) {
                       {
                           if (API.object.has(instance.name2Path, name)) {
-                              API.logger.error("Name[" + name + "] of the route is existed.");
+                              API.logger.error("The name \"" + name + "\" of the route is existed.");
                               return;
                           }
                       }
@@ -481,7 +481,7 @@
                   }
                   {
                       if (API.object.has(instance.path2Route, path)) {
-                          API.logger.error("path [" + path + "] of the route is existed.");
+                          API.logger.error("The path \"" + path + "\" of the route is existed.");
                           return;
                       }
                   }
@@ -648,7 +648,7 @@
                   });
               }
               else {
-                  API.logger.error("\"" + url + "\" can't match a route.");
+                  API.logger.error("The url \"" + url + "\" can't match a route.");
               }
           });
       };
@@ -900,7 +900,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.34";
+  var version = "1.0.0-alpha.35";
   /**
    * 安装插件
    */
