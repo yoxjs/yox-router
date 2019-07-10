@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.35
+ * yox-router.js v1.0.0-alpha.36
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -7,6 +7,13 @@
 const WINDOW = window;
 const LOCATION = WINDOW.location;
 const HISTORY = WINDOW.history;
+const UNDEFINED = void 0;
+const NULL = null;
+const TRUE = true;
+const FALSE = false;
+const RAW_NULL = 'null';
+const RAW_TRUE = 'true';
+const RAW_FALSE = 'false';
 // path 中的参数前缀，如 /user/:userId
 const PREFIX_PARAM = ':';
 // path 分隔符
@@ -19,6 +26,8 @@ const SEPARATOR_QUERY = '&';
 const SEPARATOR_PAIR = '=';
 // 参数中的数组标识
 const FLAG_ARRAY = '[]';
+// history 模式
+const MODE_HISTORY = 'history';
 // 导航钩子 - 路由进入之前
 const ROUTER_HOOK_BEFORE_ENTER = 'beforeEnter';
 // 导航钩子 - 路由进入之后
@@ -39,35 +48,6 @@ const HOOK_BEFORE_ROUTE_UPDATE = 'beforeRouteUpdate';
 const HOOK_AFTER_ROUTE_UPDATE = 'afterRouteUpdate';
 const HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave';
 const HOOK_AFTER_ROUTE_LEAVE = 'afterRouteLeave';
-
-/**
- * 为了压缩，定义的常量
- */
-const TRUE = true;
-const FALSE = false;
-const NULL = null;
-const UNDEFINED = void 0;
-
-const RAW_TRUE = 'true';
-const RAW_FALSE = 'false';
-const RAW_NULL = 'null';
-
-/**
- * Single instance for noop function
- */
-const EMPTY_FUNCTION = function () {
-  /** yox */
-};
-
-/**
- * 空对象，很多地方会用到，比如 `a || EMPTY_OBJECT` 确保是个对象
- */
-const EMPTY_OBJECT = Object.freeze({});
-
-/**
- * 空数组
- */
-const EMPTY_ARRAY = Object.freeze([]);
 
 class Hooks {
     setLocation(to, from) {
@@ -192,12 +172,12 @@ function stringify$1(API, query) {
 
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
-function start(domApi, handler) {
-    domApi.on(WINDOW, HASH_CHANGE, handler);
+function start(api, handler) {
+    api.on(WINDOW, HASH_CHANGE, handler);
     handler();
 }
-function stop(domApi, handler) {
-    domApi.off(WINDOW, HASH_CHANGE, handler);
+function stop(api, handler) {
+    api.off(WINDOW, HASH_CHANGE, handler);
 }
 function push(location, handler) {
     LOCATION.hash = HASH_PREFIX + location.url;
@@ -224,12 +204,12 @@ var hashMode = /*#__PURE__*/Object.freeze({
 
 const POP_STATE = 'popstate';
 const isSupported = 'pushState' in HISTORY;
-function start$1(domApi, handler) {
-    domApi.on(WINDOW, POP_STATE, handler);
+function start$1(api, handler) {
+    api.on(WINDOW, POP_STATE, handler);
     handler();
 }
-function stop$1(domApi, handler) {
-    domApi.off(WINDOW, POP_STATE, handler);
+function stop$1(api, handler) {
+    api.off(WINDOW, POP_STATE, handler);
 }
 function push$1(location, handler) {
     // 调用 pushState 不会触发 popstate 事件
@@ -254,7 +234,7 @@ var historyMode = /*#__PURE__*/Object.freeze({
 });
 
 let API, hookEvents, guid = 0;
-const ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
+const ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EMPTY_FUNCTION = new Function();
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
  */
@@ -386,7 +366,9 @@ class Router {
                 return;
             }
         }
-        instance.mode = options.mode === 'history' && isSupported ? historyMode : hashMode;
+        instance.mode = options.mode === MODE_HISTORY && isSupported
+            ? historyMode
+            : hashMode;
         instance.handler = function () {
             const url = instance.mode.current(), { pending } = instance;
             if (pending) {
@@ -887,7 +869,7 @@ const default404 = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.35";
+const version = "1.0.0-alpha.36";
 /**
  * 安装插件
  */

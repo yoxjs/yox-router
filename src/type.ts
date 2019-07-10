@@ -81,7 +81,7 @@ export interface LinkedRoute {
   child?: LinkedRoute
 }
 
-export interface Pending {
+export interface RoutePending {
   cursor?: number
   location: Location
   onComplete: Function

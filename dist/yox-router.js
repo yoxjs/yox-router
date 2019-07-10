@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.35
+ * yox-router.js v1.0.0-alpha.36
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -13,6 +13,13 @@
   var WINDOW = window;
   var LOCATION = WINDOW.location;
   var HISTORY = WINDOW.history;
+  var UNDEFINED = void 0;
+  var NULL = null;
+  var TRUE = true;
+  var FALSE = false;
+  var RAW_NULL = 'null';
+  var RAW_TRUE = 'true';
+  var RAW_FALSE = 'false';
   // path 中的参数前缀，如 /user/:userId
   var PREFIX_PARAM = ':';
   // path 分隔符
@@ -25,6 +32,8 @@
   var SEPARATOR_PAIR = '=';
   // 参数中的数组标识
   var FLAG_ARRAY = '[]';
+  // history 模式
+  var MODE_HISTORY = 'history';
   // 导航钩子 - 路由进入之前
   var ROUTER_HOOK_BEFORE_ENTER = 'beforeEnter';
   // 导航钩子 - 路由进入之后
@@ -45,35 +54,6 @@
   var HOOK_AFTER_ROUTE_UPDATE = 'afterRouteUpdate';
   var HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave';
   var HOOK_AFTER_ROUTE_LEAVE = 'afterRouteLeave';
-
-  /**
-   * 为了压缩，定义的常量
-   */
-  var TRUE = true;
-  var FALSE = false;
-  var NULL = null;
-  var UNDEFINED = void 0;
-
-  var RAW_TRUE = 'true';
-  var RAW_FALSE = 'false';
-  var RAW_NULL = 'null';
-
-  /**
-   * Single instance for noop function
-   */
-  var EMPTY_FUNCTION = function () {
-    /** yox */
-  };
-
-  /**
-   * 空对象，很多地方会用到，比如 `a || EMPTY_OBJECT` 确保是个对象
-   */
-  var EMPTY_OBJECT = Object.freeze({});
-
-  /**
-   * 空数组
-   */
-  var EMPTY_ARRAY = Object.freeze([]);
 
   var Hooks = /** @class */ (function () {
       function Hooks() {
@@ -204,12 +184,12 @@
 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
   var HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
-  function start(domApi, handler) {
-      domApi.on(WINDOW, HASH_CHANGE, handler);
+  function start(api, handler) {
+      api.on(WINDOW, HASH_CHANGE, handler);
       handler();
   }
-  function stop(domApi, handler) {
-      domApi.off(WINDOW, HASH_CHANGE, handler);
+  function stop(api, handler) {
+      api.off(WINDOW, HASH_CHANGE, handler);
   }
   function push(location, handler) {
       LOCATION.hash = HASH_PREFIX + location.url;
@@ -236,12 +216,12 @@
 
   var POP_STATE = 'popstate';
   var isSupported = 'pushState' in HISTORY;
-  function start$1(domApi, handler) {
-      domApi.on(WINDOW, POP_STATE, handler);
+  function start$1(api, handler) {
+      api.on(WINDOW, POP_STATE, handler);
       handler();
   }
-  function stop$1(domApi, handler) {
-      domApi.off(WINDOW, POP_STATE, handler);
+  function stop$1(api, handler) {
+      api.off(WINDOW, POP_STATE, handler);
   }
   function push$1(location, handler) {
       // 调用 pushState 不会触发 popstate 事件
@@ -266,7 +246,7 @@
   });
 
   var API, hookEvents, guid = 0;
-  var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
+  var ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EMPTY_FUNCTION = new Function();
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -398,7 +378,9 @@
                   return;
               }
           }
-          instance.mode = options.mode === 'history' && isSupported ? historyMode : hashMode;
+          instance.mode = options.mode === MODE_HISTORY && isSupported
+              ? historyMode
+              : hashMode;
           instance.handler = function () {
               var url = instance.mode.current(), pending = instance.pending;
               if (pending) {
@@ -900,7 +882,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.35";
+  var version = "1.0.0-alpha.36";
   /**
    * 安装插件
    */

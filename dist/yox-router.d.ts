@@ -887,7 +887,6 @@ declare class Yox<Computed, Watchers, Events, Methods> implements YoxInterface {
 export declare type API = typeof Yox;
 export declare type Target = string | RouteTarget;
 export declare type Redirect = (to: Location) => Target;
-export declare type Callback = () => void;
 export declare type RouteCallback = (route: RouteOptions) => void;
 export declare type RouteLoader = (callback: RouteCallback) => Promise<any> | void;
 export interface RouterOptions {
@@ -927,15 +926,15 @@ export interface LinkedRoute {
 	parent?: LinkedRoute;
 	child?: LinkedRoute;
 }
-export interface Pending {
+export interface RoutePending {
 	cursor?: number;
 	location: Location;
-	onComplete: Callback;
-	onAbort: Callback;
+	onComplete: Function;
+	onAbort: Function;
 }
 export interface Mode {
-	start(domApi: DomApi, handler: Function): void;
-	stop(domApi: DomApi, handler: Function): void;
+	start(api: DomApi, handler: Function): void;
+	stop(api: DomApi, handler: Function): void;
 	push(location: Location, handler: Function): void;
 	go(n: number): void;
 	current(): string;
@@ -947,7 +946,7 @@ declare class Hooks {
 	setLocation(to: Location, from: Location | void): this;
 	clear(): this;
 	add(hook: Function | void, ctx: any): this;
-	next(next: Function, isGuard?: boolean, callback?: Callback): void;
+	next(next: Function, isGuard?: boolean, callback?: Function): void;
 }
 declare let API: API;
 export declare class Router {
@@ -960,7 +959,7 @@ export declare class Router {
 	mode: Mode;
 	history: Location[];
 	cursor: number;
-	pending?: Pending;
+	pending?: RoutePending;
 	hooks: Hooks;
 	handler: Function;
 	route?: LinkedRoute;
@@ -1016,7 +1015,7 @@ export declare class Router {
 	/**
 	 * 钩子函数
 	 */
-	hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Callback): void;
+	hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Function): void;
 	private setHistory;
 	private replaceHistory;
 	private setUrl;
