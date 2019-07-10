@@ -26,15 +26,21 @@ import {
 } from '../../yox-type/src/yox'
 
 import {
+  TRUE,
+  FALSE,
+  UNDEFINED,
+
+  MODE_HISTORY,
+  PREFIX_PARAM,
+  SEPARATOR_PATH,
+  SEPARATOR_SEARCH,
+
   ROUTER_HOOK_BEFORE_ENTER,
   ROUTER_HOOK_AFTER_ENTER,
   ROUTER_HOOK_BEFORE_UPDATE,
   ROUTER_HOOK_AFTER_UPDATE,
   ROUTER_HOOK_BEFORE_LEAVE,
   ROUTER_HOOK_AFTER_LEAVE,
-  PREFIX_PARAM,
-  SEPARATOR_PATH,
-  SEPARATOR_SEARCH,
 } from './constant'
 
 import {
@@ -59,8 +65,6 @@ import {
   HOOK_AFTER_ROUTE_LEAVE,
 } from '../../yox-config/src/config'
 
-import * as env from '../../yox-common/src/util/env'
-
 import Hooks from './Hooks'
 import * as queryUtil from './util/query'
 import * as valueUtil from './util/value'
@@ -78,7 +82,9 @@ ROUTE_VIEW = '$routeView',
 
 ROUTE_COMPONENT = 'RouteComponent',
 
-EVENT_CLICK = 'click'
+EVENT_CLICK = 'click',
+
+EMPTY_FUNCTION = new Function()
 
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
@@ -195,7 +201,7 @@ function filterProps(route: LinkedRoute, location: Location, options: ComponentO
     if (props) {
       for (let key in propTypes) {
         let value = props[key]
-        if (value !== env.UNDEFINED) {
+        if (value !== UNDEFINED) {
           result[key] = value
         }
       }
@@ -217,7 +223,7 @@ function isLeafRoute(route: LinkedRoute) {
 function updateRoute(instance: YoxInterface, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
   const route = instance[ROUTE] as LinkedRoute
   if (route) {
-    route.context = upsert ? instance : env.UNDEFINED
+    route.context = upsert ? instance : UNDEFINED
     if (isLeafRoute(route)) {
       const router = instance[ROUTER] as Router
       if (componentHookName && hookName) {
@@ -227,7 +233,7 @@ function updateRoute(instance: YoxInterface, componentHookName: string | void, h
         const { pending } = router
         if (pending) {
           pending.onComplete()
-          router.pending = env.UNDEFINED
+          router.pending = UNDEFINED
         }
       }
     }
@@ -285,7 +291,9 @@ export class Router {
       }
     }
 
-    instance.mode = options.mode === 'history' && historyMode.isSupported ? historyMode : hashMode
+    instance.mode = options.mode === MODE_HISTORY && historyMode.isSupported
+      ? historyMode
+      : hashMode
 
     instance.handler = function () {
 
@@ -299,7 +307,7 @@ export class Router {
           instance.setRoute(location)
           return
         }
-        instance.pending = env.UNDEFINED
+        instance.pending = UNDEFINED
       }
 
       // 直接修改地址栏触发
@@ -484,8 +492,8 @@ export class Router {
 
     instance.setUrl(
       toUrl(target, instance.name2Path),
-      env.EMPTY_FUNCTION,
-      env.EMPTY_FUNCTION,
+      EMPTY_FUNCTION,
+      EMPTY_FUNCTION,
       function (location, pending) {
         instance.pending = pending
         if (mode.current() !== location.url) {
@@ -511,7 +519,7 @@ export class Router {
       function () {
         instance.replaceHistory(instance.location as Location)
       },
-      env.EMPTY_FUNCTION,
+      EMPTY_FUNCTION,
       function (location, pending) {
         instance.pending = pending
         instance.setRoute(location)
@@ -536,8 +544,8 @@ export class Router {
     if (location) {
       instance.setUrl(
         stringifyUrl(location.path, location.params, location.query),
-        env.EMPTY_FUNCTION,
-        env.EMPTY_FUNCTION,
+        EMPTY_FUNCTION,
+        EMPTY_FUNCTION,
         function (location, pending) {
           pending.cursor = cursor
           instance.pending = pending
@@ -586,7 +594,7 @@ export class Router {
       .add(instance.options[hook], instance)
 
     const next = function (value?: false | Target) {
-      if (value === env.UNDEFINED) {
+      if (value === UNDEFINED) {
         hooks.next(next, isGuard, callback)
       }
       else {
@@ -594,9 +602,9 @@ export class Router {
         // 此时 instance.location 还是旧地址
         if (pending) {
           pending.onAbort()
-          instance.pending = env.UNDEFINED
+          instance.pending = UNDEFINED
         }
-        if (value === env.FALSE) {
+        if (value === FALSE) {
           if (location) {
             instance.push(location)
           }
@@ -804,7 +812,7 @@ export class Router {
     if (route.parent) {
       this.diffRoute(
         API.object.copy(route.parent),
-        oldRoute ? oldRoute.parent : env.UNDEFINED,
+        oldRoute ? oldRoute.parent : UNDEFINED,
         onComplete,
         startRoute,
         route,
@@ -909,7 +917,7 @@ export class Router {
           )
         }
         else {
-          route.context = env.UNDEFINED
+          route.context = UNDEFINED
         }
         if (route.child) {
           route = route.child as LinkedRoute
@@ -953,7 +961,7 @@ export class Router {
             newRoute,
             startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE,
             startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE,
-            env.TRUE,
+            TRUE,
             function () {
 
               instance.route = newRoute
@@ -974,7 +982,7 @@ export class Router {
         oldRoute,
         HOOK_BEFORE_ROUTE_LEAVE,
         ROUTER_HOOK_BEFORE_LEAVE,
-        env.TRUE,
+        TRUE,
         enterRoute
       )
       return
@@ -1051,7 +1059,7 @@ RouterView: ComponentOptions = {
 
   },
   beforeDestroy() {
-    this.$context[ROUTE_VIEW] = env.UNDEFINED
+    this.$context[ROUTE_VIEW] = UNDEFINED
   }
 }
 
@@ -1104,7 +1112,7 @@ export function install(Yox: API): void {
         event.target as YoxInterface,
         HOOK_AFTER_ROUTE_ENTER,
         ROUTER_HOOK_AFTER_ENTER,
-        env.TRUE
+        TRUE
       )
     },
     'afterUpdate.hook': function (event: CustomEventInterface) {
@@ -1112,7 +1120,7 @@ export function install(Yox: API): void {
         event.target as YoxInterface,
         HOOK_AFTER_ROUTE_UPDATE,
         ROUTER_HOOK_AFTER_UPDATE,
-        env.TRUE
+        TRUE
       )
     },
     'afterDestroy.hook': function (event: CustomEventInterface) {

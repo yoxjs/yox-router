@@ -3,6 +3,20 @@ export const WINDOW = window
 export const LOCATION = WINDOW.location
 export const HISTORY = WINDOW.history
 
+export const UNDEFINED = void 0
+
+export const NULL = null
+
+export const TRUE = true
+
+export const FALSE = false
+
+export const RAW_NULL = 'null'
+
+export const RAW_TRUE = 'true'
+
+export const RAW_FALSE = 'false'
+
 // path 中的参数前缀，如 /user/:userId
 export const PREFIX_PARAM = ':'
 
@@ -20,6 +34,9 @@ export const SEPARATOR_PAIR = '='
 
 // 参数中的数组标识
 export const FLAG_ARRAY = '[]'
+
+// history 模式
+export const MODE_HISTORY = 'history'
 
 // 导航钩子 - 路由进入之前
 export const ROUTER_HOOK_BEFORE_ENTER = 'beforeEnter'
