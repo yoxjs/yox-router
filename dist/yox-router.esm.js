@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.37
+ * yox-router.js v1.0.0-alpha.38
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -40,14 +40,13 @@ const ROUTER_HOOK_AFTER_UPDATE = 'afterUpdate';
 const ROUTER_HOOK_BEFORE_LEAVE = 'beforeLeave';
 // 导航钩子 - 路由离开之后
 const ROUTER_HOOK_AFTER_LEAVE = 'afterLeave';
-
-// 路由钩子
-const HOOK_BEFORE_ROUTE_ENTER = 'beforeRouteEnter';
-const HOOK_AFTER_ROUTE_ENTER = 'afterRouteEnter';
-const HOOK_BEFORE_ROUTE_UPDATE = 'beforeRouteUpdate';
-const HOOK_AFTER_ROUTE_UPDATE = 'afterRouteUpdate';
-const HOOK_BEFORE_ROUTE_LEAVE = 'beforeRouteLeave';
-const HOOK_AFTER_ROUTE_LEAVE = 'afterRouteLeave';
+// 组件 Options 上的导航钩子
+const COMPONENT_HOOK_BEFORE_ENTER = 'beforeRouteEnter';
+const COMPONENT_HOOK_AFTER_ENTER = 'afterRouteEnter';
+const COMPONENT_HOOK_BEFORE_UPDATE = 'beforeRouteUpdate';
+const COMPONENT_HOOK_AFTER_UPDATE = 'afterRouteUpdate';
+const COMPONENT_HOOK_BEFORE_LEAVE = 'beforeRouteLeave';
+const COMPONENT_HOOK_AFTER_LEAVE = 'afterRouteLeave';
 
 class Hooks {
     setLocation(to, from) {
@@ -234,7 +233,7 @@ var historyMode = /*#__PURE__*/Object.freeze({
 });
 
 let API, hookEvents, guid = 0;
-const ROUTER = '$router', ROUTE = '$route', ROUTE_VIEW = '$routeView', ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EMPTY_FUNCTION = new Function();
+const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EMPTY_FUNCTION = new Function();
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
  */
@@ -335,11 +334,11 @@ function isLeafRoute(route) {
     return !child || !child.context;
 }
 function updateRoute(instance, componentHookName, hookName, upsert) {
-    const route = instance[ROUTE];
+    const route = instance.$route;
     if (route) {
         route.context = upsert ? instance : UNDEFINED;
         if (isLeafRoute(route)) {
-            const router = instance[ROUTER];
+            const router = instance.$router;
             if (componentHookName && hookName) {
                 router.hook(route, componentHookName, hookName);
             }
@@ -749,7 +748,7 @@ class Router {
                 if (parent) {
                     context = parent.context;
                     context.forceUpdate(filterProps(parent, location, parent.component));
-                    context = context[ROUTE_VIEW];
+                    context = context.$routeView;
                     if (context) {
                         const props = {}, name = ROUTE_COMPONENT + (++guid);
                         props[ROUTE_COMPONENT] = name;
@@ -762,9 +761,10 @@ class Router {
                         context.destroy();
                     }
                     // 每层路由组件都有 $route 和 $router 属性
-                    const extensions = {};
-                    extensions[ROUTER] = instance;
-                    extensions[ROUTE] = route;
+                    const extensions = {
+                        $router: instance,
+                        $route: route
+                    };
                     const options = API.object.extend({
                         el: instance.el,
                         props: filterProps(route, location, component),
@@ -778,7 +778,7 @@ class Router {
             }
             else if (context) {
                 if (context.$vnode) {
-                    context[ROUTE] = route;
+                    context.$route = route;
                     context.forceUpdate(filterProps(route, location, component));
                 }
                 else {
@@ -805,7 +805,7 @@ class Router {
         }
         const newRoute = API.object.copy(linkedRoute), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
             instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
-                instance.hook(newRoute, startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE, startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE, TRUE, function () {
+                instance.hook(newRoute, startRoute ? COMPONENT_HOOK_BEFORE_ENTER : COMPONENT_HOOK_BEFORE_UPDATE, startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE, TRUE, function () {
                     instance.route = newRoute;
                     instance.location = location;
                     instance.patchRoute(route, startRoute);
@@ -814,7 +814,7 @@ class Router {
         };
         instance.hooks.setLocation(location, oldLocation);
         if (oldRoute && oldLocation && location.path !== oldLocation.path) {
-            instance.hook(oldRoute, HOOK_BEFORE_ROUTE_LEAVE, ROUTER_HOOK_BEFORE_LEAVE, TRUE, enterRoute);
+            instance.hook(oldRoute, COMPONENT_HOOK_BEFORE_LEAVE, ROUTER_HOOK_BEFORE_LEAVE, TRUE, enterRoute);
             return;
         }
         enterRoute();
@@ -828,7 +828,7 @@ const default404 = {
 }, directive = {
     bind(node, directive, vnode) {
         // 当前组件如果是根组件，则没有 $root 属性
-        const $root = vnode.context.$root || vnode.context, router = $root[ROUTER], listener = vnode.data[directive.key] = function (_) {
+        const $root = vnode.context.$root || vnode.context, router = $root.$router, listener = vnode.data[directive.key] = function (_) {
             let { value, getter } = directive, target = value;
             if (value && getter && API.string.has(value, '{')) {
                 target = getter();
@@ -854,33 +854,35 @@ const default404 = {
 }, RouterView = {
     template: '<$' + ROUTE_COMPONENT + '/>',
     beforeCreate(options) {
-        const context = options.context, route = context[ROUTE].child;
+        const context = options.context, 
+        // context 一定有 $route 属性
+        route = context.$route.child;
         if (route) {
-            context[ROUTE_VIEW] = this;
+            context.$routeView = this;
             const props = options.props = {}, components = options.components = {}, name = ROUTE_COMPONENT + (++guid);
             props[ROUTE_COMPONENT] = name;
             components[name] = route.component;
         }
     },
     beforeDestroy() {
-        this.$context[ROUTE_VIEW] = UNDEFINED;
+        this.$context.$routeView = UNDEFINED;
     }
 };
 /**
  * 版本
  */
-const version = "1.0.0-alpha.37";
+const version = "1.0.0-alpha.38";
 /**
  * 安装插件
  */
-function install(Yox) {
-    API = Yox;
-    Yox.directive({
+function install(YoxClass) {
+    API = YoxClass;
+    API.directive({
         push: directive,
         replace: directive,
         go: directive,
     });
-    Yox.component('router-view', RouterView);
+    API.component('router-view', RouterView);
     hookEvents = {
         'beforeCreate.hook': function (event, data) {
             if (data) {
@@ -889,11 +891,14 @@ function install(Yox) {
                 if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
                     // 找到渲染 <router-view> 的父级组件，它是一定存在的
                     context = context.$context;
-                    const router = context[ROUTER], route = context[ROUTE].child;
+                    const router = context.$router, 
+                    // context 一定有 $route 属性
+                    route = context.$route.child;
                     if (route) {
-                        const extensions = options.extensions = {};
-                        extensions[ROUTER] = router;
-                        extensions[ROUTE] = route;
+                        options.extensions = {
+                            $router: router,
+                            $route: route,
+                        };
                         if (router.location) {
                             options.props = filterProps(route, router.location, options);
                         }
@@ -902,13 +907,13 @@ function install(Yox) {
             }
         },
         'afterMount.hook': function (event) {
-            updateRoute(event.target, HOOK_AFTER_ROUTE_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
+            updateRoute(event.target, COMPONENT_HOOK_AFTER_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
         },
         'afterUpdate.hook': function (event) {
-            updateRoute(event.target, HOOK_AFTER_ROUTE_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
+            updateRoute(event.target, COMPONENT_HOOK_AFTER_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
         },
         'afterDestroy.hook': function (event) {
-            updateRoute(event.target, HOOK_AFTER_ROUTE_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
+            updateRoute(event.target, COMPONENT_HOOK_AFTER_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
         }
     };
 }

@@ -1,10 +1,10 @@
 import {
   Task,
-} from '../../yox-type/src/type'
+} from 'yox'
 
 import {
   Location,
-} from '../../yox-type/src/router'
+} from './type'
 
 export default class Hooks {
 

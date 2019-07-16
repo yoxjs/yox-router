@@ -1,6 +1,4 @@
-import {
-  API,
-} from '../type'
+import Yox from 'yox'
 
 import {
   NULL,
@@ -14,7 +12,7 @@ import {
 /**
  * 把字符串 value 解析成最合适的类型
  */
-export function parse(API: API, value: string) {
+export function parse(API: typeof Yox, value: string) {
   let result: any
   if (API.is.numeric(value)) {
     result = +value
@@ -36,7 +34,7 @@ export function parse(API: API, value: string) {
   return result
 }
 
-export function stringify(API: API, value: any): string | void {
+export function stringify(API: typeof Yox, value: any): string | void {
   if (API.is.string(value)) {
     return encodeURIComponent(value)
   }

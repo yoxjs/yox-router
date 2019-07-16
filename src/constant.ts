@@ -56,3 +56,11 @@ export const ROUTER_HOOK_BEFORE_LEAVE = 'beforeLeave'
 
 // 导航钩子 - 路由离开之后
 export const ROUTER_HOOK_AFTER_LEAVE = 'afterLeave'
+
+// 组件 Options 上的导航钩子
+export const COMPONENT_HOOK_BEFORE_ENTER = 'beforeRouteEnter'
+export const COMPONENT_HOOK_AFTER_ENTER = 'afterRouteEnter'
+export const COMPONENT_HOOK_BEFORE_UPDATE = 'beforeRouteUpdate'
+export const COMPONENT_HOOK_AFTER_UPDATE = 'afterRouteUpdate'
+export const COMPONENT_HOOK_BEFORE_LEAVE = 'beforeRouteLeave'
+export const COMPONENT_HOOK_AFTER_LEAVE = 'afterRouteLeave'

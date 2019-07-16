@@ -1,14 +1,11 @@
 import {
-  Location,
-} from '../../../yox-type/src/router'
-
-import {
   DomApi,
-} from '../../../yox-type/src/api'
+  Listener,
+} from 'yox'
 
 import {
-  Listener,
-} from '../../../yox-type/src/type'
+  Location,
+} from '../type'
 
 import {
   WINDOW,

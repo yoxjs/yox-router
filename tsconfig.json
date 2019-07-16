@@ -1,11 +1,22 @@
 {
-  "extends": "../tsconfig.json",
-  "compilerOptions": {},
-  "references": [
-    {
-      "path": "../yox-type"
-    }
-  ],
+  "compilerOptions": {
+    "target": "ESNEXT",
+    "module": "ESNEXT",
+    "rootDir": "./src",
+    "outDir": "./js",
+    "declarationDir": "./types",
+    "declaration": true,
+    "declarationMap": false,
+
+    "strict": true,
+    "noImplicitAny": false,
+    "strictPropertyInitialization": false,
+    "noImplicitThis": false,
+    "noUnusedLocals": true,
+
+    "esModuleInterop": true,
+    "moduleResolution": "node"
+  },
   "include": [
     "src/**/*.ts"
   ]

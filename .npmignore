@@ -10,6 +10,7 @@ yarn.lock
 jest.config.js
 tsconfig.tsbuildinfo
 
+js
 src
 tsconfig.json
 rollup.config.js

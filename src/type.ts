@@ -1,24 +1,9 @@
 import {
-  Location,
-  RouteTarget,
-} from '../../yox-type/src/router'
-
-import {
-  RouterBeforeHook,
-  RouterAfterHook,
-} from '../../yox-type/src/type'
-
-import {
+  Data,
   DomApi,
-} from '../../yox-type/src/api'
-
-import {
-  ComponentOptions,
-} from '../../yox-type/src/options'
-
-import {
   YoxInterface,
-} from '../../yox-type/src/yox'
+  ComponentOptions,
+} from 'yox'
 
 import {
   ROUTER_HOOK_BEFORE_ENTER,
@@ -29,10 +14,6 @@ import {
   ROUTER_HOOK_AFTER_LEAVE,
 } from './constant'
 
-import Yox from '../../yox/src/Yox'
-
-export type API = typeof Yox
-
 export type Target = string | RouteTarget
 
 export type Redirect = (to: Location) => Target
@@ -41,17 +22,35 @@ export type RouteCallback = (route: RouteOptions) => void
 
 export type RouteLoader = (callback: RouteCallback) => Promise<any> | void
 
+export type RouteBeforeHook = (to: Location, from: Location | void, next: (value?: false | string | RouteTarget) => void) => void
+
+export type RouteAfterHook = (to: Location, from: Location | void) => void
+
+export interface Location {
+  path: string
+  url?: string
+  params?: Data
+  query?: Data
+}
+
+export interface RouteTarget {
+  name?: string
+  path?: string
+  params?: Data
+  query?: Data
+}
+
 export interface RouterOptions {
   el: Element | string
   routes: RouteOptions[]
   route404?: RouteOptions
   mode?: 'hash' | 'history'
-  [ROUTER_HOOK_BEFORE_ENTER]?: RouterBeforeHook
-  [ROUTER_HOOK_AFTER_ENTER]?: RouterAfterHook
-  [ROUTER_HOOK_BEFORE_UPDATE]?: RouterBeforeHook
-  [ROUTER_HOOK_AFTER_UPDATE]?: RouterAfterHook
-  [ROUTER_HOOK_BEFORE_LEAVE]?: RouterBeforeHook
-  [ROUTER_HOOK_AFTER_LEAVE]?: RouterAfterHook
+  [ROUTER_HOOK_BEFORE_ENTER]?: RouteBeforeHook
+  [ROUTER_HOOK_AFTER_ENTER]?: RouteAfterHook
+  [ROUTER_HOOK_BEFORE_UPDATE]?: RouteBeforeHook
+  [ROUTER_HOOK_AFTER_UPDATE]?: RouteAfterHook
+  [ROUTER_HOOK_BEFORE_LEAVE]?: RouteBeforeHook
+  [ROUTER_HOOK_AFTER_LEAVE]?: RouteAfterHook
 }
 
 export interface RouteOptions {
@@ -61,12 +60,12 @@ export interface RouteOptions {
   load?: RouteLoader
   redirect?: Target | Redirect
   children?: RouteOptions[]
-  [ROUTER_HOOK_BEFORE_ENTER]?: RouterBeforeHook
-  [ROUTER_HOOK_AFTER_ENTER]?: RouterAfterHook
-  [ROUTER_HOOK_BEFORE_UPDATE]?: RouterBeforeHook
-  [ROUTER_HOOK_AFTER_UPDATE]?: RouterAfterHook
-  [ROUTER_HOOK_BEFORE_LEAVE]?: RouterBeforeHook
-  [ROUTER_HOOK_AFTER_LEAVE]?: RouterAfterHook
+  [ROUTER_HOOK_BEFORE_ENTER]?: RouteBeforeHook
+  [ROUTER_HOOK_AFTER_ENTER]?: RouteAfterHook
+  [ROUTER_HOOK_BEFORE_UPDATE]?: RouteBeforeHook
+  [ROUTER_HOOK_AFTER_UPDATE]?: RouteAfterHook
+  [ROUTER_HOOK_BEFORE_LEAVE]?: RouteBeforeHook
+  [ROUTER_HOOK_AFTER_LEAVE]?: RouteAfterHook
 }
 
 export interface LinkedRoute {
@@ -88,7 +87,7 @@ export interface RoutePending {
   onAbort: Function
 }
 
-export interface Mode {
+export interface RouterMode {
   start(api: DomApi, handler: Function): void
   stop(api: DomApi, handler: Function): void
   push(location: Location, handler: Function): void

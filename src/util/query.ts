@@ -1,6 +1,4 @@
-import {
-  API,
-} from '../type'
+import Yox from 'yox'
 
 import {
   SEPARATOR_QUERY,
@@ -13,7 +11,7 @@ import * as valueUtil from './value'
 /**
  * 把 GET 参数解析成对象
  */
-export function parse(API: API, query: string) {
+export function parse(API: typeof Yox, query: string) {
   let result: object | undefined
   API.array.each(
     query.split(SEPARATOR_QUERY),
@@ -50,7 +48,7 @@ export function parse(API: API, query: string) {
 /**
  * 把对象解析成 key1=value1&key2=value2
  */
-export function stringify(API: API, query: object) {
+export function stringify(API: typeof Yox, query: object) {
   const result: string[] = []
   for (let key in query) {
     const value = query[key]

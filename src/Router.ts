@@ -1,29 +1,12 @@
-import {
+import Yox, {
   Data,
   Listener,
-} from '../../yox-type/src/type'
-
-import {
-  Location,
-  RouteTarget,
-} from '../../yox-type/src/router'
-
-import {
   VNode,
   Directive,
-} from '../../yox-type/src/vnode'
-
-import {
   ComponentOptions,
-} from '../../yox-type/src/options'
-
-import {
-  CustomEventInterface,
-} from '../../yox-type/src/emitter'
-
-import {
+  CustomEvent,
   YoxInterface,
-} from '../../yox-type/src/yox'
+} from 'yox'
 
 import {
   TRUE,
@@ -41,28 +24,29 @@ import {
   ROUTER_HOOK_AFTER_UPDATE,
   ROUTER_HOOK_BEFORE_LEAVE,
   ROUTER_HOOK_AFTER_LEAVE,
+
+  COMPONENT_HOOK_BEFORE_ENTER,
+  COMPONENT_HOOK_AFTER_ENTER,
+  COMPONENT_HOOK_BEFORE_UPDATE,
+  COMPONENT_HOOK_AFTER_UPDATE,
+  COMPONENT_HOOK_BEFORE_LEAVE,
+  COMPONENT_HOOK_AFTER_LEAVE,
 } from './constant'
 
 import {
-  API,
-  Mode,
   Target,
+  Location,
+  RouteTarget,
   RouterOptions,
   RouteOptions,
   LinkedRoute,
   RoutePending,
   Redirect,
   RouteCallback,
+  RouterMode,
+  RouteBeforeHook,
+  RouteAfterHook,
 } from './type'
-
-import {
-  HOOK_BEFORE_ROUTE_ENTER,
-  HOOK_AFTER_ROUTE_ENTER,
-  HOOK_BEFORE_ROUTE_UPDATE,
-  HOOK_AFTER_ROUTE_UPDATE,
-  HOOK_BEFORE_ROUTE_LEAVE,
-  HOOK_AFTER_ROUTE_LEAVE,
-} from '../../yox-config/src/config'
 
 import Hooks from './Hooks'
 
@@ -72,15 +56,9 @@ import * as valueUtil from './util/value'
 import * as hashMode from './mode/hash'
 import * as historyMode from './mode/history'
 
-let API: API, hookEvents: Record<string, Listener>, guid = 0
+let API: typeof Yox, hookEvents: Record<string, Listener>, guid = 0
 
-const ROUTER = '$router',
-
-ROUTE = '$route',
-
-ROUTE_VIEW = '$routeView',
-
-ROUTE_COMPONENT = 'RouteComponent',
+const ROUTE_COMPONENT = 'RouteComponent',
 
 EVENT_CLICK = 'click',
 
@@ -221,11 +199,11 @@ function isLeafRoute(route: LinkedRoute) {
 }
 
 function updateRoute(instance: YoxInterface, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
-  const route = instance[ROUTE] as LinkedRoute
+  const route = instance.$route as LinkedRoute
   if (route) {
     route.context = upsert ? instance : UNDEFINED
     if (isLeafRoute(route)) {
-      const router = instance[ROUTER] as Router
+      const router = instance.$router as Router
       if (componentHookName && hookName) {
         router.hook(route, componentHookName, hookName)
       }
@@ -254,7 +232,7 @@ export class Router {
 
   path2Route: Record<string, LinkedRoute>
 
-  mode: Mode
+  mode: RouterMode
 
   history: Location[]
 
@@ -870,7 +848,7 @@ export class Router {
             )
           )
 
-          context = context[ROUTE_VIEW]
+          context = context.$routeView
           if (context) {
             const props = {}, name = ROUTE_COMPONENT + (++guid)
             props[ROUTE_COMPONENT] = name
@@ -886,9 +864,10 @@ export class Router {
           }
 
           // 每层路由组件都有 $route 和 $router 属性
-          const extensions = {}
-          extensions[ROUTER] = instance
-          extensions[ROUTE] = route
+          const extensions = {
+            $router: instance,
+            $route: route
+          }
 
           const options: ComponentOptions = API.object.extend(
             {
@@ -911,7 +890,7 @@ export class Router {
 
       else if (context) {
         if (context.$vnode) {
-          context[ROUTE] = route
+          context.$route = route
           context.forceUpdate(
             filterProps(route, location, component as ComponentOptions)
           )
@@ -959,7 +938,7 @@ export class Router {
         function (route, startRoute) {
           instance.hook(
             newRoute,
-            startRoute ? HOOK_BEFORE_ROUTE_ENTER : HOOK_BEFORE_ROUTE_UPDATE,
+            startRoute ? COMPONENT_HOOK_BEFORE_ENTER : COMPONENT_HOOK_BEFORE_UPDATE,
             startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE,
             TRUE,
             function () {
@@ -980,7 +959,7 @@ export class Router {
     if (oldRoute && oldLocation && location.path !== oldLocation.path) {
       instance.hook(
         oldRoute,
-        HOOK_BEFORE_ROUTE_LEAVE,
+        COMPONENT_HOOK_BEFORE_LEAVE,
         ROUTER_HOOK_BEFORE_LEAVE,
         TRUE,
         enterRoute
@@ -1007,9 +986,9 @@ directive = {
     // 当前组件如果是根组件，则没有 $root 属性
     const $root = vnode.context.$root || vnode.context,
 
-    router = $root[ROUTER] as Router,
+    router = $root.$router as Router,
 
-    listener = vnode.data[directive.key] = function (_: CustomEventInterface) {
+    listener = vnode.data[directive.key] = function (_: CustomEvent) {
       let { value, getter } = directive, target: any = value
       if (value && getter && API.string.has(value as string, '{')) {
         target = getter()
@@ -1042,11 +1021,12 @@ RouterView: ComponentOptions = {
 
     const context = options.context as YoxInterface,
 
-    route = context[ROUTE].child as LinkedRoute
+    // context 一定有 $route 属性
+    route = (context.$route as LinkedRoute).child as LinkedRoute
 
     if (route) {
 
-      context[ROUTE_VIEW] = this
+      context.$routeView = this
 
       const props = options.props = {}, components = options.components = {},
 
@@ -1059,7 +1039,7 @@ RouterView: ComponentOptions = {
 
   },
   beforeDestroy() {
-    this.$context[ROUTE_VIEW] = UNDEFINED
+    this.$context.$routeView = UNDEFINED
   }
 }
 
@@ -1071,20 +1051,20 @@ export const version = process.env.NODE_VERSION
 /**
  * 安装插件
  */
-export function install(Yox: API): void {
+export function install(YoxClass: typeof Yox): void {
 
-  API = Yox
+  API = YoxClass
 
-  Yox.directive({
+  API.directive({
     push: directive,
     replace: directive,
     go: directive,
   })
 
-  Yox.component('router-view', RouterView)
+  API.component('router-view', RouterView)
 
   hookEvents = {
-    'beforeCreate.hook': function (event: CustomEventInterface, data?: Data) {
+    'beforeCreate.hook': function (event: CustomEvent, data?: Data) {
       if (data) {
         let options = data as ComponentOptions, { context } = options
         // 当前组件是 <router-view> 中的动态组件
@@ -1092,14 +1072,16 @@ export function install(Yox: API): void {
           // 找到渲染 <router-view> 的父级组件，它是一定存在的
           context = context.$context as YoxInterface
 
-          const router = context[ROUTER] as Router,
-          route = context[ROUTE].child as LinkedRoute
+          const router = context.$router as Router,
+
+          // context 一定有 $route 属性
+          route = (context.$route as LinkedRoute).child as LinkedRoute
 
           if (route) {
-            const extensions = options.extensions = {}
-            extensions[ROUTER] = router
-            extensions[ROUTE] = route
-
+            options.extensions = {
+              $router: router,
+              $route: route,
+            }
             if (router.location) {
               options.props = filterProps(route, router.location, options)
             }
@@ -1107,29 +1089,48 @@ export function install(Yox: API): void {
         }
       }
     },
-    'afterMount.hook': function (event: CustomEventInterface) {
+    'afterMount.hook': function (event: CustomEvent) {
       updateRoute(
         event.target as YoxInterface,
-        HOOK_AFTER_ROUTE_ENTER,
+        COMPONENT_HOOK_AFTER_ENTER,
         ROUTER_HOOK_AFTER_ENTER,
         TRUE
       )
     },
-    'afterUpdate.hook': function (event: CustomEventInterface) {
+    'afterUpdate.hook': function (event: CustomEvent) {
       updateRoute(
         event.target as YoxInterface,
-        HOOK_AFTER_ROUTE_UPDATE,
+        COMPONENT_HOOK_AFTER_UPDATE,
         ROUTER_HOOK_AFTER_UPDATE,
         TRUE
       )
     },
-    'afterDestroy.hook': function (event: CustomEventInterface) {
+    'afterDestroy.hook': function (event: CustomEvent) {
       updateRoute(
         event.target as YoxInterface,
-        HOOK_AFTER_ROUTE_LEAVE,
+        COMPONENT_HOOK_AFTER_LEAVE,
         ROUTER_HOOK_AFTER_LEAVE
       )
     }
+  }
+
+}
+
+declare module 'yox' {
+
+  interface ComponentOptions {
+    [COMPONENT_HOOK_BEFORE_ENTER]?: RouteBeforeHook
+    [COMPONENT_HOOK_AFTER_ENTER]?: RouteAfterHook
+    [COMPONENT_HOOK_BEFORE_UPDATE]?: RouteBeforeHook
+    [COMPONENT_HOOK_AFTER_UPDATE]?: RouteAfterHook
+    [COMPONENT_HOOK_BEFORE_LEAVE]?: RouteBeforeHook
+    [COMPONENT_HOOK_AFTER_LEAVE]?: RouteAfterHook
+  }
+
+  interface YoxInterface {
+    $routeView?: YoxInterface
+    $route?: LinkedRoute
+    $router?: Router
   }
 
 }
