@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.38
+ * yox-router.js v1.0.0-alpha.39
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -288,24 +288,6 @@
       }
       return path;
   }
-  function toUrl(target, name2Path) {
-      if (API.is.string(target)) {
-          return formatPath(target);
-      }
-      var route = target, name = route.name, path;
-      if (name) {
-          path = name2Path[name];
-          {
-              if (!API.is.string(path)) {
-                  API.logger.error(("The route of name \"" + name + "\" is not found."));
-              }
-          }
-      }
-      else {
-          path = formatPath(route.path);
-      }
-      return stringifyUrl(path, route.params, route.query);
-  }
   /**
    * 按照 propTypes 定义的外部数据格式过滤路由参数，这样有两个好处：
    *
@@ -505,11 +487,14 @@
    *   name: 'index'
    * })
    *
+   * 也可以不传 path 或 name，只传 params 或 query
+   * 表示不修改 path，仅修改 params 或 query
+   *
    */
   Router.prototype.push = function push (target) {
       var instance = this;
           var mode = instance.mode;
-      instance.setUrl(toUrl(target, instance.name2Path), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
+      instance.setUrl(instance.toUrl(target), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
           instance.pending = pending;
           if (mode.current() !== location.url) {
               mode.push(location, instance.handler);
@@ -524,7 +509,7 @@
    */
   Router.prototype.replace = function replace (target) {
       var instance = this;
-      instance.setUrl(toUrl(target, instance.name2Path), function () {
+      instance.setUrl(instance.toUrl(target), function () {
           instance.replaceHistory(instance.location);
       }, EMPTY_FUNCTION, function (location, pending) {
           instance.pending = pending;
@@ -627,6 +612,30 @@
       if (history[cursor]) {
           history[cursor] = location;
       }
+  };
+  Router.prototype.toUrl = function toUrl (target) {
+      if (API.is.string(target)) {
+          return formatPath(target);
+      }
+      var instance = this, location = instance.location, routeTarget = target, params = routeTarget.params, path;
+      if (routeTarget.name) {
+          path = instance.name2Path[routeTarget.name];
+      }
+      else if (routeTarget.path) {
+          path = formatPath(routeTarget.path);
+      }
+      else if (location) {
+          path = location.path;
+          if (!params) {
+              params = location.params;
+          }
+      }
+      {
+          if (!API.is.string(path)) {
+              API.logger.error("The path is not found.");
+          }
+      }
+      return stringifyUrl(path, params, routeTarget.query);
   };
   Router.prototype.setUrl = function setUrl (url, onComplete, onAbort, callback) {
       // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
@@ -897,7 +906,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.38";
+  var version = "1.0.0-alpha.39";
   /**
    * 安装插件
    */

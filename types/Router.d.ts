@@ -47,6 +47,9 @@ export declare class Router {
      *   name: 'index'
      * })
      *
+     * 也可以不传 path 或 name，只传 params 或 query
+     * 表示不修改 path，仅修改 params 或 query
+     *
      */
     push(target: Target): void;
     /**
@@ -71,6 +74,7 @@ export declare class Router {
     hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Function): void;
     private setHistory;
     private replaceHistory;
+    private toUrl;
     private setUrl;
     private parseLocation;
     private diffRoute;

@@ -129,29 +129,6 @@ function stringifyUrl(path: string, params: Data | void, query: Data | void) {
 
 }
 
-function toUrl(target: Target, name2Path: Data): string {
-
-  if (API.is.string(target)) {
-    return formatPath(target as string)
-  }
-
-  let route = target as RouteTarget, name = route.name, path: string
-  if (name) {
-    path = name2Path[name]
-    if (process.env.NODE_ENV === 'development') {
-      if (!API.is.string(path)) {
-        API.logger.error(`The route of name "${name}" is not found.`)
-      }
-    }
-  }
-  else {
-    path = formatPath(route.path as string)
-  }
-
-  return stringifyUrl(path, route.params, route.query)
-
-}
-
 /**
  * 按照 propTypes 定义的外部数据格式过滤路由参数，这样有两个好处：
  *
@@ -463,13 +440,16 @@ export class Router {
    *   name: 'index'
    * })
    *
+   * 也可以不传 path 或 name，只传 params 或 query
+   * 表示不修改 path，仅修改 params 或 query
+   *
    */
   push(target: Target) {
 
     const instance = this, { mode } = instance
 
     instance.setUrl(
-      toUrl(target, instance.name2Path),
+      instance.toUrl(target),
       EMPTY_FUNCTION,
       EMPTY_FUNCTION,
       function (location, pending) {
@@ -493,7 +473,7 @@ export class Router {
     const instance = this
 
     instance.setUrl(
-      toUrl(target, instance.name2Path),
+      instance.toUrl(target),
       function () {
         instance.replaceHistory(instance.location as Location)
       },
@@ -623,6 +603,49 @@ export class Router {
     if (history[cursor]) {
       history[cursor] = location
     }
+  }
+
+  private toUrl(target: Target): string {
+
+    if (API.is.string(target)) {
+      return formatPath(target as string)
+    }
+
+    let instance = this,
+
+    location = instance.location,
+
+    routeTarget = target as RouteTarget,
+
+    params = routeTarget.params,
+
+    path: string | void
+
+    if (routeTarget.name) {
+      path = instance.name2Path[routeTarget.name]
+    }
+    else if (routeTarget.path) {
+      path = formatPath(routeTarget.path)
+    }
+    else if (location) {
+      path = location.path
+      if (!params) {
+        params = location.params
+      }
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      if (!API.is.string(path)) {
+        API.logger.error(`The path is not found.`)
+      }
+    }
+
+    return stringifyUrl(
+      path as string,
+      params,
+      routeTarget.query
+    )
+
   }
 
   private setUrl(
