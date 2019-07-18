@@ -28,6 +28,8 @@ router.push({ name: 'user' })
 // 带查询参数，变成 /register?plan=private
 router.push({ path: '/register', query: { plan: 'private' } })
 
+// 可以不传 path，表示原地修改路由参数（即 path 保持不变）
+router.push({ query: { status: 2 } })
 ```
 
 如果想导航到一个动态路由，有 4 种方式可供选择，如下：
