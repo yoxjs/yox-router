@@ -4,7 +4,7 @@ import Yox, {
   VNode,
   Directive,
   ComponentOptions,
-  CustomEvent,
+  CustomEventInterface,
   YoxInterface,
 } from 'yox'
 
@@ -1011,7 +1011,7 @@ directive = {
 
     router = $root.$router as Router,
 
-    listener = vnode.data[directive.key] = function (_: CustomEvent) {
+    listener = vnode.data[directive.key] = function (_: CustomEventInterface) {
       let { value, getter } = directive, target: any = value
       if (value && getter && API.string.has(value as string, '{')) {
         target = getter()
@@ -1087,7 +1087,7 @@ export function install(YoxClass: typeof Yox): void {
   API.component('router-view', RouterView)
 
   hookEvents = {
-    'beforeCreate.hook': function (event: CustomEvent, data?: Data) {
+    'beforeCreate.hook': function (event: CustomEventInterface, data?: Data) {
       if (data) {
         let options = data as ComponentOptions, { context } = options
         // 当前组件是 <router-view> 中的动态组件
@@ -1112,7 +1112,7 @@ export function install(YoxClass: typeof Yox): void {
         }
       }
     },
-    'afterMount.hook': function (event: CustomEvent) {
+    'afterMount.hook': function (event: CustomEventInterface) {
       updateRoute(
         event.target as YoxInterface,
         COMPONENT_HOOK_AFTER_ENTER,
@@ -1120,7 +1120,7 @@ export function install(YoxClass: typeof Yox): void {
         TRUE
       )
     },
-    'afterUpdate.hook': function (event: CustomEvent) {
+    'afterUpdate.hook': function (event: CustomEventInterface) {
       updateRoute(
         event.target as YoxInterface,
         COMPONENT_HOOK_AFTER_UPDATE,
@@ -1128,7 +1128,7 @@ export function install(YoxClass: typeof Yox): void {
         TRUE
       )
     },
-    'afterDestroy.hook': function (event: CustomEvent) {
+    'afterDestroy.hook': function (event: CustomEventInterface) {
       updateRoute(
         event.target as YoxInterface,
         COMPONENT_HOOK_AFTER_LEAVE,

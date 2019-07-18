@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.39
+ * yox-router.js v1.0.0-alpha.40
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -880,7 +880,7 @@ const default404 = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.39";
+const version = "1.0.0-alpha.40";
 /**
  * 安装插件
  */
