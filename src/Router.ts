@@ -661,7 +661,6 @@ export class Router {
     instance.parseLocation(
       url,
       function (location) {
-
         if (location) {
           callback(
             location,
@@ -672,10 +671,6 @@ export class Router {
             }
           )
         }
-        else if (process.env.NODE_ENV === 'development') {
-          API.logger.error(`The url "${url}" can't match a route.`)
-        }
-
       }
     )
 
@@ -774,6 +769,9 @@ export class Router {
           callback(location)
         }
         else {
+          if (process.env.NODE_ENV === 'development') {
+            API.logger.error(`The path "${realpath}" can't match a route.`)
+          }
           callback()
         }
       }
