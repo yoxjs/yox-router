@@ -60,6 +60,8 @@ let API: typeof Yox, hookEvents: Record<string, Listener>, guid = 0
 
 const ROUTE_COMPONENT = 'RouteComponent',
 
+NAMESPACE_HOOK = '.hook',
+
 EVENT_CLICK = 'click',
 
 EMPTY_FUNCTION = new Function()
@@ -175,14 +177,14 @@ function isLeafRoute(route: LinkedRoute) {
   return !child || !child.context
 }
 
-function updateRoute(instance: YoxInterface, componentHookName: string | void, hookName: string | undefined, upsert?: boolean) {
+function updateRoute(instance: YoxInterface, componentHookName: string | void, routerHookName: string | undefined, upsert?: boolean) {
   const route = instance.$route as LinkedRoute
   if (route) {
     route.context = upsert ? instance : UNDEFINED
     if (isLeafRoute(route)) {
       const router = instance.$router as Router
-      if (componentHookName && hookName) {
-        router.hook(route, componentHookName, hookName)
+      if (componentHookName && routerHookName) {
+        router.hook(route, componentHookName, routerHookName, FALSE)
       }
       if (upsert) {
         const { pending } = router
@@ -538,22 +540,37 @@ export class Router {
   /**
    * 钩子函数
    */
-  hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Function) {
+  hook(route: LinkedRoute, componentHook: string, routerHook: string, isGuard: boolean, callback?: Function) {
 
-    const instance = this, { location, hooks, pending } = instance
+    const instance = this,
 
-    hooks
-      .clear()
-      // 先调用组件的钩子
-      .add((route.component as ComponentOptions)[componentHook], route.context)
-      // 再调用路由配置的钩子
-      .add(route.route[hook], route.route)
-      // 最后调用路由实例的钩子
-      .add(instance.options[hook], instance)
+    { location, hooks, pending } = instance,
 
-    const next = function (value?: false | Target) {
+    { context } = route,
+
+    onComplete = function () {
+      // 如果钩子未被拦截，则会走进 onComplete
+      // 这里要把钩子事件冒泡上去，便于业务层处理
+      // 加命名空间是为了和 yox 生命周期钩子事件保持一致
+      if (context) {
+        context.fire(
+          componentHook + NAMESPACE_HOOK,
+          {
+            from: hooks.from,
+            to: hooks.to,
+          }
+        )
+      }
+      // 在发事件之后调用 callback
+      // 因为 callback 有可能销毁组件，导致事件发不出去
+      if (callback) {
+        callback()
+      }
+    },
+
+    next = function (value?: false | Target) {
       if (value === UNDEFINED) {
-        hooks.next(next, isGuard, callback)
+        hooks.next(isGuard, next, onComplete)
       }
       else {
         // 只有前置守卫才有可能走进这里
@@ -573,6 +590,15 @@ export class Router {
         }
       }
     }
+
+    hooks
+      .clear()
+      // 先调用组件的钩子
+      .add((route.component as ComponentOptions)[componentHook], context)
+      // 再调用路由配置的钩子
+      .add(route.route[routerHook], route.route)
+      // 最后调用路由实例的钩子
+      .add(instance.options[routerHook], instance)
 
     next()
 
@@ -1084,55 +1110,54 @@ export function install(YoxClass: typeof Yox): void {
 
   API.component('router-view', RouterView)
 
-  hookEvents = {
-    'beforeCreate.hook': function (event: CustomEventInterface, data?: Data) {
-      if (data) {
-        let options = data as ComponentOptions, { context } = options
-        // 当前组件是 <router-view> 中的动态组件
-        if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-          // 找到渲染 <router-view> 的父级组件，它是一定存在的
-          context = context.$context as YoxInterface
+  hookEvents = {}
+  hookEvents['beforeCreate' + NAMESPACE_HOOK] = function (event: CustomEventInterface, data?: Data) {
+    if (data) {
+      let options = data as ComponentOptions, { context } = options
+      // 当前组件是 <router-view> 中的动态组件
+      if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+        // 找到渲染 <router-view> 的父级组件，它是一定存在的
+        context = context.$context as YoxInterface
 
-          const router = context.$router as Router,
+        const router = context.$router as Router,
 
-          // context 一定有 $route 属性
-          route = (context.$route as LinkedRoute).child as LinkedRoute
+        // context 一定有 $route 属性
+        route = (context.$route as LinkedRoute).child as LinkedRoute
 
-          if (route) {
-            options.extensions = {
-              $router: router,
-              $route: route,
-            }
-            if (router.location) {
-              options.props = filterProps(route, router.location, options)
-            }
+        if (route) {
+          options.extensions = {
+            $router: router,
+            $route: route,
+          }
+          if (router.location) {
+            options.props = filterProps(route, router.location, options)
           }
         }
       }
-    },
-    'afterMount.hook': function (event: CustomEventInterface) {
-      updateRoute(
-        event.target as YoxInterface,
-        COMPONENT_HOOK_AFTER_ENTER,
-        ROUTER_HOOK_AFTER_ENTER,
-        TRUE
-      )
-    },
-    'afterUpdate.hook': function (event: CustomEventInterface) {
-      updateRoute(
-        event.target as YoxInterface,
-        COMPONENT_HOOK_AFTER_UPDATE,
-        ROUTER_HOOK_AFTER_UPDATE,
-        TRUE
-      )
-    },
-    'afterDestroy.hook': function (event: CustomEventInterface) {
-      updateRoute(
-        event.target as YoxInterface,
-        COMPONENT_HOOK_AFTER_LEAVE,
-        ROUTER_HOOK_AFTER_LEAVE
-      )
     }
+  }
+  hookEvents['afterMount' + NAMESPACE_HOOK] = function (event: CustomEventInterface) {
+    updateRoute(
+      event.target as YoxInterface,
+      COMPONENT_HOOK_AFTER_ENTER,
+      ROUTER_HOOK_AFTER_ENTER,
+      TRUE
+    )
+  }
+  hookEvents['afterUpdate' + NAMESPACE_HOOK] = function (event: CustomEventInterface) {
+    updateRoute(
+      event.target as YoxInterface,
+      COMPONENT_HOOK_AFTER_UPDATE,
+      ROUTER_HOOK_AFTER_UPDATE,
+      TRUE
+    )
+  }
+  hookEvents['afterDestroy' + NAMESPACE_HOOK] = function (event: CustomEventInterface) {
+    updateRoute(
+      event.target as YoxInterface,
+      COMPONENT_HOOK_AFTER_LEAVE,
+      ROUTER_HOOK_AFTER_LEAVE
+    )
   }
 
 }

@@ -71,7 +71,7 @@ export declare class Router {
     /**
      * 钩子函数
      */
-    hook(route: LinkedRoute, componentHook: string, hook: string, isGuard?: boolean, callback?: Function): void;
+    hook(route: LinkedRoute, componentHook: string, routerHook: string, isGuard: boolean, callback?: Function): void;
     private setHistory;
     private replaceHistory;
     private toUrl;

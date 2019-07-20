@@ -7,5 +7,5 @@ export default class Hooks {
     setLocation(to: Location, from: Location | void): this;
     clear(): this;
     add(hook: Function | void, ctx: any): this;
-    next(next: Function, isGuard?: boolean, callback?: Function): void;
+    next(isGuard: boolean, next: Function, callback: Function): void;
 }

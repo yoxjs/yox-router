@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.40
+ * yox-router.js v1.0.0-alpha.41
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -68,7 +68,7 @@ class Hooks {
         }
         return this;
     }
-    next(next, isGuard, callback) {
+    next(isGuard, next, callback) {
         const task = this.list.shift();
         if (task) {
             if (isGuard) {
@@ -79,7 +79,7 @@ class Hooks {
                 next();
             }
         }
-        else if (callback) {
+        else {
             callback();
         }
     }
@@ -233,7 +233,7 @@ var historyMode = /*#__PURE__*/Object.freeze({
 });
 
 let API, hookEvents, guid = 0;
-const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click', EMPTY_FUNCTION = new Function();
+const ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = '.hook', EVENT_CLICK = 'click', EMPTY_FUNCTION = new Function();
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
  */
@@ -315,14 +315,14 @@ function isLeafRoute(route) {
     const child = route.child;
     return !child || !child.context;
 }
-function updateRoute(instance, componentHookName, hookName, upsert) {
+function updateRoute(instance, componentHookName, routerHookName, upsert) {
     const route = instance.$route;
     if (route) {
         route.context = upsert ? instance : UNDEFINED;
         if (isLeafRoute(route)) {
             const router = instance.$router;
-            if (componentHookName && hookName) {
-                router.hook(route, componentHookName, hookName);
+            if (componentHookName && routerHookName) {
+                router.hook(route, componentHookName, routerHookName, FALSE);
             }
             if (upsert) {
                 const { pending } = router;
@@ -536,19 +536,25 @@ class Router {
     /**
      * 钩子函数
      */
-    hook(route, componentHook, hook, isGuard, callback) {
-        const instance = this, { location, hooks, pending } = instance;
-        hooks
-            .clear()
-            // 先调用组件的钩子
-            .add(route.component[componentHook], route.context)
-            // 再调用路由配置的钩子
-            .add(route.route[hook], route.route)
-            // 最后调用路由实例的钩子
-            .add(instance.options[hook], instance);
-        const next = function (value) {
+    hook(route, componentHook, routerHook, isGuard, callback) {
+        const instance = this, { location, hooks, pending } = instance, { context } = route, onComplete = function () {
+            // 如果钩子未被拦截，则会走进 onComplete
+            // 这里要把钩子事件冒泡上去，便于业务层处理
+            // 加命名空间是为了和 yox 生命周期钩子事件保持一致
+            if (context) {
+                context.fire(componentHook + NAMESPACE_HOOK, {
+                    from: hooks.from,
+                    to: hooks.to,
+                });
+            }
+            // 在发事件之后调用 callback
+            // 因为 callback 有可能销毁组件，导致事件发不出去
+            if (callback) {
+                callback();
+            }
+        }, next = function (value) {
             if (value === UNDEFINED) {
-                hooks.next(next, isGuard, callback);
+                hooks.next(isGuard, next, onComplete);
             }
             else {
                 // 只有前置守卫才有可能走进这里
@@ -568,6 +574,14 @@ class Router {
                 }
             }
         };
+        hooks
+            .clear()
+            // 先调用组件的钩子
+            .add(route.component[componentHook], context)
+            // 再调用路由配置的钩子
+            .add(route.route[routerHook], route.route)
+            // 最后调用路由实例的钩子
+            .add(instance.options[routerHook], instance);
         next();
     }
     setHistory(location, index) {
@@ -624,9 +638,6 @@ class Router {
                     onComplete,
                     onAbort,
                 });
-            }
-            else {
-                API.logger.error(`The url "${url}" can't match a route.`);
             }
         });
     }
@@ -700,6 +711,9 @@ class Router {
                 callback(location);
             }
             else {
+                {
+                    API.logger.error(`The path "${realpath}" can't match a route.`);
+                }
                 callback();
             }
         });
@@ -880,7 +894,7 @@ const default404 = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.40";
+const version = "1.0.0-alpha.41";
 /**
  * 安装插件
  */
@@ -892,38 +906,37 @@ function install(YoxClass) {
         go: directive,
     });
     API.component('router-view', RouterView);
-    hookEvents = {
-        'beforeCreate.hook': function (event, data) {
-            if (data) {
-                let options = data, { context } = options;
-                // 当前组件是 <router-view> 中的动态组件
-                if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-                    // 找到渲染 <router-view> 的父级组件，它是一定存在的
-                    context = context.$context;
-                    const router = context.$router, 
-                    // context 一定有 $route 属性
-                    route = context.$route.child;
-                    if (route) {
-                        options.extensions = {
-                            $router: router,
-                            $route: route,
-                        };
-                        if (router.location) {
-                            options.props = filterProps(route, router.location, options);
-                        }
+    hookEvents = {};
+    hookEvents['beforeCreate' + NAMESPACE_HOOK] = function (event, data) {
+        if (data) {
+            let options = data, { context } = options;
+            // 当前组件是 <router-view> 中的动态组件
+            if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+                // 找到渲染 <router-view> 的父级组件，它是一定存在的
+                context = context.$context;
+                const router = context.$router, 
+                // context 一定有 $route 属性
+                route = context.$route.child;
+                if (route) {
+                    options.extensions = {
+                        $router: router,
+                        $route: route,
+                    };
+                    if (router.location) {
+                        options.props = filterProps(route, router.location, options);
                     }
                 }
             }
-        },
-        'afterMount.hook': function (event) {
-            updateRoute(event.target, COMPONENT_HOOK_AFTER_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
-        },
-        'afterUpdate.hook': function (event) {
-            updateRoute(event.target, COMPONENT_HOOK_AFTER_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
-        },
-        'afterDestroy.hook': function (event) {
-            updateRoute(event.target, COMPONENT_HOOK_AFTER_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
         }
+    };
+    hookEvents['afterMount' + NAMESPACE_HOOK] = function (event) {
+        updateRoute(event.target, COMPONENT_HOOK_AFTER_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
+    };
+    hookEvents['afterUpdate' + NAMESPACE_HOOK] = function (event) {
+        updateRoute(event.target, COMPONENT_HOOK_AFTER_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
+    };
+    hookEvents['afterDestroy' + NAMESPACE_HOOK] = function (event) {
+        updateRoute(event.target, COMPONENT_HOOK_AFTER_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
     };
 }
 

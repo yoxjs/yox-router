@@ -36,7 +36,7 @@ export default class Hooks {
     return this
   }
 
-  next(next: Function, isGuard?: boolean, callback?: Function) {
+  next(isGuard: boolean, next: Function, callback: Function) {
     const task = this.list.shift()
     if (task) {
       if (isGuard) {
@@ -47,7 +47,7 @@ export default class Hooks {
         next()
       }
     }
-    else if (callback) {
+    else {
       callback()
     }
   }
