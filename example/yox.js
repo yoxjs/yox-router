@@ -1,5 +1,5 @@
 /**
- * yox.js v1.0.0-alpha.87
+ * yox.js v1.0.0-alpha.96
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -69,6 +69,7 @@
   var RAW_TEMPLATE = 'template';
   var RAW_WILDCARD = '*';
   var RAW_DOT = '.';
+  var RAW_SLASH = '/';
   var KEYPATH_PARENT = '..';
   var KEYPATH_CURRENT = RAW_THIS;
   /**
@@ -240,6 +241,9 @@
        * 可以传事件名称，也可以传原生事件对象
        */
       function CustomEvent(type, originalEvent) {
+          // 这里不设置命名空间
+          // 因为有没有命名空间取决于 Emitter 的构造函数有没有传 true
+          // CustomEvent 自己无法决定
           this.type = type;
           this.phase = CustomEvent.PHASE_CURRENT;
           if (originalEvent) {
@@ -683,9 +687,9 @@
    * @param callback 返回 false 可中断遍历
    */
   function each$1(keypath, callback) {
-      // 判断字符串是因为 keypath 有可能是 toString
-      // 而 splitCache.toString 是个函数
-      var list = isDef(splitCache[keypath])
+      // 如果 keypath 是 toString 之类的原型字段
+      // splitCache[keypath] 会取到原型链上的对象
+      var list = splitCache.hasOwnProperty(keypath)
           ? splitCache[keypath]
           : (splitCache[keypath] = keypath.split(RAW_DOT));
       for (var i = 0, lastIndex = list.length - 1; i <= lastIndex; i++) {
@@ -851,7 +855,7 @@
       each$1(keypath, function (key, isLast) {
           if (object != NULL) {
               // 先直接取值
-              var value = object[key],
+              var value = object[key], 
               // 紧接着判断值是否存在
               // 下面会处理计算属性的值，不能在它后面设置 hasValue
               hasValue = isDef(value);
@@ -956,18 +960,19 @@
   /**
    * 是否有原生的日志特性，没有必要单独实现
    */
-  var nativeConsole = typeof console !== RAW_UNDEFINED ? console : NULL,
+  var nativeConsole = typeof console !== RAW_UNDEFINED ? console : NULL, 
   /**
    * 当前是否是源码调试，如果开启了代码压缩，empty function 里的注释会被干掉
+   * 源码模式默认选 INFO，因为 DEBUG 输出的日志太多，会导致性能急剧下降
    */
-  defaultLogLevel = /yox/.test(toString(EMPTY_FUNCTION)) ? DEBUG : WARN,
+  defaultLogLevel = /yox/.test(toString(EMPTY_FUNCTION)) ? INFO : WARN, 
   /**
    * console 样式前缀
    * ie 和 edge 不支持 console.log 样式
    */
   stylePrefix = WINDOW && /edge|msie|trident/i.test(WINDOW.navigator.userAgent)
       ? EMPTY_STRING
-      : '%c',
+      : '%c', 
   /**
    * 日志打印函数
    */
@@ -1072,7 +1077,7 @@
        * @param filter 自定义过滤器
        */
       Emitter.prototype.fire = function (type, args, filter) {
-          var instance = this, namespace = string(type) ? instance.parse(type) : type, list = instance.listeners[namespace.name], isComplete = TRUE;
+          var instance = this, namespace = string(type) ? instance.parse(type) : type, list = instance.listeners[namespace.type], isComplete = TRUE;
           if (list) {
               // 避免遍历过程中，数组发生变化，比如增删了
               list = copy(list);
@@ -1108,7 +1113,7 @@
                   options.num = options.num ? (options.num + 1) : 1;
                   // 注册的 listener 可以指定最大执行次数
                   if (options.num === options.max) {
-                      instance.off(namespace.key, options.fn);
+                      instance.off(namespace, options.fn);
                   }
                   // 如果没有返回 false，而是调用了 event.stop 也算是返回 false
                   if (event_1) {
@@ -1137,9 +1142,9 @@
               ? { fn: listener }
               : listener;
           if (object(options) && func(options.fn)) {
-              var _a = instance.parse(type), name = _a.name, ns = _a.ns;
-              options.ns = ns;
-              push(listeners[name] || (listeners[name] = []), options);
+              var namespace = string(type) ? instance.parse(type) : type;
+              options.ns = namespace.ns;
+              push(listeners[namespace.type] || (listeners[namespace.type] = []), options);
           }
           else {
               fatal("emitter.on(type, listener) invoke failed\uFF1A\n\n\"listener\" is expected to be a Function or an EmitterOptions.\n");
@@ -1154,7 +1159,7 @@
       Emitter.prototype.off = function (type, listener) {
           var instance = this, listeners = instance.listeners;
           if (type) {
-              var _a = instance.parse(type), name = _a.name, ns_1 = _a.ns, matchListener_1 = createMatchListener(listener), each$1 = function (list, name) {
+              var namespace = string(type) ? instance.parse(type) : type, name = namespace.type, ns_1 = namespace.ns, matchListener_1 = createMatchListener(listener), each$1 = function (list, name) {
                   each(list, function (options, index) {
                       if (matchListener_1(options) && matchNamespace(ns_1, options)) {
                           list.splice(index, 1);
@@ -1171,6 +1176,13 @@
               }
               else if (ns_1) {
                   each$2(listeners, each$1);
+              }
+              // 在开发阶段进行警告，比如传了 listener 进来，listener 是个空值
+              // 但你不知道它是空值
+              {
+                  if (arguments.length > 1 && listener == NULL) {
+                      warn("emitter.off(type, listener) is invoked, but \"listener\" is " + listener + ".");
+                  }
               }
           }
           else {
@@ -1192,7 +1204,7 @@
        * @param listener
        */
       Emitter.prototype.has = function (type, listener) {
-          var instance = this, listeners = instance.listeners, _a = instance.parse(type), name = _a.name, ns = _a.ns, result = TRUE, matchListener = createMatchListener(listener), each$1 = function (list) {
+          var instance = this, listeners = instance.listeners, namespace = string(type) ? instance.parse(type) : type, name = namespace.type, ns = namespace.ns, result = TRUE, matchListener = createMatchListener(listener), each$1 = function (list) {
               each(list, function (options) {
                   if (matchListener(options) && matchNamespace(ns, options)) {
                       return result = FALSE;
@@ -1216,15 +1228,17 @@
        * @param type
        */
       Emitter.prototype.parse = function (type) {
+          // 这里 ns 必须为字符串
+          // 用于区分 event 对象是否已完成命名空间的解析
           var result = {
-              key: type,
-              name: type,
+              type: type,
               ns: EMPTY_STRING
           };
+          // 是否开启命名空间
           if (this.ns) {
               var index = indexOf$1(type, RAW_DOT);
               if (index >= 0) {
-                  result.name = slice(type, 0, index);
+                  result.type = slice(type, 0, index);
                   result.ns = slice(type, index + 1);
               }
           }
@@ -1273,7 +1287,8 @@
   }
 
   function isNative (target) {
-      return func(target) && /native code/.test(toString(target));
+      return func(target)
+          && has$1(toString(target), '[native code]');
   }
 
   var nextTick;
@@ -1373,77 +1388,77 @@
   function update(api, vnode, oldVnode) {
       var node = vnode.node, nativeAttrs = vnode.nativeAttrs, oldNativeAttrs = oldVnode && oldVnode.nativeAttrs;
       if (nativeAttrs || oldNativeAttrs) {
-          var newValue_1 = nativeAttrs || EMPTY_OBJECT, oldValue_1 = oldNativeAttrs || EMPTY_OBJECT;
-          each$2(newValue_1, function (attr, name) {
-              if (!oldValue_1[name]
-                  || attr.value !== oldValue_1[name].value) {
-                  api.attr(node, name, attr.value);
+          var newValue = nativeAttrs || EMPTY_OBJECT, oldValue = oldNativeAttrs || EMPTY_OBJECT;
+          for (var name in newValue) {
+              if (!oldValue[name]
+                  || newValue[name] !== oldValue[name]) {
+                  api.attr(node, name, newValue[name]);
               }
-          });
-          each$2(oldValue_1, function (_, name) {
-              if (!newValue_1[name]) {
+          }
+          for (var name in oldValue) {
+              if (!newValue[name]) {
                   api.removeAttr(node, name);
               }
-          });
+          }
       }
   }
 
   function update$1(api, vnode, oldVnode) {
       var node = vnode.node, nativeProps = vnode.nativeProps, oldNativeProps = oldVnode && oldVnode.nativeProps;
       if (nativeProps || oldNativeProps) {
-          var newValue_1 = nativeProps || EMPTY_OBJECT, oldValue_1 = oldNativeProps || EMPTY_OBJECT;
-          each$2(newValue_1, function (prop, name) {
-              if (!oldValue_1[name]
-                  || prop.value !== oldValue_1[name].value) {
-                  api.prop(node, name, prop.value);
+          var newValue = nativeProps || EMPTY_OBJECT, oldValue = oldNativeProps || EMPTY_OBJECT;
+          for (var name in newValue) {
+              if (!oldValue[name]
+                  || newValue[name] !== oldValue[name]) {
+                  api.prop(node, name, newValue[name]);
               }
-          });
-          each$2(oldValue_1, function (prop, name) {
-              if (!newValue_1[name]) {
-                  api.removeProp(node, name, prop.hint);
+          }
+          for (var name in oldValue) {
+              if (!newValue[name]) {
+                  api.removeProp(node, name);
               }
-          });
+          }
       }
   }
 
   function update$2(vnode, oldVnode) {
       var data = vnode.data, directives = vnode.directives, oldDirectives = oldVnode && oldVnode.directives;
       if (directives || oldDirectives) {
-          var node_1 = data[COMPONENT] || vnode.node, isKeypathChange_1 = oldVnode && vnode.keypath !== oldVnode.keypath, newValue_1 = directives || EMPTY_OBJECT, oldValue_1 = oldDirectives || EMPTY_OBJECT;
-          each$2(newValue_1, function (directive, name) {
-              var _a = directive.hooks, once = _a.once, bind = _a.bind, unbind = _a.unbind;
-              if (!oldValue_1[name]) {
-                  bind(node_1, directive, vnode);
+          var node = data[COMPONENT] || vnode.node, isKeypathChange = oldVnode && vnode.keypath !== oldVnode.keypath, newValue = directives || EMPTY_OBJECT, oldValue = oldDirectives || EMPTY_OBJECT;
+          for (var name in newValue) {
+              var directive = newValue[name], _a = directive.hooks, once = _a.once, bind = _a.bind, unbind = _a.unbind;
+              if (!oldValue[name]) {
+                  bind(node, directive, vnode);
               }
               else if (once
-                  || directive.value !== oldValue_1[name].value
-                  || isKeypathChange_1) {
+                  || directive.value !== oldValue[name].value
+                  || isKeypathChange) {
                   if (unbind) {
-                      unbind(node_1, oldValue_1[name], oldVnode);
+                      unbind(node, oldValue[name], oldVnode);
                   }
-                  bind(node_1, directive, vnode);
+                  bind(node, directive, vnode);
               }
-          });
-          each$2(oldValue_1, function (directive, name) {
-              if (!newValue_1[name]) {
-                  var unbind = directive.hooks.unbind;
+          }
+          for (var name in oldValue) {
+              if (!newValue[name]) {
+                  var unbind = oldValue[name].hooks.unbind;
                   if (unbind) {
-                      unbind(node_1, directive, oldVnode);
+                      unbind(node, oldValue[name], oldVnode);
                   }
               }
-          });
+          }
       }
   }
   function remove$1(vnode) {
       var directives = vnode.directives;
       if (directives) {
-          var node_2 = vnode.data[COMPONENT] || vnode.node;
-          each$2(directives, function (directive) {
-              var unbind = directive.hooks.unbind;
+          var node = vnode.data[COMPONENT] || vnode.node;
+          for (var name in directives) {
+              var unbind = directives[name].hooks.unbind;
               if (unbind) {
-                  unbind(node_2, directive, vnode);
+                  unbind(node, directives[name], vnode);
               }
-          });
+          }
       }
   }
 
@@ -1918,7 +1933,7 @@
               removeVnode(api, parentNode, vnode);
           }
           else {
-              fatal("Can't destroy vnode without parent node.");
+              fatal("The vnode can't be destroyed without a parent node.");
           }
       }
       else {
@@ -1993,12 +2008,6 @@
   name2Type['if'] = IF;
   name2Type['each'] = EACH;
   name2Type['partial'] = PARTIAL;
-
-  var helper = /*#__PURE__*/Object.freeze({
-    specialTags: specialTags,
-    specialAttrs: specialAttrs,
-    name2Type: name2Type
-  });
 
   function createAttribute(name) {
       return {
@@ -2107,20 +2116,20 @@
   }
 
   // 首字母大写，或中间包含 -
-  var componentNamePattern = /^[$A-Z]|-/,
+  var componentNamePattern = /^[$A-Z]|-/, 
   // HTML 实体（中间最多 6 位，没见过更长的）
-  htmlEntityPattern = /&[#\w\d]{2,6};/,
+  htmlEntityPattern = /&[#\w\d]{2,6};/, 
   // 常见的自闭合标签
-  selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','),
+  selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','), 
   // 常见的 svg 标签
-  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','),
+  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','), 
   // 常见的字符串类型的属性
   // 注意：autocomplete,autocapitalize 不是布尔类型
-  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','),
+  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','), 
   // 常见的数字类型的属性
-  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','),
+  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','), 
   // 常见的布尔类型的属性
-  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','),
+  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','), 
   // 某些属性 attribute name 和 property name 不同
   attr2Prop = {};
   // 列举几个常见的
@@ -2286,26 +2295,6 @@
           args: args
       };
   }
-  function createIdentifierInner(raw, name, lookup, offset) {
-      return {
-          type: IDENTIFIER,
-          raw: raw,
-          name: name,
-          lookup: lookup,
-          offset: offset
-      };
-  }
-  function createMemberInner(raw, lead, keypath, nodes, lookup, offset) {
-      return {
-          type: MEMBER,
-          raw: raw,
-          lead: lead,
-          keypath: keypath,
-          nodes: nodes,
-          lookup: lookup,
-          offset: offset
-      };
-  }
   function createIdentifier(raw, name, isProp) {
       var lookup = TRUE, offset = 0;
       if (name === KEYPATH_CURRENT
@@ -2358,37 +2347,59 @@
   /**
    * 通过判断 nodes 来决定是否需要创建 Member
    *
-   * 创建 Member 至少需要 nodes 有两个元素
-   *
-   * nodes 元素类型没有限制，可以是 Identifier、Literal、Call，或是别的完整表达式
-   *
-   * @param raw
-   * @param nodes
+   * 创建 Member 至少需要 nodes 有两个节点
    */
   function createMemberIfNeeded(raw, nodes) {
-      var firstNode = nodes.shift(), length = nodes.length, lookup = TRUE, offset = 0;
-      // member 要求至少两个节点
-      if (length > 0) {
+      // 第一个节点要特殊处理
+      var firstNode = nodes.shift(), 
+      // 是否向上查找
+      lookup = TRUE, 
+      // 偏移量，默认从当前 context 开始查找
+      offset = 0;
+      // 表示传入的 nodes 至少有两个节点（弹出了一个）
+      if (nodes.length > 0) {
           // 处理剩下的 nodes
           // 这里要做两手准备：
           // 1. 如果全是 literal 节点，则编译时 join
           // 2. 如果不全是 literal 节点，则运行时 join
-          var isLiteral_1 = TRUE, staticNodes_1 = [], runtimeNodes_1 = [];
+          // 是否全是 Literal 节点
+          var isLiteral_1 = TRUE, 
+          // 静态节点
+          staticNodes_1 = [], 
+          // 对于 this.a.b[c] 这样的
+          // 要还原静态部分 this.a.b 的 raw
+          // 虽然 raw 没什么大用吧，谁让我是洁癖呢
+          staticRaw_1 = EMPTY_STRING, 
+          // 动态节点
+          dynamicNodes_1 = [];
           each(nodes, function (node) {
-              if (node.type === LITERAL) {
-                  var literal = node;
-                  if (literal.raw === KEYPATH_PARENT) {
-                      offset += 1;
-                      return;
+              if (isLiteral_1) {
+                  if (node.type === LITERAL) {
+                      if (node.raw === KEYPATH_PARENT) {
+                          offset += 1;
+                          staticRaw_1 = staticRaw_1
+                              ? staticRaw_1 + RAW_SLASH + KEYPATH_PARENT
+                              : KEYPATH_PARENT;
+                          return;
+                      }
+                      if (node.raw !== KEYPATH_CURRENT) {
+                          var value = toString(node.value);
+                          push(staticNodes_1, value);
+                          if (staticRaw_1) {
+                              staticRaw_1 += endsWith(staticRaw_1, KEYPATH_PARENT)
+                                  ? RAW_SLASH
+                                  : RAW_DOT;
+                          }
+                          staticRaw_1 += value;
+                      }
                   }
-                  if (literal.raw !== KEYPATH_CURRENT) {
-                      push(staticNodes_1, toString(literal.value));
+                  else {
+                      isLiteral_1 = FALSE;
                   }
               }
-              else {
-                  isLiteral_1 = FALSE;
+              if (!isLiteral_1) {
+                  push(dynamicNodes_1, node);
               }
-              push(runtimeNodes_1, node);
           });
           // lookup 要求第一位元素是 Identifier，且它的 lookup 是 true 才为 true
           // 其他情况都为 false，如 "11".length 第一位元素是 Literal，不存在向上寻找的需求
@@ -2396,45 +2407,75 @@
           //
           // 计算 keypath 的唯一方式是，第一位元素是 Identifier，后面都是 Literal
           // 否则就表示中间包含动态元素，这会导致无法计算静态路径
-          // 如 a.b.c 可以算出 staticKeypath，而 a[b].c 则不行，因为 b 是动态的
+          // 如 a.b.c 可以算出 static keypath，而 a[b].c 则不行，因为 b 是动态的
           // 优化 2：计算 offset 并智能转成 Identifier
           //
           // 比如 xx 这样的表达式，应优化成 offset = 2，并转成 Identifier
           // 处理第一个节点
           if (firstNode.type === IDENTIFIER) {
-              var identifier = firstNode;
-              lookup = identifier.lookup;
-              offset += identifier.offset;
-              var name = identifier.name;
+              lookup = firstNode.lookup;
+              offset += firstNode.offset;
+              var firstName = firstNode.name;
               // 不是 KEYPATH_THIS 或 KEYPATH_PARENT
-              if (name) {
-                  unshift(staticNodes_1, name);
+              if (firstName) {
+                  unshift(staticNodes_1, firstName);
               }
+              // 转成 Identifier
+              firstName = join(staticNodes_1, RAW_DOT);
               // a.b.c
               if (isLiteral_1) {
-                  // 转成 Identifier
-                  name = join(staticNodes_1, RAW_DOT);
-                  firstNode = createIdentifierInner(name, name, lookup, offset);
+                  firstNode = createIdentifierInner(raw, firstName, lookup, offset);
               }
               // a[b]
+              // this.a[b]
               else {
-                  firstNode = createMemberInner(raw, firstNode, UNDEFINED, runtimeNodes_1, lookup, offset);
+                  // 当 isLiteral 为 false 时
+                  // 需要为 lead 节点创建合适的 raw
+                  var firstRaw = firstNode.raw;
+                  if (staticRaw_1) {
+                      firstRaw += (firstRaw === KEYPATH_PARENT
+                          ? RAW_SLASH
+                          : RAW_DOT) + staticRaw_1;
+                  }
+                  firstNode = createMemberInner(raw, createIdentifierInner(firstRaw, firstName, lookup, offset), UNDEFINED, dynamicNodes_1, lookup, offset);
               }
           }
           else {
+              // 例子：
               // "xxx".length
               // format().a.b
               if (isLiteral_1) {
                   firstNode = createMemberInner(raw, firstNode, join(staticNodes_1, RAW_DOT), UNDEFINED, lookup, offset);
               }
+              // 例子：
               // "xxx"[length]
               // format()[a]
               else {
-                  firstNode = createMemberInner(raw, firstNode, UNDEFINED, runtimeNodes_1, lookup, offset);
+                  firstNode = createMemberInner(raw, firstNode, UNDEFINED, dynamicNodes_1, lookup, offset);
               }
           }
       }
       return firstNode;
+  }
+  function createIdentifierInner(raw, name, lookup, offset) {
+      return {
+          type: IDENTIFIER,
+          raw: raw,
+          name: name,
+          lookup: lookup,
+          offset: offset
+      };
+  }
+  function createMemberInner(raw, lead, keypath, nodes, lookup, offset) {
+      return {
+          type: MEMBER,
+          raw: raw,
+          lead: lead,
+          keypath: keypath,
+          nodes: nodes,
+          lookup: lookup,
+          offset: offset
+      };
   }
 
   var unary = {
@@ -2607,7 +2648,8 @@
                   return createUnary(operator, node, instance.pick(index));
               }
               {
-                  instance.fatal(index, "\u4E00\u5143\u8FD0\u7B97\u53EA\u6709\u64CD\u4F5C\u7B26\u6CA1\u6709\u8868\u8FBE\u5F0F\uFF1F");
+                  // 一元运算只有操作符没有表达式？
+                  instance.fatal(index, "Expression expected.");
               }
           }
       };
@@ -2630,7 +2672,7 @@
               return createLiteral(+raw, raw);
           }
           {
-              instance.fatal(startIndex, "\u6570\u5B57\u5199\u9519\u4E86\u77E5\u9053\u5417\uFF1F");
+              instance.fatal(startIndex, "Number expected.");
           }
       };
       /**
@@ -2658,7 +2700,8 @@
                       break loop;
                   case CODE_EOF:
                       {
-                          instance.fatal(startIndex, "\u5230\u5934\u4E86\uFF0C\u5B57\u7B26\u4E32\u8FD8\u6CA1\u89E3\u6790\u5B8C\u5462\uFF1F");
+                          // 到头了，字符串还没解析完呢？
+                          instance.fatal(startIndex, 'Unexpected end of text.');
                       }
                       break loop;
               }
@@ -2681,14 +2724,16 @@
                   case CODE_CBRACE:
                       instance.go();
                       {
+                          // 对象的 keys 和 values 的长度不一致
                           if (keys.length !== values.length) {
-                              instance.fatal(startIndex, "\u5BF9\u8C61\u7684 keys \u548C values \u7684\u957F\u5EA6\u4E0D\u4E00\u81F4");
+                              instance.fatal(startIndex, 'The number of keys and values must be equal.');
                           }
                       }
                       break loop;
                   case CODE_EOF:
                       {
-                          instance.fatal(startIndex, "\u5230\u5934\u4E86\uFF0C\u5BF9\u8C61\u8FD8\u6CA1\u89E3\u6790\u5B8C\u5462\uFF1F");
+                          // 到头了，对象还没解析完呢？
+                          instance.fatal(startIndex, 'Unexpected end of text.');
                       }
                       break loop;
                   // :
@@ -2717,7 +2762,8 @@
                               }
                               else {
                                   {
-                                      instance.fatal(startIndex, "\u5BF9\u8C61\u7684 key \u5FC5\u987B\u662F\u5B57\u9762\u91CF\u6216\u6807\u8BC6\u7B26");
+                                      // 对象的 key 必须是字面量或标识符
+                                      instance.fatal(startIndex, 'The key of an object must be a literal or identifier.');
                                   }
                                   break loop;
                               }
@@ -2728,9 +2774,11 @@
                           instance.skip();
                           push(values, node);
                       }
+                      // 类似这样 { key: }
                       else {
                           {
-                              instance.fatal(startIndex, "\u5BF9\u8C61\u7684\u503C\u6CA1\u627E\u5230");
+                              // 对象的值没找到
+                              instance.fatal(startIndex, "The value of the object was not found.");
                           }
                           break loop;
                       }
@@ -2755,7 +2803,8 @@
                       break loop;
                   case CODE_EOF:
                       {
-                          instance.fatal(startIndex, "\u5230\u5934\u4E86\uFF0Ctuple \u8FD8\u6CA1\u89E3\u6790\u5B8C\u5462\uFF1F");
+                          // 到头了，tuple 还没解析完呢？
+                          instance.fatal(startIndex, 'Unexpected end of text.');
                       }
                       break loop;
                   case CODE_COMMA:
@@ -2814,7 +2863,7 @@
                   else {
                       // 类似 ./ 或 ../ 这样后面不跟标识符是想干嘛？报错可好？
                       {
-                          instance.fatal(startIndex, "path \u5199\u6CD5\u9519\u8BEF");
+                          instance.fatal(startIndex, last(nodes).raw + "/ must be followed by an identifier.");
                       }
                       break;
                   }
@@ -2860,7 +2909,8 @@
                       }
                       else {
                           {
-                              instance.fatal(startIndex, ". \u540E\u9762\u8DDF\u7684\u90FD\u662F\u5565\u73A9\u610F\u554A");
+                              // . 后面跟的都是啥玩意啊
+                              instance.fatal(startIndex, 'Identifier or number expected.');
                           }
                           break loop;
                       }
@@ -2874,8 +2924,9 @@
                           break;
                       }
                       else {
+                          // [] 内部不能为空
                           {
-                              instance.fatal(startIndex, "[] \u5185\u90E8\u4E0D\u80FD\u4E3A\u7A7A");
+                              instance.fatal(startIndex, "[] is not allowed.");
                           }
                           break loop;
                       }
@@ -2927,7 +2978,7 @@
                   {
                       // ++
                       if (instance.is(CODE_PLUS)) {
-                          instance.fatal(startIndex, "\u4E0D\u652F\u6301\u8BE5\u8BED\u6CD5");
+                          instance.fatal(startIndex, 'The operator "++" is not supported.');
                       }
                   }
                   break;
@@ -2937,7 +2988,7 @@
                   {
                       // --
                       if (instance.is(CODE_MINUS)) {
-                          instance.fatal(startIndex, "\u4E0D\u652F\u6301\u8BE5\u8BED\u6CD5");
+                          instance.fatal(startIndex, 'The operator "--" is not supported.');
                       }
                   }
                   break;
@@ -2979,7 +3030,7 @@
                   }
                   // 一个等号要报错
                   else {
-                      instance.fatal(startIndex, "\u4E0D\u652F\u6301\u4E00\u4E2A\u7B49\u53F7\u8FD9\u79CD\u8D4B\u503C\u5199\u6CD5");
+                      instance.fatal(startIndex, 'Assignment statements are not supported.');
                   }
                   break;
               // <、<=、<<
@@ -3014,7 +3065,7 @@
       Parser.prototype.scanBinary = function (startIndex) {
           // 二元运算，如 a + b * c / d，这里涉及运算符的优先级
           // 算法参考 https://en.wikipedia.org/wiki/Shunting-yard_algorithm
-          var instance = this,
+          var instance = this, 
           // 格式为 [ index1, node1, index2, node2, ... ]
           output = [], token, index, operator, operatorPrecedence, lastOperator, lastOperatorPrecedence;
           while (TRUE) {
@@ -3047,7 +3098,7 @@
               // 比如不支持的表达式，a++ 之类的
               else {
                   if (operator) {
-                      instance.fatal(startIndex, '表达式错误');
+                      instance.fatal(startIndex, 'Invalid syntax.');
                   }
               }
               // 没匹配到 token 或 operator 则跳出循环
@@ -3097,7 +3148,7 @@
               }
               else {
                   // 三元表达式语法错误
-                  instance.fatal(index, "ternary expression syntax error");
+                  instance.fatal(index, "Invalid ternary syntax.");
               }
           }
           // 过掉结束字符
@@ -3108,14 +3159,14 @@
               }
               // 没匹配到结束字符要报错
               else {
-                  instance.fatal(index, "\u7ED3\u675F\u5B57\u7B26\u5339\u914D\u9519\u8BEF\uFF0C\u671F\u5F85[" + String.fromCharCode(endCode) + "]\uFF0C\u5374\u53D1\u73B0[" + String.fromCharCode(instance.code) + "]");
+                  instance.fatal(index, "\"" + String.fromCharCode(endCode) + "\" expected, \"" + String.fromCharCode(instance.code) + "\" actually.");
               }
           }
           return test;
       };
       Parser.prototype.fatal = function (start, message) {
           {
-              fatal("Error compiling expression:\n" + this.content + "\n- " + message);
+              fatal("Error compiling expression\n\n" + this.content + "\n\nmessage: " + message + "\n");
           }
       };
       return Parser;
@@ -3204,35 +3255,37 @@
   }
 
   // 当前不位于 block 之间
-  var BLOCK_MODE_NONE = 1,
+  var BLOCK_MODE_NONE = 1, 
   // {{ x }}
-  BLOCK_MODE_SAFE = 2,
+  BLOCK_MODE_SAFE = 2, 
   // {{{ x }}}
-  BLOCK_MODE_UNSAFE = 3,
+  BLOCK_MODE_UNSAFE = 3, 
   // 缓存编译正则
-  patternCache$1 = {},
+  patternCache$1 = {}, 
   // 指令分隔符，如 on-click 和 lazy-click
-  directiveSeparator = '-',
+  directiveSeparator = '-', 
+  // 调用的方法
+  methodPattern = /^[_$a-z]([\w]+)?$/, 
   // 没有命名空间的事件
-  eventPattern = /^[_$a-z]([\w]+)?$/i,
+  eventPattern = /^[_$a-z]([\w]+)?$/i, 
   // 有命名空间的事件
-  eventNamespacePattern = /^[_$a-z]([\w]+)?\.[_$a-z]([\w]+)?$/i,
+  eventNamespacePattern = /^[_$a-z]([\w]+)?\.[_$a-z]([\w]+)?$/i, 
   // 换行符
   // 比较神奇是，有时候你明明看不到换行符，却真的存在一个，那就是 \r
-  breaklinePattern = /^\s*[\n\r]\s*|\s*[\n\r]\s*$/g,
+  breaklinePattern = /^\s*[\n\r]\s*|\s*[\n\r]\s*$/g, 
   // 区间遍历
-  rangePattern = /\s*(=>|->)\s*/,
+  rangePattern = /\s*(=>|->)\s*/, 
   // 标签
-  tagPattern = /<(\/)?([$a-z][-a-z0-9]*)/i,
+  tagPattern = /<(\/)?([$a-z][-a-z0-9]*)/i, 
   // 注释
-  commentPattern = /<!--[\s\S]*?-->/g,
+  commentPattern = /<!--[\s\S]*?-->/g, 
   // 开始注释
-  openCommentPattern = /^([\s\S]*?)<!--/,
+  openCommentPattern = /^([\s\S]*?)<!--/, 
   // 结束注释
-  closeCommentPattern = /-->([\s\S]*?)$/,
+  closeCommentPattern = /-->([\s\S]*?)$/, 
   // 属性的 name
   // 支持 on-click.namespace="" 或 on-get-out="" 或 xml:xx=""
-  attributePattern = /^\s*([-.:\w]+)(['"])?(?:=(['"]))?/,
+  attributePattern = /^\s*([-$.:\w]+)(['"])?(?:=(['"]))?/, 
   // 自闭合标签
   selfClosingTagPattern = /^\s*(\/)?>/;
   /**
@@ -3242,25 +3295,25 @@
       return trim(slice(str, prefix.length));
   }
   function compile$1(content) {
-      var nodeList = [], nodeStack = [],
+      var nodeList = [], nodeStack = [], 
       // 持有 if/elseif/else 节点
-      ifStack = [], currentElement, currentAttribute, length = content.length,
+      ifStack = [], currentElement, currentAttribute, length = content.length, 
       // 当前处理的位置
-      index = 0,
+      index = 0, 
       // 下一段开始的位置
-      nextIndex = 0,
+      nextIndex = 0, 
       // 开始定界符的位置，表示的是 {{ 的右侧位置
-      openBlockIndex = 0,
+      openBlockIndex = 0, 
       // 结束定界符的位置，表示的是 }} 的左侧位置
-      closeBlockIndex = 0,
+      closeBlockIndex = 0, 
       // 当前正在处理或即将处理的 block 类型
-      blockMode = BLOCK_MODE_NONE,
+      blockMode = BLOCK_MODE_NONE, 
       // mustache 注释可能出现嵌套插值的情况
       blockStack = [], indexList = [], code, startQuote, fatal$1 = function (msg) {
           {
-              fatal("Error compiling " + RAW_TEMPLATE + ":\n" + content + "\n- " + msg);
+              fatal("Error compiling template\n\n" + content + "\n\nmessage: " + msg);
           }
-      },
+      }, 
       /**
        * 常见的两种情况：
        *
@@ -3284,7 +3337,7 @@
       }, popStack = function (type, tagName) {
           var node = pop(nodeStack);
           if (node && node.type === type) {
-              var children = node.children,
+              var children = node.children, 
               // 优化单个子节点
               child = children && children.length === 1 && children[0], isElement = type === ELEMENT, isAttribute = type === ATTRIBUTE, isProperty = type === PROPERTY, isDirective = type === DIRECTIVE;
               var currentBranch = last(nodeStack);
@@ -3308,7 +3361,7 @@
                   if (isElement) {
                       var element = node;
                       if (tagName && element.tag !== tagName) {
-                          fatal$1("\u7ED3\u675F\u6807\u7B7E\u662F" + tagName + "\uFF0C\u5F00\u59CB\u6807\u7B7E\u5374\u662F" + element.tag);
+                          fatal$1("End tag is \"" + tagName + "\"\uFF0Cbut start tag is \"" + element.tag + "\".");
                       }
                   }
               }
@@ -3343,7 +3396,7 @@
                               processPropertySingleExpression(node, child);
                           }
                           else if (isDirective) {
-                              processDirectiveSingleExpression(node, child);
+                              processDirectiveSingleExpression();
                           }
                           break;
                   }
@@ -3394,8 +3447,9 @@
               }
               return node;
           }
+          // 出栈节点类型不匹配
           {
-              fatal$1("\u51FA\u6808\u8282\u70B9\u7C7B\u578B\u4E0D\u5339\u914D");
+              fatal$1("The type of poping node is not expected.");
           }
       }, removeComment = function (children) {
           // 类似 <!-- xx {{name}} yy {{age}} zz --> 这样的注释里包含插值
@@ -3404,6 +3458,7 @@
           var openIndex = MINUS_ONE, openText = EMPTY_STRING, closeIndex = MINUS_ONE, closeText = EMPTY_STRING;
           each(children, function (child, index) {
               if (child.type === TEXT) {
+                  // 有了结束 index，这里的任务是配对开始 index
                   if (closeIndex >= 0) {
                       openText = child.text;
                       // 处理 <!-- <!-- 这样有多个的情况
@@ -3414,20 +3469,32 @@
                       if (openIndex >= 0) {
                           // openIndex 肯定小于 closeIndex，因为完整的注释在解析过程中会被干掉
                           // 只有包含插值的注释才会走进这里
+                          var startIndex = openIndex, endIndex = closeIndex;
                           // 现在要确定开始和结束的文本节点，是否包含正常文本
                           if (openText) {
                               children[openIndex].text = openText;
-                              openIndex++;
+                              startIndex++;
                           }
                           if (closeText) {
-                              children[closeIndex].text = closeText;
-                              closeIndex--;
+                              // 合并开始和结束文本，如 1<!-- {{x}}{{y}} -->2
+                              // 这里要把 1 和 2 两个文本节点合并成一个
+                              if (openText) {
+                                  children[openIndex].text += closeText;
+                              }
+                              else {
+                                  children[closeIndex].text = closeText;
+                                  endIndex--;
+                              }
                           }
-                          children.splice(openIndex, closeIndex - openIndex + 1);
+                          children.splice(startIndex, endIndex - startIndex + 1);
+                          // 重置，再继续寻找结束 index
                           openIndex = closeIndex = MINUS_ONE;
                       }
                   }
                   else {
+                      // 从后往前遍历
+                      // 一旦发现能匹配 --> 就可以断定这是注释的结束 index
+                      // 剩下的就是找开始 index
                       closeText = child.text;
                       // 处理 --> --> 这样有多个的情况
                       while (closeCommentPattern.test(closeText)) {
@@ -3443,7 +3510,7 @@
           // 2. 全局搜索不到事件名，不利于代码维护
           // 3. 不利于编译成静态函数
           {
-              fatal$1("\u6307\u4EE4\u7684\u503C\u4E0D\u80FD\u7528\u63D2\u503C\u6216 if \u8BED\u6CD5");
+              fatal$1('For performance, "{{" and "}}" are not allowed in directive value.');
           }
       }, processElementSingleText = function (element, child) {
           // processElementSingleText 和 processElementSingleExpression
@@ -3452,11 +3519,15 @@
           // 还是在序列化的时候统一处理比较好
           // 唯独需要在这特殊处理的是 html 实体
           // 但这只是 WEB 平台的特殊逻辑，所以丢给 platform 处理
-          if (setElementText(element, child.text)) {
+          if (!element.isComponent
+              && !specialTags[element.tag]
+              && setElementText(element, child.text)) {
               element.children = UNDEFINED;
           }
       }, processElementSingleExpression = function (element, child) {
-          if (!element.isComponent && !element.slot && !child.safe) {
+          if (!element.isComponent
+              && !specialTags[element.tag]
+              && !child.safe) {
               element.html = child.expr;
               element.children = UNDEFINED;
           }
@@ -3492,7 +3563,7 @@
       }, processAttributeEmptyChildren = function (element, attr) {
           if (isSpecialAttr(element, attr)) {
               {
-                  fatal$1(attr.name + " \u5FD8\u4E86\u5199\u503C\u5427\uFF1F");
+                  fatal$1("The value of \"" + attr.name + "\" is empty.");
               }
           }
           else {
@@ -3513,22 +3584,24 @@
       }, processDirectiveEmptyChildren = function (element, directive) {
           directive.value = TRUE;
       }, processDirectiveSingleText = function (directive, child) {
-          var text = child.text,
+          var text = child.text, 
           // model="xx" model="this.x" 值只能是标识符或 Member
-          isModel = directive.ns === DIRECTIVE_MODEL,
+          isModel = directive.ns === DIRECTIVE_MODEL, 
           // lazy 的值必须是大于 0 的数字
-          isLazy = directive.ns === DIRECTIVE_LAZY,
+          isLazy = directive.ns === DIRECTIVE_LAZY, 
           // 校验事件名称
           // 且命名空间不能用 native
-          isEvent = directive.ns === DIRECTIVE_EVENT,
+          isEvent = directive.ns === DIRECTIVE_EVENT, 
           // 自定义指令运行不合法的表达式
-          isCustom = directive.ns === DIRECTIVE_CUSTOM,
+          isCustom = directive.ns === DIRECTIVE_CUSTOM, 
           // 指令的值是纯文本，可以预编译表达式，提升性能
-          expr;
+          expr, error;
           try {
               expr = compile(text);
           }
-          catch (e) { }
+          catch (e) {
+              error = e;
+          }
           if (expr) {
               {
                   var raw = expr.raw;
@@ -3536,13 +3609,18 @@
                       if (expr.type !== LITERAL
                           || !number(expr.value)
                           || expr.value <= 0) {
-                          fatal$1("lazy \u6307\u4EE4\u7684\u503C [" + raw + "] \u5FC5\u987B\u662F\u5927\u4E8E 0 \u7684\u6570\u5B57");
+                          fatal$1('The value of lazy must be a number greater than 0.');
                       }
                   }
                   // 如果指令表达式是函数调用，则只能调用方法（难道还有别的可以调用的吗？）
                   else if (expr.type === CALL) {
-                      if (expr.name.type !== IDENTIFIER) {
-                          fatal$1('指令表达式的类型如果是函数调用，则只能调用方法');
+                      var methodName = expr.name;
+                      if (methodName.type !== IDENTIFIER) {
+                          fatal$1('Invalid method name.');
+                      }
+                      // 函数调用调用方法，因此不能是 a.b() 的形式
+                      else if (!methodPattern.test(methodName.name)) {
+                          fatal$1('Invalid method name.');
                       }
                   }
                   // 上面检测过方法调用，接下来事件指令只需要判断是否以下两种格式：
@@ -3552,21 +3630,22 @@
                           // native 有特殊用处，不能给业务层用
                           if (eventNamespacePattern.test(raw)
                               && raw.split(RAW_DOT)[1] === MODIFER_NATIVE) {
-                              fatal$1("\u4E8B\u4EF6\u8F6C\u6362\u540D\u79F0\u7684\u547D\u540D\u7A7A\u95F4\u4E0D\u80FD\u4F7F\u7528 " + MODIFER_NATIVE);
+                              fatal$1("The event namespace \"" + MODIFER_NATIVE + "\" is not permitted.");
                           }
                           // <Button on-click="click"> 这种写法没有意义
                           if (currentElement
                               && currentElement.isComponent
                               && directive.name === raw) {
-                              fatal$1('转换组件事件的名称不能相同');
+                              fatal$1("The event name listened and fired can't be the same.");
                           }
                       }
+                      // 事件转换名称只能是 [name] 或 [name.namespace] 格式
                       else {
-                          fatal$1('事件转换名称只能是 [name] 或 [name.namespace] 格式');
+                          fatal$1('The event name and namespace must be an identifier.');
                       }
                   }
                   if (isModel && expr.type !== IDENTIFIER) {
-                      fatal$1("model \u6307\u4EE4\u7684\u503C\u683C\u5F0F\u9519\u8BEF: [" + raw + "]");
+                      fatal$1('The value of the model must be an identifier.');
                   }
               }
               directive.expr = expr;
@@ -3575,9 +3654,11 @@
                   : text;
           }
           else {
+              // 自定义指令支持错误的表达式
+              // 反正是自定义的规则，爱怎么写就怎么写
               {
                   if (!isCustom) {
-                      fatal$1(directive.ns + " \u6307\u4EE4\u7684\u8868\u8FBE\u5F0F\u9519\u8BEF: [" + text + "]");
+                      throw error;
                   }
               }
               directive.value = text;
@@ -3585,7 +3666,7 @@
           directive.children = UNDEFINED;
       }, processDirectiveSingleExpression = function (directive, child) {
           {
-              fatal$1("\u6307\u4EE4\u7684\u8868\u8FBE\u5F0F\u4E0D\u80FD\u7528\u63D2\u503C\u8BED\u6CD5");
+              fatal$1('For performance, "{{" and "}}" are not allowed in directive value.');
           }
       }, checkCondition = function (condition) {
           var currentNode = condition, prevNode, hasChildren, hasNext;
@@ -3628,16 +3709,16 @@
           {
               if (isTemplate) {
                   if (element.key) {
-                      fatal$1("<template> \u4E0D\u652F\u6301 key");
+                      fatal$1("The \"key\" is not supported in <template>.");
                   }
                   else if (element.ref) {
-                      fatal$1("<template> \u4E0D\u652F\u6301 ref");
+                      fatal$1("The \"ref\" is not supported in <template>.");
                   }
                   else if (element.attrs) {
-                      fatal$1("<template> \u4E0D\u652F\u6301\u5C5E\u6027\u6216\u6307\u4EE4");
+                      fatal$1("The attributes and directives are not supported in <template>.");
                   }
                   else if (!slot) {
-                      fatal$1("<template> \u4E0D\u5199 slot \u5C5E\u6027\u662F\u51E0\u4E2A\u610F\u601D\uFF1F");
+                      fatal$1("The \"slot\" is required in <template>.");
                   }
               }
           }
@@ -3657,25 +3738,25 @@
               // model 不能写在 if 里，影响节点的静态结构
               if (directive.ns === DIRECTIVE_MODEL) {
                   if (last(nodeStack) !== element) {
-                      fatal$1("model \u4E0D\u80FD\u5199\u5728 if \u5185");
+                      fatal$1("The \"model\" can't be used in an if block.");
                   }
               }
           }
       }, bindSpecialAttr = function (element, attr) {
-          var name = attr.name, value = attr.value,
+          var name = attr.name, value = attr.value, 
           // 这三个属性值要求是字符串
           isStringValueRequired = name === RAW_NAME || name === RAW_SLOT;
           {
               // 因为要拎出来给 element，所以不能用 if
               if (last(nodeStack) !== element) {
-                  fatal$1(name + " \u4E0D\u80FD\u5199\u5728 if \u5185");
+                  fatal$1("The \"" + name + "\" can't be used in an if block.");
               }
               // 对于所有特殊属性来说，空字符串是肯定不行的，没有任何意义
               if (value === EMPTY_STRING) {
-                  fatal$1(name + " \u7684\u503C\u4E0D\u80FD\u662F\u7A7A\u5B57\u7B26\u4E32");
+                  fatal$1("The value of \"" + name + "\" is empty.");
               }
               else if (isStringValueRequired && falsy$1(value)) {
-                  fatal$1(name + " \u7684\u503C\u53EA\u80FD\u662F\u5B57\u7B26\u4E32\u5B57\u9762\u91CF");
+                  fatal$1("The value of \"" + name + "\" can only be a string literal.");
               }
           }
           element[name] = isStringValueRequired ? value : attr;
@@ -3742,30 +3823,77 @@
                   }
                   else if (type === ELSE_IF) {
                       {
-                          fatal$1('else 后面不能跟 else if 啊');
+                          fatal$1('The "else" block must not be followed by an "else if" block.');
                       }
                   }
                   else {
-                      fatal$1('只能写一个 else 啊');
+                      fatal$1("The \"else\" block can't appear more than once in a conditional statement.");
                   }
               }
               else {
-                  fatal$1('不写 if 是几个意思');
+                  fatal$1('The "if" block is required.');
               }
           }
           else {
               if (currentBranch) {
-                  push(
                   // 这里不能写 currentElement && !currentAttribute，举个例子
                   //
                   // <div id="x" {{#if}} name="xx" alt="xx" {{/if}}
                   //
                   // 当 name 属性结束后，条件满足，但此时已不是元素属性层级了
-                  currentElement && currentBranch.type === ELEMENT
-                      ? currentElement.attrs || (currentElement.attrs = [])
-                      : currentBranch.children || (currentBranch.children = []), node);
+                  if (currentElement && currentBranch.type === ELEMENT) {
+                      // 属性层级不能使用危险插值
+                      {
+                          if (type === EXPRESSION
+                              && !node.safe) {
+                              fatal$1('The dangerous interpolation must be the only child of a HTML element.');
+                          }
+                      }
+                      // node 没法转型，一堆可能的类型怎么转啊...
+                      push(currentElement.attrs || (currentElement.attrs = []), node);
+                  }
+                  else {
+                      var children = currentBranch.children || (currentBranch.children = []), lastChild = last(children);
+                      // 连续添加文本节点，则直接合并
+                      if (lastChild
+                          && lastChild.type === TEXT
+                          && node.type === TEXT) {
+                          lastChild.text += node.text;
+                          return;
+                      }
+                      else {
+                          {
+                              if (type === EXPRESSION
+                                  && !node.safe) {
+                                  // 前面不能有别的 child，危险插值必须独占父元素
+                                  if (lastChild) {
+                                      fatal$1('The dangerous interpolation must be the only child of a HTML element.');
+                                  }
+                                  // 危险插值的父节点必须是 html element
+                                  else if (currentBranch.type !== ELEMENT
+                                      || currentBranch.isComponent
+                                      || specialTags[currentBranch.tag]) {
+                                      fatal$1('The dangerous interpolation must be the only child of a HTML element.');
+                                  }
+                              }
+                              // 后面不能有别的 child，危险插值必须独占父元素
+                              else if (lastChild
+                                  && lastChild.type === EXPRESSION
+                                  && !lastChild.safe) {
+                                  fatal$1('The dangerous interpolation must be the only child of a HTML element.');
+                              }
+                          }
+                          push(children, node);
+                      }
+                  }
               }
               else {
+                  {
+                      if (type === EXPRESSION
+                          && !node.safe) {
+                          fatal$1('The dangerous interpolation must be under a HTML element.');
+                      }
+                  }
                   push(nodeList, node);
               }
               if (type === IF) {
@@ -3816,7 +3944,7 @@
                   // 如果 <tag 前面有别的字符，会走进第四个 parser
                   if (match && match.index === 0) {
                       var tag = match[2];
-                      if (match[1] === '/') {
+                      if (match[1] === RAW_SLASH) {
                           /**
                            * 处理可能存在的自闭合元素，如下
                            *
@@ -3841,7 +3969,7 @@
                               if (tag === RAW_TEMPLATE) {
                                   var lastNode = last(nodeStack);
                                   if (!lastNode || !lastNode.isComponent) {
-                                      fatal$1('<template> 只能写在组件标签内');
+                                      fatal$1('<template> can only be used within an component children.');
                                   }
                               }
                           }
@@ -3860,7 +3988,7 @@
                   // 处理开始标签的 > 或 />
                   if (currentElement && !currentAttribute) {
                       // 自闭合标签
-                      if (match[1] === '/') {
+                      if (match[1] === RAW_SLASH) {
                           popStack(currentElement.type, currentElement.tag);
                       }
                       currentElement = UNDEFINED;
@@ -3879,7 +4007,7 @@
                       // 这里会匹配上 xxx"，match[2] 就是那个引号
                       {
                           if (match[2]) {
-                              fatal$1("\u4E0A\u4E00\u4E2A\u5C5E\u6027\u4F3C\u4E4E\u6CA1\u6709\u6B63\u5E38\u7ED3\u675F");
+                              fatal$1("The previous attribute is not end.");
                           }
                       }
                       var node = void 0, name = match[1];
@@ -3891,11 +4019,17 @@
                           var event = slicePrefix(name, DIRECTIVE_ON + directiveSeparator);
                           {
                               if (!event) {
-                                  fatal$1('缺少事件名称');
+                                  fatal$1('The event name is required.');
                               }
                           }
-                          var _a = camelize(event).split(RAW_DOT), directiveName = _a[0], diectiveModifier = _a[1];
+                          var _a = camelize(event).split(RAW_DOT), directiveName = _a[0], diectiveModifier = _a[1], extra = _a[2];
                           node = createDirective(directiveName, DIRECTIVE_EVENT, diectiveModifier);
+                          // on-a.b.c
+                          {
+                              if (string(extra)) {
+                                  fatal$1('Invalid event namespace.');
+                              }
+                          }
                       }
                       // 当一个元素绑定了多个事件时，可分别指定每个事件的 lazy
                       // 当只有一个事件时，可简写成 lazy
@@ -3912,11 +4046,17 @@
                           var custom = slicePrefix(name, DIRECTIVE_CUSTOM + directiveSeparator);
                           {
                               if (!custom) {
-                                  fatal$1('缺少自定义指令名称');
+                                  fatal$1('The directive name is required.');
                               }
                           }
-                          var _b = camelize(custom).split(RAW_DOT), directiveName = _b[0], diectiveModifier = _b[1];
+                          var _b = camelize(custom).split(RAW_DOT), directiveName = _b[0], diectiveModifier = _b[1], extra = _b[2];
                           node = createDirective(directiveName, DIRECTIVE_CUSTOM, diectiveModifier);
+                          // o-a.b.c
+                          {
+                              if (string(extra)) {
+                                  fatal$1('Invalid directive modifier.');
+                              }
+                          }
                       }
                       else {
                           node = createAttribute$1(currentElement, name);
@@ -3960,8 +4100,9 @@
                       text = content;
                       addTextChild(text);
                   }
+                  // 没找到结束引号
                   else {
-                      fatal$1(currentAttribute.name + " \u6CA1\u6709\u627E\u5230\u7ED3\u675F\u5F15\u53F7");
+                      fatal$1("Unterminated quoted string in \"" + currentAttribute.name + "\".");
                   }
               }
               // 如果不加判断，类似 <div {{...obj}}> 这样写，会把空格当做一个属性
@@ -3985,7 +4126,7 @@
               else {
                   {
                       if (trim(content)) {
-                          fatal$1("<" + currentElement.tag + "> \u5C5E\u6027\u91CC\u4E0D\u8981\u5199\u4E71\u4E03\u516B\u7CDF\u7684\u5B57\u7B26");
+                          fatal$1("Invalid character is found in <" + currentElement.tag + "> attribute level.");
                       }
                   }
                   text = content;
@@ -3998,14 +4139,14 @@
                   {
                       if (currentElement) {
                           fatal$1(currentAttribute
-                              ? "each \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u7684\u503C\u91CC"
-                              : "each \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u5C42\u7EA7");
+                              ? "The \"each\" block can't be appear in an attribute value."
+                              : "The \"each\" block can't be appear in attribute level.");
                       }
                   }
                   source = slicePrefix(source, SYNTAX_EACH);
                   var terms = source.replace(/\s+/g, EMPTY_STRING).split(':');
                   if (terms[0]) {
-                      var literal = trim(terms[0]), index_1 = trim(terms[1]), match = literal.match(rangePattern);
+                      var literal = trim(terms[0]), index_1 = terms[1] ? trim(terms[1]) : UNDEFINED, match = literal.match(rangePattern);
                       if (match) {
                           var parts = literal.split(rangePattern), from = compile(parts[0]), to = compile(parts[2]);
                           if (from && to) {
@@ -4020,7 +4161,7 @@
                       }
                   }
                   {
-                      fatal$1("\u65E0\u6548\u7684 each");
+                      fatal$1("Invalid each");
                   }
               }
           },
@@ -4034,12 +4175,12 @@
                       }
                       else {
                           fatal$1(currentAttribute
-                              ? "import \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u7684\u503C\u91CC"
-                              : "import \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u5C42\u7EA7");
+                              ? "The \"import\" block can't be appear in an attribute value."
+                              : "The \"import\" block can't be appear in attribute level.");
                       }
                   }
                   {
-                      fatal$1("\u65E0\u6548\u7684 import");
+                      fatal$1("Invalid import");
                   }
               }
           },
@@ -4053,12 +4194,12 @@
                       }
                       else {
                           fatal$1(currentAttribute
-                              ? "partial \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u7684\u503C\u91CC"
-                              : "partial \u4E0D\u80FD\u5199\u5728\u5C5E\u6027\u5C42\u7EA7");
+                              ? "The \"partial\" block can't be appear in an attribute value."
+                              : "The \"partial\" block can't be appear in attribute level.");
                       }
                   }
                   {
-                      fatal$1("\u65E0\u6548\u7684 partial");
+                      fatal$1("Invalid partial");
                   }
               }
           },
@@ -4071,7 +4212,7 @@
                       return createIf(expr);
                   }
                   {
-                      fatal$1("\u65E0\u6548\u7684 if");
+                      fatal$1("Invalid if");
                   }
               }
           },
@@ -4084,7 +4225,7 @@
                       return createElseIf(expr);
                   }
                   {
-                      fatal$1("\u65E0\u6548\u7684 else if");
+                      fatal$1("Invalid else if");
                   }
               }
           },
@@ -4096,7 +4237,7 @@
                       return createElse();
                   }
                   {
-                      fatal$1("else \u540E\u9762\u4E0D\u8981\u5199\u4E71\u4E03\u516B\u7CDF\u7684\u4E1C\u897F");
+                      fatal$1("The \"else\" must not be followed by anything.");
                   }
               }
           },
@@ -4110,11 +4251,11 @@
                           return createSpread(expr, expr.type === IDENTIFIER);
                       }
                       else {
-                          fatal$1("\u5EF6\u5C55\u5C5E\u6027\u53EA\u80FD\u7528\u4E8E\u7EC4\u4EF6\u5C5E\u6027");
+                          fatal$1("The spread can only be used by a component.");
                       }
                   }
                   {
-                      fatal$1("\u65E0\u6548\u7684 spread");
+                      fatal$1("Invalid spread");
                   }
               }
           },
@@ -4127,7 +4268,7 @@
                       return createExpression(expr, blockMode === BLOCK_MODE_SAFE);
                   }
                   {
-                      fatal$1("\u65E0\u6548\u7684 expression");
+                      fatal$1("Invalid expression");
                   }
               }
           } ], parseHtml = function (code) {
@@ -4141,7 +4282,7 @@
               });
           }
       }, parseBlock = function (code) {
-          if (charAt(code) === '/') {
+          if (charAt(code) === RAW_SLASH) {
               /**
                * 处理可能存在的自闭合元素，如下
                *
@@ -4159,7 +4300,7 @@
                       isCondition = TRUE;
                   }
                   else {
-                      fatal$1("if \u8FD8\u6CA1\u5F00\u59CB\u5C31\u7ED3\u675F\u4E86\uFF1F");
+                      fatal$1("The \"if\" block is closing, but it's not open yet.");
                   }
               }
               var node = popStack(type);
@@ -4188,7 +4329,7 @@
                       nextIndex = index + 1;
                   }
                   else {
-                      fatal$1("{{ \u548C }}} \u65E0\u6CD5\u914D\u5BF9");
+                      fatal$1("{{ and }}} is not a pair.");
                   }
               }
               else {
@@ -4196,7 +4337,7 @@
                       nextIndex = index;
                   }
                   else {
-                      fatal$1("{{{ \u548C }} \u65E0\u6CD5\u914D\u5BF9");
+                      fatal$1("{{{ and }} is not a pair.");
                   }
               }
               pop(blockStack);
@@ -4255,15 +4396,17 @@
                           }
                       }
                       else {
-                          fatal$1('找不到结束定界符');
+                          fatal$1('The end delimiter is not found.');
                       }
                   }
                   else {
-                      fatal$1('{{{ 后面没字符串了？');
+                      // {{{ 后面没字符串了？
+                      fatal$1('Unterminated template literal.');
                   }
               }
               else {
-                  fatal$1('{{ 后面没字符串了？');
+                  // {{ 后面没字符串了？
+                  fatal$1('Unterminated template literal.');
               }
           }
           else {
@@ -4302,7 +4445,7 @@
           popSelfClosingElementIfNeeded();
           {
               if (nodeStack.length) {
-                  fatal$1('还有节点未出栈');
+                  fatal$1('Some nodes is still in the stack.');
               }
           }
       }
@@ -4312,9 +4455,10 @@
       return nodeList;
   }
 
-  var UNDEFINED$1 = 'z';
-  var TRUE$1 = '!0';
-  var FALSE$1 = '!1';
+  var UNDEFINED$1 = '$0';
+  var NULL$1 = '$1';
+  var TRUE$1 = '$2';
+  var FALSE$1 = '$3';
   var COMMA = ',';
   var COLON = ':';
   var PLUS = '+';
@@ -4325,6 +4469,9 @@
   var RETURN = 'return ';
   /**
    * 目的是 保证调用参数顺序稳定，减少运行时判断
+   *
+   * [a, undefined, undefined] => [a]
+   * [a, undefined, b, undefined] => [a, undefined, b]
    */
   function trimArgs(list) {
       var args = [], removable = TRUE;
@@ -4339,43 +4486,50 @@
       }, TRUE);
       return args;
   }
+  /**
+   * 把 [ 'key1:value1', 'key2:value2' ] 格式转成 `{key1:value1,key2:value2}`
+   */
   function toObject$1(fields) {
       return "{" + join(fields, COMMA) + "}";
   }
+  /**
+   * 把 [ 'item1', 'item2' ] 格式转成 `['item1','item2']`
+   */
   function toArray$1(items) {
       return "[" + join(items, COMMA) + "]";
   }
+  /**
+   * 输出函数调用的格式
+   */
   function toCall(name, args) {
-      return name + "(" + join(trimArgs(args), COMMA) + ")";
+      var code = args ? join(trimArgs(args), COMMA) : EMPTY_STRING;
+      return name + "(" + code + ")";
   }
+  /**
+   * 输出为字符串格式
+   */
   function toString$1(value) {
-      return JSON.stringify(value);
+      return value === TRUE
+          ? TRUE$1
+          : value === FALSE
+              ? FALSE$1
+              : value === NULL
+                  ? NULL$1
+                  : value === UNDEFINED
+                      ? UNDEFINED$1
+                      : JSON.stringify(value);
   }
+  /**
+   * 输出为匿名函数格式
+   */
   function toFunction(args, code) {
-      return RAW_FUNCTION + "(" + args + "){var " + UNDEFINED$1 + "=void 0;" + RETURN + code + "}";
+      return RAW_FUNCTION + "(" + args + "){var " + UNDEFINED$1 + "=void 0," + NULL$1 + "=null," + TRUE$1 + "=!0," + FALSE$1 + "=!1;" + RETURN + code + "}";
   }
-
-  var generator = /*#__PURE__*/Object.freeze({
-    UNDEFINED: UNDEFINED$1,
-    TRUE: TRUE$1,
-    FALSE: FALSE$1,
-    COMMA: COMMA,
-    COLON: COLON,
-    PLUS: PLUS,
-    AND: AND,
-    QUESTION: QUESTION,
-    NOT: NOT,
-    EMPTY: EMPTY,
-    RETURN: RETURN,
-    toObject: toObject$1,
-    toArray: toArray$1,
-    toCall: toCall,
-    toString: toString$1,
-    toFunction: toFunction
-  });
 
   function generate(node, renderIdentifier, renderMemberKeypath, renderMemberLiteral, renderCall, holder, depIgnore, stack, inner) {
-      var value, isSpecialNode = FALSE, generateChildNode = function (node) {
+      var value, isSpecialNode = FALSE, 
+      // 如果是内部临时值，不需要 holder
+      needHolder = holder && !inner, generateChildNode = function (node) {
           return generate(node, renderIdentifier, renderMemberKeypath, renderMemberLiteral, renderCall, holder, depIgnore, stack, TRUE);
       };
       switch (node.type) {
@@ -4415,9 +4569,9 @@
               var identifier = node;
               value = toCall(renderIdentifier, [
                   toString$1(identifier.name),
-                  identifier.lookup ? TRUE$1 : UNDEFINED,
+                  toString$1(identifier.lookup),
                   identifier.offset > 0 ? toString$1(identifier.offset) : UNDEFINED,
-                  holder ? TRUE$1 : UNDEFINED,
+                  needHolder ? TRUE$1 : UNDEFINED,
                   depIgnore ? TRUE$1 : UNDEFINED,
                   stack ? stack : UNDEFINED
               ]);
@@ -4432,9 +4586,9 @@
                           toString$1(lead.name),
                           toArray$1(stringifyNodes)
                       ]),
-                      lookup ? TRUE$1 : UNDEFINED,
+                      toString$1(lookup),
                       offset > 0 ? toString$1(offset) : UNDEFINED,
-                      holder ? TRUE$1 : UNDEFINED,
+                      needHolder ? TRUE$1 : UNDEFINED,
                       depIgnore ? TRUE$1 : UNDEFINED,
                       stack ? stack : UNDEFINED
                   ]);
@@ -4446,7 +4600,7 @@
                       generateChildNode(lead),
                       UNDEFINED,
                       toArray$1(stringifyNodes),
-                      holder ? TRUE$1 : UNDEFINED
+                      needHolder ? TRUE$1 : UNDEFINED
                   ]);
               }
               else {
@@ -4456,7 +4610,7 @@
                       generateChildNode(lead),
                       toString$1(keypath),
                       UNDEFINED,
-                      holder ? TRUE$1 : UNDEFINED ]);
+                      needHolder ? TRUE$1 : UNDEFINED ]);
               }
               break;
           default:
@@ -4467,24 +4621,19 @@
                   args.length
                       ? toArray$1(args.map(generateChildNode))
                       : UNDEFINED,
-                  holder ? TRUE$1 : UNDEFINED
+                  needHolder ? TRUE$1 : UNDEFINED
               ]);
               break;
       }
-      // 不需要 value holder
-      if (!holder) {
+      if (!needHolder) {
           return value;
-      }
-      // 内部的临时值，且 holder 为 true
-      if (inner) {
-          return isSpecialNode
-              ? value + RAW_DOT + RAW_VALUE
-              : value;
       }
       // 最外层的值，且 holder 为 true
       return isSpecialNode
           ? value
-          : toObject$1([RAW_VALUE + COLON + value]);
+          : toObject$1([
+              RAW_VALUE + COLON + value
+          ]);
   }
 
   /**
@@ -4505,11 +4654,11 @@
    *
    */
   // 是否要执行 join 操作
-  var joinStack = [],
+  var joinStack = [], 
   // 是否正在收集子节点
-  collectStack = [], nodeGenerator = {}, RENDER_EXPRESSION_IDENTIFIER = 'a', RENDER_EXPRESSION_MEMBER_KEYPATH = 'b', RENDER_EXPRESSION_MEMBER_LITERAL = 'c', RENDER_EXPRESSION_CALL = 'd', RENDER_TEXT_VNODE = 'e', RENDER_ATTRIBUTE_VNODE = 'f', RENDER_PROPERTY_VNODE = 'g', RENDER_LAZY_VNODE = 'h', RENDER_TRANSITION_VNODE = 'i', RENDER_BINDING_VNODE = 'j', RENDER_MODEL_VNODE = 'k', RENDER_EVENT_METHOD_VNODE = 'l', RENDER_EVENT_NAME_VNODE = 'm', RENDER_DIRECTIVE_VNODE = 'n', RENDER_SPREAD_VNODE = 'o', RENDER_ELEMENT_VNODE = 'p', RENDER_SLOT = 'q', RENDER_PARTIAL = 'r', RENDER_IMPORT = 's', RENDER_EACH = 't', RENDER_RANGE = 'u', TO_STRING = 'v', ARG_STACK = 'w';
+  collectStack = [], nodeGenerator = {}, RENDER_EXPRESSION_IDENTIFIER = 'a', RENDER_EXPRESSION_MEMBER_KEYPATH = 'b', RENDER_EXPRESSION_MEMBER_LITERAL = 'c', RENDER_EXPRESSION_CALL = 'd', RENDER_TEXT_VNODE = 'e', RENDER_ATTRIBUTE_VNODE = 'f', RENDER_PROPERTY_VNODE = 'g', RENDER_LAZY_VNODE = 'h', RENDER_TRANSITION_VNODE = 'i', RENDER_BINDING_VNODE = 'j', RENDER_MODEL_VNODE = 'k', RENDER_EVENT_METHOD_VNODE = 'l', RENDER_EVENT_NAME_VNODE = 'm', RENDER_DIRECTIVE_VNODE = 'n', RENDER_SPREAD_VNODE = 'o', RENDER_COMMENT_VNODE = 'p', RENDER_ELEMENT_VNODE = 'q', RENDER_COMPONENT_VNODE = 'r', RENDER_SLOT = 's', RENDER_PARTIAL = 't', RENDER_IMPORT = 'u', RENDER_EACH = 'v', RENDER_RANGE = 'w', RENDER_EQUAL_RANGE = 'x', TO_STRING = 'y', ARG_STACK = 'z';
   // 序列化代码的参数列表
-  var codeArgs,
+  var codeArgs, 
   // 表达式求值是否要求返回字符串类型
   isStringRequired;
   function renderExpression(expr, holder, depIgnore, stack) {
@@ -4563,7 +4712,7 @@
   function stringifyChildren(children, isComplex) {
       // 如果是复杂节点的 children，则每个 child 的序列化都是函数调用的形式
       // 因此最后可以拼接为 fn1(), fn2(), fn3() 这样依次调用，而不用再多此一举的使用数组，因为在 renderer 里也用不上这个数组
-      // children 大于一个时，才有 join 的可能，单个值 jion 啥啊...
+      // children 大于一个时，才有 join 的可能，单个值 join 啥啊...
       var isJoin = children.length > 1 && !isComplex;
       push(joinStack, isJoin);
       var value = join(children.map(function (child) {
@@ -4589,10 +4738,7 @@
       }
       // 到达最后一个条件，发现第一个 if 语句带有 stub，需创建一个注释标签占位
       else if (stub) {
-          no = renderElement(stringifyObject({
-              isComment: TRUE$1,
-              text: EMPTY
-          }));
+          no = toCall(RENDER_COMMENT_VNODE);
       }
       if (isDef(yes) || isDef(no)) {
           var isJoin = last(joinStack);
@@ -4619,9 +4765,6 @@
               : result;
       }
       return EMPTY;
-  }
-  function renderElement(data, tag, attrs, childs, slots) {
-      return toCall(RENDER_ELEMENT_VNODE, [data, tag, attrs, childs, slots]);
   }
   function getComponentSlots(children) {
       var result = {}, slots = {}, addSlot = function (name, nodes) {
@@ -4653,73 +4796,86 @@
       }
   }
   nodeGenerator[ELEMENT] = function (node) {
-      var tag = node.tag, isComponent = node.isComponent, isSvg = node.isSvg, isStyle = node.isStyle, isOption = node.isOption, isStatic = node.isStatic, isComplex = node.isComplex, name = node.name, ref = node.ref, key = node.key, html = node.html, attrs = node.attrs, children = node.children, data = {}, outputTag, outputAttrs = [], outputChilds, outputSlots;
+      var tag = node.tag, isComponent = node.isComponent, isComplex = node.isComplex, ref = node.ref, key = node.key, html = node.html, attrs = node.attrs, children = node.children, staticTag, dynamicTag, outputAttrs, outputText, outputHTML, outputChilds, outputSlots, outputStatic, outputOption, outputStyle, outputSvg, outputRef, outputKey;
       if (tag === RAW_SLOT) {
-          var args = [toString$1(SLOT_DATA_PREFIX + name)];
+          var args = [toString$1(SLOT_DATA_PREFIX + node.name)];
           if (children) {
               push(args, stringifyFunction(stringifyChildren(children, TRUE)));
           }
           return toCall(RENDER_SLOT, args);
       }
-      push(collectStack, FALSE);
-      if (attrs) {
-          each(attrs, function (attr) {
-              push(outputAttrs, nodeGenerator[attr.type](attr));
-          });
-      }
       // 如果以 $ 开头，表示动态组件
       if (codeAt(tag) === 36) {
-          outputTag = toString$1(slice(tag, 1));
+          dynamicTag = toString$1(slice(tag, 1));
       }
       else {
-          data.tag = toString$1(tag);
+          staticTag = toString$1(tag);
       }
-      if (isSvg) {
-          data.isSvg = TRUE$1;
+      push(collectStack, FALSE);
+      if (attrs) {
+          var list_1 = [];
+          each(attrs, function (attr) {
+              push(list_1, nodeGenerator[attr.type](attr));
+          });
+          if (list_1.length) {
+              outputAttrs = stringifyFunction(join(list_1, COMMA));
+          }
       }
-      if (isStyle) {
-          data.isStyle = TRUE$1;
-      }
-      if (isOption) {
-          data.isOption = TRUE$1;
-      }
-      if (isStatic) {
-          data.isStatic = TRUE$1;
-      }
-      if (ref) {
-          data.ref = stringifyValue(ref.value, ref.expr, ref.children);
-      }
-      if (key) {
-          data.key = stringifyValue(key.value, key.expr, key.children);
-      }
-      if (html) {
-          data.html = string(html)
-              ? toString$1(html)
-              : stringifyExpression(html, TRUE);
-      }
-      if (isComponent) {
-          data.isComponent = TRUE$1;
-          if (children) {
+      if (children) {
+          if (isComponent) {
               collectStack[collectStack.length - 1] = TRUE;
               outputSlots = getComponentSlots(children);
           }
-      }
-      else if (children) {
-          isStringRequired = TRUE;
-          collectStack[collectStack.length - 1] = isComplex;
-          outputChilds = stringifyChildren(children, isComplex);
-          if (isComplex) {
-              outputChilds = stringifyFunction(outputChilds);
-          }
           else {
-              data.text = outputChilds;
-              outputChilds = UNDEFINED;
+              isStringRequired = TRUE;
+              collectStack[collectStack.length - 1] = isComplex;
+              outputChilds = stringifyChildren(children, isComplex);
+              if (isComplex) {
+                  outputChilds = stringifyFunction(outputChilds);
+              }
+              else {
+                  outputText = outputChilds;
+                  outputChilds = UNDEFINED;
+              }
           }
       }
       pop(collectStack);
-      return renderElement(stringifyObject(data), outputTag, falsy(outputAttrs)
-          ? UNDEFINED
-          : stringifyFunction(join(outputAttrs, COMMA)), outputChilds, outputSlots);
+      if (html) {
+          outputHTML = string(html)
+              ? toString$1(html)
+              : stringifyExpression(html, TRUE);
+      }
+      outputStatic = node.isStatic ? TRUE$1 : UNDEFINED;
+      outputOption = node.isOption ? TRUE$1 : UNDEFINED;
+      outputStyle = node.isStyle ? TRUE$1 : UNDEFINED;
+      outputSvg = node.isSvg ? TRUE$1 : UNDEFINED;
+      outputRef = ref ? stringifyValue(ref.value, ref.expr, ref.children) : UNDEFINED;
+      outputKey = key ? stringifyValue(key.value, key.expr, key.children) : UNDEFINED;
+      if (isComponent) {
+          return toCall(RENDER_COMPONENT_VNODE, 
+          // 最常用 => 最不常用排序
+          [
+              staticTag,
+              outputAttrs,
+              outputSlots,
+              outputRef,
+              outputKey,
+              dynamicTag ]);
+      }
+      return toCall(RENDER_ELEMENT_VNODE, 
+      // 最常用 => 最不常用排序
+      [
+          staticTag,
+          outputAttrs,
+          outputChilds,
+          outputText,
+          outputStatic,
+          outputOption,
+          outputStyle,
+          outputSvg,
+          outputHTML,
+          outputRef,
+          outputKey ]);
   };
   nodeGenerator[ATTRIBUTE] = function (node) {
       var value = node.binding
@@ -4743,7 +4899,6 @@
           : stringifyValue(node.value, node.expr, node.children);
       return toCall(RENDER_PROPERTY_VNODE, [
           toString$1(node.name),
-          toString$1(node.hint),
           value
       ]);
   };
@@ -4839,19 +4994,26 @@
       var children = stringifyFunction(stringifyChildren(node.children, node.isComplex));
       // 遍历区间
       if (node.to) {
+          if (node.equal) {
+              return toCall(RENDER_EQUAL_RANGE, [
+                  children,
+                  renderExpression(node.from),
+                  renderExpression(node.to),
+                  toString$1(node.index)
+              ]);
+          }
           return toCall(RENDER_RANGE, [
               children,
               renderExpression(node.from),
               renderExpression(node.to),
-              node.equal ? TRUE$1 : UNDEFINED,
-              node.index ? toString$1(node.index) : UNDEFINED
+              toString$1(node.index)
           ]);
       }
       // 遍历数组和对象
       return toCall(RENDER_EACH, [
           children,
           renderExpression(node.from, TRUE),
-          node.index ? toString$1(node.index) : UNDEFINED
+          toString$1(node.index)
       ]);
   };
   nodeGenerator[PARTIAL] = function (node) {
@@ -4884,12 +5046,15 @@
               RENDER_EVENT_NAME_VNODE,
               RENDER_DIRECTIVE_VNODE,
               RENDER_SPREAD_VNODE,
+              RENDER_COMMENT_VNODE,
               RENDER_ELEMENT_VNODE,
+              RENDER_COMPONENT_VNODE,
               RENDER_SLOT,
               RENDER_PARTIAL,
               RENDER_IMPORT,
               RENDER_EACH,
               RENDER_RANGE,
+              RENDER_EQUAL_RANGE,
               TO_STRING ], COMMA);
       }
       return toFunction(codeArgs, nodeGenerator[node.type](node));
@@ -4901,7 +5066,7 @@
   }
   var KEY_DIRECTIVES = 'directives';
   function render(context, observer, template, filters, partials, directives, transitions) {
-      var $scope = { $keypath: EMPTY_STRING }, $stack = [$scope], $vnode, vnodeStack = [], localPartials = {}, findValue = function (stack, index, key, lookup, depIgnore, defaultKeypath) {
+      var $scope = { $keypath: EMPTY_STRING }, $stack = [$scope], $vnode, vnodeStack = [], localPartials = {}, renderedSlots = {}, findValue = function (stack, index, key, lookup, depIgnore, defaultKeypath) {
           var scope = stack[index], keypath = join$1(scope.$keypath, key), value = stack, holder$1 = holder;
           // 如果最后还是取不到值，用回最初的 keypath
           if (isUndef(defaultKeypath)) {
@@ -4931,7 +5096,7 @@
               if (value === stack) {
                   if (lookup && index > 0) {
                       {
-                          debug("\"" + keypath + "\" can't be found in the current context, start looking up.");
+                          debug("The data \"" + keypath + "\" can't be found in the current context, start looking up.");
                       }
                       return findValue(stack, index - 1, key, lookup, depIgnore, defaultKeypath);
                   }
@@ -5006,21 +5171,16 @@
               }
           }
       }, renderAttributeVnode = function (name, value) {
-          if ($vnode.isComponent) {
-              setPair($vnode, 'props', name, value);
-          }
-          else {
-              setPair($vnode, 'nativeAttrs', name, { name: name, value: value });
-          }
-      }, renderPropertyVnode = function (name, hint, value) {
-          setPair($vnode, 'nativeProps', name, { name: name, value: value, hint: hint });
+          setPair($vnode, $vnode.isComponent ? 'props' : 'nativeAttrs', name, value);
+      }, renderPropertyVnode = function (name, value) {
+          setPair($vnode, 'nativeProps', name, value);
       }, renderLazyVnode = function (name, value) {
           setPair($vnode, 'lazy', name, value);
       }, renderTransitionVnode = function (name) {
           $vnode.transition = transitions[name];
           {
               if (!$vnode.transition) {
-                  fatal("Transition \"" + name + "\" can't be found.");
+                  fatal("The transition \"" + name + "\" can't be found.");
               }
           }
       }, renderBindingVnode = function (name, holder, hint) {
@@ -5067,7 +5227,7 @@
           var hooks = directives[name];
           {
               if (!hooks) {
-                  fatal("Directive " + name + " can't be found.");
+                  fatal("The directive " + name + " can't be found.");
               }
           }
           setPair($vnode, KEY_DIRECTIVES, key, {
@@ -5082,65 +5242,107 @@
           });
       }, renderSpreadVnode = function (holder) {
           var value = holder.value, keypath = holder.keypath;
-          // 如果为 null 或 undefined，则不需要 warn
-          if (value != NULL) {
-              // 数组也算一种对象，要排除掉
-              if (object(value) && !array(value)) {
-                  each$2(value, function (value, key) {
-                      setPair($vnode, 'props', key, value);
-                  });
-                  if (keypath) {
-                      var key = join$1(DIRECTIVE_BINDING, keypath);
-                      setPair($vnode, KEY_DIRECTIVES, key, {
-                          ns: DIRECTIVE_BINDING,
-                          name: EMPTY_STRING,
-                          key: key,
-                          modifier: join$1(keypath, RAW_WILDCARD),
-                          hooks: directives[DIRECTIVE_BINDING]
-                      });
-                  }
-              }
-          }
-      }, renderElementVnode = function (vnode, tag, attrs, childs, slots) {
-          if (tag) {
-              var componentName = observer.get(tag);
+          if (object(value)) {
+              // 数组也算一种对象
+              // 延展操作符不支持数组
               {
-                  if (!componentName) {
-                      warn("Dynamic component \"" + tag + "\" can't be found.");
+                  if (array(value)) {
+                      fatal("The spread operator can't be used by an array.");
                   }
               }
-              vnode.tag = componentName;
+              for (var key in value) {
+                  setPair($vnode, 'props', key, value[key]);
+              }
+              if (keypath) {
+                  var key = join$1(DIRECTIVE_BINDING, keypath);
+                  setPair($vnode, KEY_DIRECTIVES, key, {
+                      ns: DIRECTIVE_BINDING,
+                      name: EMPTY_STRING,
+                      key: key,
+                      modifier: join$1(keypath, RAW_WILDCARD),
+                      hooks: directives[DIRECTIVE_BINDING]
+                  });
+              }
           }
-          if (attrs) {
-              $vnode = vnode;
-              attrs();
-              $vnode = UNDEFINED;
-          }
-          // childs 和 slots 不可能同时存在
-          if (childs) {
-              vnodeStack.push(vnode.children = []);
-              childs();
-              pop(vnodeStack);
-          }
-          else if (slots) {
-              var renderSlots_1 = {};
-              each$2(slots, function (slot, name) {
-                  vnodeStack.push([]);
-                  slot();
-                  var vnodes = pop(vnodeStack);
-                  renderSlots_1[name] = vnodes.length ? vnodes : UNDEFINED;
-              });
-              vnode.slots = renderSlots_1;
-          }
-          vnode.context = context;
-          vnode.keypath = $scope.$keypath;
+      }, appendVnode = function (vnode) {
           var vnodeList = last(vnodeStack);
           if (vnodeList) {
               push(vnodeList, vnode);
           }
           return vnode;
+      }, renderCommentVnode = function () {
+          return appendVnode({
+              isComment: TRUE,
+              text: EMPTY_STRING,
+              keypath: $scope.$keypath,
+              context: context
+          });
+      }, renderElementVnode = function (tag, attrs, childs, text, isStatic, isOption, isStyle, isSvg, html, ref, key) {
+          var vnode = {
+              tag: tag,
+              text: text,
+              html: html,
+              isStatic: isStatic,
+              isOption: isOption,
+              isStyle: isStyle,
+              isSvg: isSvg,
+              ref: ref,
+              key: key,
+              context: context,
+              keypath: $scope.$keypath
+          };
+          if (attrs) {
+              $vnode = vnode;
+              attrs();
+              $vnode = UNDEFINED;
+          }
+          if (childs) {
+              vnodeStack.push(vnode.children = []);
+              childs();
+              pop(vnodeStack);
+          }
+          return appendVnode(vnode);
+      }, renderComponentVnode = function (staticTag, attrs, slots, ref, key, dynamicTag) {
+          var tag;
+          // 组件支持动态名称
+          if (dynamicTag) {
+              var componentName = observer.get(dynamicTag);
+              {
+                  if (!componentName) {
+                      warn("The dynamic component \"" + dynamicTag + "\" can't be found.");
+                  }
+              }
+              tag = componentName;
+          }
+          else {
+              tag = staticTag;
+          }
+          var vnode = {
+              tag: tag,
+              ref: ref,
+              key: key,
+              context: context,
+              keypath: $scope.$keypath,
+              isComponent: TRUE
+          };
+          if (attrs) {
+              $vnode = vnode;
+              attrs();
+              $vnode = UNDEFINED;
+          }
+          if (slots) {
+              var vnodeSlots = {};
+              for (var name in slots) {
+                  vnodeStack.push([]);
+                  slots[name]();
+                  var vnodes = pop(vnodeStack);
+                  vnodeSlots[name] = vnodes.length ? vnodes : UNDEFINED;
+              }
+              vnode.slots = vnodeSlots;
+          }
+          return appendVnode(vnode);
       }, renderExpressionIdentifier = function (name, lookup, offset, holder, depIgnore, stack) {
-          var myStack = stack || $stack, result = findValue(myStack, myStack.length - ((offset || 0) + 1), name, lookup, depIgnore);
+          var myStack = stack || $stack, result = findValue(myStack, myStack.length - 1 - (offset || 0), name, lookup, depIgnore);
           return holder ? result : result.value;
       }, renderExpressionMemberKeypath = function (identifier, runtimeKeypath) {
           unshift(runtimeKeypath, identifier);
@@ -5158,29 +5360,36 @@
           // 当 holder 为 true, args 为空时，args 会传入 false
           holder.value = execute(fn, context, args || UNDEFINED);
           return holder$1 ? holder : holder.value;
-      },
+      }, 
       // <slot name="xx"/>
       renderSlot = function (name, defaultRender) {
           var vnodeList = last(vnodeStack), vnodes = context.get(name);
           if (vnodeList) {
               if (vnodes) {
-                  each(vnodes, function (vnode) {
-                      push(vnodeList, vnode);
-                      vnode.slot = name;
-                      vnode.parent = context;
-                  });
+                  for (var i = 0, length = vnodes.length; i < length; i++) {
+                      push(vnodeList, vnodes[i]);
+                      vnodes[i].slot = name;
+                      vnodes[i].parent = context;
+                  }
               }
               else if (defaultRender) {
                   defaultRender();
               }
           }
-      },
+          // 不能重复输出相同名称的 slot
+          {
+              if (renderedSlots[name]) {
+                  fatal("The slot \"" + slice(name, SLOT_DATA_PREFIX.length) + "\" can't render more than one time.");
+              }
+              renderedSlots[name] = TRUE;
+          }
+      }, 
       // {{#partial name}}
       //   xx
       // {{/partial}}
       renderPartial = function (name, render) {
           localPartials[name] = render;
-      },
+      }, 
       // {{> name}}
       renderImport = function (name) {
           if (localPartials[name]) {
@@ -5189,10 +5398,10 @@
           else {
               var partial = partials[name];
               if (partial) {
-                  partial(renderExpressionIdentifier, renderExpressionMemberKeypath, renderExpressionMemberLiteral, renderExpressionCall, renderTextVnode, renderAttributeVnode, renderPropertyVnode, renderLazyVnode, renderTransitionVnode, renderBindingVnode, renderModelVnode, renderEventMethodVnode, renderEventNameVnode, renderDirectiveVnode, renderSpreadVnode, renderElementVnode, renderSlot, renderPartial, renderImport, renderEach, renderRange, toString);
+                  partial(renderExpressionIdentifier, renderExpressionMemberKeypath, renderExpressionMemberLiteral, renderExpressionCall, renderTextVnode, renderAttributeVnode, renderPropertyVnode, renderLazyVnode, renderTransitionVnode, renderBindingVnode, renderModelVnode, renderEventMethodVnode, renderEventNameVnode, renderDirectiveVnode, renderSpreadVnode, renderCommentVnode, renderElementVnode, renderComponentVnode, renderSlot, renderPartial, renderImport, renderEach, renderRange, renderEqualRange, toString);
               }
               else {
-                  fatal("Partial \"" + name + "\" can't be found.");
+                  fatal("The partial \"" + name + "\" can't be found.");
               }
           }
       }, eachHandler = function (generate, item, key, keypath, index, length) {
@@ -5232,38 +5441,38 @@
                       : EMPTY_STRING, index);
               }
           }
-      }, renderRange = function (generate, from, to, equal, index) {
+      }, renderRange = function (generate, from, to, index) {
           var count = 0;
           if (from < to) {
-              if (equal) {
-                  for (var i = from; i <= to; i++) {
-                      eachHandler(generate, i, count++, EMPTY_STRING, index);
-                  }
-              }
-              else {
-                  for (var i = from; i < to; i++) {
-                      eachHandler(generate, i, count++, EMPTY_STRING, index);
-                  }
+              for (var i = from; i < to; i++) {
+                  eachHandler(generate, i, count++, EMPTY_STRING, index);
               }
           }
           else {
-              if (equal) {
-                  for (var i = from; i >= to; i--) {
-                      eachHandler(generate, i, count++, EMPTY_STRING, index);
-                  }
+              for (var i = from; i > to; i--) {
+                  eachHandler(generate, i, count++, EMPTY_STRING, index);
               }
-              else {
-                  for (var i = from; i > to; i--) {
-                      eachHandler(generate, i, count++, EMPTY_STRING, index);
-                  }
+          }
+      }, renderEqualRange = function (generate, from, to, index) {
+          var count = 0;
+          if (from < to) {
+              for (var i = from; i <= to; i++) {
+                  eachHandler(generate, i, count++, EMPTY_STRING, index);
+              }
+          }
+          else {
+              for (var i = from; i >= to; i--) {
+                  eachHandler(generate, i, count++, EMPTY_STRING, index);
               }
           }
       };
-      return template(renderExpressionIdentifier, renderExpressionMemberKeypath, renderExpressionMemberLiteral, renderExpressionCall, renderTextVnode, renderAttributeVnode, renderPropertyVnode, renderLazyVnode, renderTransitionVnode, renderBindingVnode, renderModelVnode, renderEventMethodVnode, renderEventNameVnode, renderDirectiveVnode, renderSpreadVnode, renderElementVnode, renderSlot, renderPartial, renderImport, renderEach, renderRange, toString);
+      return template(renderExpressionIdentifier, renderExpressionMemberKeypath, renderExpressionMemberLiteral, renderExpressionCall, renderTextVnode, renderAttributeVnode, renderPropertyVnode, renderLazyVnode, renderTransitionVnode, renderBindingVnode, renderModelVnode, renderEventMethodVnode, renderEventNameVnode, renderDirectiveVnode, renderSpreadVnode, renderCommentVnode, renderElementVnode, renderComponentVnode, renderSlot, renderPartial, renderImport, renderEach, renderRange, renderEqualRange, toString);
   }
 
   // 这里先写 IE9 支持的接口
-  var innerText = 'textContent', innerHTML = 'innerHTML', findElement = function (selector) {
+  var innerText = 'textContent', innerHTML = 'innerHTML', createEvent = function (event, node) {
+      return event;
+  }, findElement = function (selector) {
       var node = DOCUMENT.querySelector(selector);
       if (node) {
           return node;
@@ -5272,14 +5481,12 @@
       node.addEventListener(type, listener, FALSE);
   }, removeEventListener = function (node, type, listener) {
       node.removeEventListener(type, listener, FALSE);
-  },
+  }, 
   // IE9 不支持 classList
   addElementClass = function (node, className) {
       node.classList.add(className);
   }, removeElementClass = function (node, className) {
       node.classList.remove(className);
-  }, createEvent = function (event, node) {
-      return event;
   };
   {
       if (DOCUMENT) {
@@ -5301,15 +5508,15 @@
           }
       }
   }
-  var CHAR_WHITESPACE = ' ',
+  var CHAR_WHITESPACE = ' ', 
   /**
    * 绑定在 HTML 元素上的事件发射器
    */
-  EMITTER = '$emitter',
+  EMITTER = '$emitter', 
   /**
    * 跟输入事件配套使用的事件
    */
-  COMPOSITION_START = 'compositionstart',
+  COMPOSITION_START = 'compositionstart', 
   /**
    * 跟输入事件配套使用的事件
    */
@@ -5363,10 +5570,8 @@
           }
       }
   }
-  function removeProp(node, name, hint) {
-      set(node, name, hint === HINT_BOOLEAN
-          ? FALSE
-          : EMPTY_STRING, FALSE);
+  function removeProp(node, name) {
+      set(node, name, UNDEFINED);
   }
   function attr(node, name, value) {
       if (isDef(value)) {
@@ -5440,7 +5645,7 @@
       // 一个元素，相同的事件，只注册一个 native listener
       if (!nativeListeners[type]) {
           // 特殊事件
-          var special = specialEvents[type],
+          var special = specialEvents[type], 
           // 唯一的原生监听器
           nativeListener = function (event) {
               var customEvent = event instanceof CustomEvent
@@ -5486,9 +5691,9 @@
   function addSpecialEvent(type, hooks) {
       {
           if (specialEvents[type]) {
-              error("Special event \"" + type + "\" is existed.");
+              fatal("The special event \"" + type + "\" already exists.");
           }
-          info("Special event \"" + type + "\" add success.");
+          info("The special event \"" + type + "\" is added successfully.");
       }
       specialEvents[type] = hooks;
   }
@@ -5925,7 +6130,7 @@
        * @param oldValue
        */
       Observer.prototype.diff = function (keypath, newValue, oldValue) {
-          var instance = this, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, asyncChanges = instance.asyncChanges,
+          var instance = this, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, asyncChanges = instance.asyncChanges, 
           /**
            * 我们认为 $ 开头的变量是不可递归的
            * 比如浏览器中常见的 $0 表示当前选中元素
@@ -6041,7 +6246,7 @@
        */
       Observer.prototype.watch = function (keypath, watcher, immediate) {
           var instance = this, context = instance.context, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, bind = function (keypath, options) {
-              var emitter = options.sync ? syncEmitter : asyncEmitter,
+              var emitter = options.sync ? syncEmitter : asyncEmitter, 
               // formatWatcherOptions 保证了 options.watcher 一定存在
               listener = {
                   fn: options.watcher,
@@ -6259,7 +6464,7 @@
               name = EVENT_CHANGE;
           }
           else if (value > 0) {
-              handler = debounce(handler, value,
+              handler = debounce(handler, value, 
               // 避免连续多次点击，主要用于提交表单场景
               // 移动端的 tap 事件可自行在业务层打补丁实现
               name === EVENT_CLICK || name === EVENT_TAP);
@@ -6398,7 +6603,7 @@
       else {
           var element_1 = node, control_1 = vnode.tag === 'select'
               ? selectControl
-              : inputControl,
+              : inputControl, 
           // checkbox,radio,select 监听的是 change 事件
           eventName_1 = EVENT_CHANGE;
           if (control_1 === inputControl) {
@@ -6452,7 +6657,7 @@
   function bind$2(node, directive, vnode) {
       // binding 可能是模糊匹配
       // 比如延展属性 {{...obj}}，这里 binding 会是 `obj.*`
-      var binding = directive.modifier,
+      var binding = directive.modifier, 
       // 提前判断好是否是模糊匹配，避免 watcher 频繁执行判断逻辑
       isFuzzy$1 = isFuzzy(binding), watcher = function (newValue, _, keypath) {
           if (watcher) {
@@ -6550,7 +6755,7 @@
           // 后放 data
           {
               if (vnode && object(data)) {
-                  warn("child component's data should be a function which return an object.");
+                  warn("The \"data\" option of child component should be a function which return an object.");
               }
           }
           var extend$1 = func(data) ? execute(data, instance, options) : data;
@@ -6558,7 +6763,7 @@
               each$2(extend$1, function (value, key) {
                   {
                       if (has$2(source, key)) {
-                          warn("\"" + key + "\" is already defined as a prop. Use prop default value instead.");
+                          warn("The data \"" + key + "\" is already used as a prop.");
                       }
                   }
                   source[key] = value;
@@ -6568,7 +6773,7 @@
               each$2(methods, function (method, name) {
                   {
                       if (instance[name]) {
-                          fatal("method \"" + name + "\" is conflicted with built-in methods.");
+                          fatal("The method \"" + name + "\" is conflicted with built-in methods.");
                       }
                   }
                   instance[name] = method;
@@ -6593,7 +6798,7 @@
                           placeholder = UNDEFINED;
                       }
                       else {
-                          fatal("selector \"" + template + "\" can't match an element.");
+                          fatal("The selector \"" + template + "\" can't match an element.");
                       }
                   }
               }
@@ -6605,12 +6810,12 @@
                           placeholder = find(selector);
                           {
                               if (!placeholder) {
-                                  fatal("selector \"" + selector + "\" can't match an element.");
+                                  fatal("The selector \"" + selector + "\" can't match an element.");
                               }
                           }
                       }
                       else {
-                          fatal("\"el\" option should be a selector.");
+                          fatal("The \"el\" option should be a selector.");
                       }
                   }
                   else {
@@ -6657,7 +6862,11 @@
                           return instance.render();
                       }
                   });
-                  afterCreateHook(instance, newWatchers);
+                  instance.watch(newWatchers);
+                  {
+                      execute(instance.$options[HOOK_AFTER_CREATE], instance);
+                      instance.fire(HOOK_AFTER_CREATE + NAMESPACE_HOOK);
+                  }
                   // 编译模板
                   // 在开发阶段，template 是原始的 html 模板
                   // 在产品阶段，template 是编译后的渲染函数
@@ -6668,7 +6877,7 @@
                   if (!vnode) {
                       {
                           if (!placeholder) {
-                              fatal('"el" option is required for root component.');
+                              fatal('The "el" option is required for root component.');
                           }
                       }
                       vnode = create(domApi, placeholder, instance, EMPTY_STRING);
@@ -6678,12 +6887,24 @@
               }
               else {
                   if (placeholder || vnode) {
-                      fatal('"template" option is required.');
+                      fatal('The "template" option is required.');
                   }
               }
           }
-          afterCreateHook(instance, watchers);
+          if (watchers) {
+              instance.watch(watchers);
+          }
+          {
+              execute(instance.$options[HOOK_AFTER_CREATE], instance);
+              instance.fire(HOOK_AFTER_CREATE + NAMESPACE_HOOK);
+          }
       }
+      /**
+       * 定义组件对象
+       */
+      Yox.define = function (options) {
+          return options;
+      };
       /**
        * 安装插件
        *
@@ -6691,12 +6912,6 @@
        */
       Yox.use = function (plugin) {
           plugin.install(Yox);
-      };
-      /**
-       * 定义组件对象
-       */
-      Yox.define = function (options) {
-          return options;
       };
       /**
        * 因为组件采用的是异步更新机制，为了在更新之后进行一些操作，可使用 nextTick
@@ -6714,7 +6929,7 @@
                   var nodes = compile$1(template);
                   {
                       if (nodes.length !== 1) {
-                          fatal("\"template\" should have just one root element.");
+                          fatal("The \"template\" option should have just one root element.");
                       }
                   }
                   compileCache[template] = generate$1(nodes[0]);
@@ -6825,7 +7040,15 @@
           // 外部为了使用方便，fire(type) 或 fire(type, data) 就行了
           // 内部为了保持格式统一
           // 需要转成 Event，这样还能知道 target 是哪个组件
-          var instance = this, $emitter = instance.$emitter, $parent = instance.$parent, $children = instance.$children, event = type instanceof CustomEvent ? type : new CustomEvent(type), namespace = event.ns || (event.ns = $emitter.parse(event.type)), args = [event], isComplete;
+          var instance = this, $emitter = instance.$emitter, $parent = instance.$parent, $children = instance.$children, event = type instanceof CustomEvent ? type : new CustomEvent(type), args = [event], isComplete;
+          // 创建完 CustomEvent，如果没有人为操作
+          // 它的 ns 为 undefined
+          // 这里先解析出命名空间，避免每次 fire 都要解析
+          if (isUndef(event.ns)) {
+              var namespace = $emitter.parse(event.type);
+              event.type = namespace.type;
+              event.ns = namespace.ns;
+          }
           // 告诉外部是谁发出的事件
           if (!event.target) {
               event.target = instance;
@@ -6840,11 +7063,11 @@
           // 如果手动 fire 带上了事件命名空间
           // 则命名空间不能是 native，因为 native 有特殊用处
           {
-              if (namespace.ns === MODIFER_NATIVE) {
-                  error("\"" + event.type + "\": namespace \"" + MODIFER_NATIVE + "\" can't be used externally.");
+              if (event.ns === MODIFER_NATIVE) {
+                  error("The namespace \"" + MODIFER_NATIVE + "\" is not permitted.");
               }
           }
-          isComplete = $emitter.fire(namespace, args);
+          isComplete = $emitter.fire(event, args);
           if (isComplete) {
               if (downward) {
                   if ($children) {
@@ -6886,7 +7109,7 @@
               if (!loadComponent(this.$components, name, callback)) {
                   {
                       if (!loadComponent(globalComponents, name, callback)) {
-                          error("Component \"" + name + "\" is not found.");
+                          error("The component \"" + name + "\" is not found.");
                       }
                   }
               }
@@ -6929,7 +7152,7 @@
                   vnode.node = node;
               }
               else {
-                  fatal("The root element of [Component " + vnode.tag + "] is not found.");
+                  fatal("The root element of component \"" + vnode.tag + "\" is not found.");
               }
               return child;
           }
@@ -7200,7 +7423,7 @@
       /**
        * core 版本
        */
-      Yox.version = "1.0.0-alpha.87";
+      Yox.version = "1.0.0-alpha.96";
       /**
        * 方便外部共用的通用逻辑，特别是写插件，减少重复代码
        */
@@ -7259,15 +7482,6 @@
       // 没传值但此项是必传项
       else if (rule.required) {
           warn("The prop \"" + key + "\" is marked as required, but its value is not found.");
-      }
-  }
-  function afterCreateHook(instance, watchers) {
-      if (watchers) {
-          instance.watch(watchers);
-      }
-      {
-          execute(instance.$options[HOOK_AFTER_CREATE], instance);
-          instance.fire(HOOK_AFTER_CREATE + NAMESPACE_HOOK);
       }
   }
   function setFlexibleOptions(instance, key, value) {
