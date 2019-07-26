@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.42
+ * yox-router.js v1.0.0-alpha.43
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -894,12 +894,12 @@ const default404 = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.42";
+const version = "1.0.0-alpha.43";
 /**
  * 安装插件
  */
-function install(YoxClass) {
-    API = YoxClass;
+function install(Y) {
+    API = Y;
     API.directive({
         push: directive,
         replace: directive,

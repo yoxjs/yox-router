@@ -1098,9 +1098,9 @@ export const version = process.env.NODE_VERSION
 /**
  * 安装插件
  */
-export function install(YoxClass: typeof Yox): void {
+export function install(Y: typeof Yox): void {
 
-  API = YoxClass
+  API = Y
 
   API.directive({
     push: directive,

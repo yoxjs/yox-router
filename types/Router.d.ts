@@ -88,7 +88,7 @@ export declare const version: string | undefined;
 /**
  * 安装插件
  */
-export declare function install(YoxClass: typeof Yox): void;
+export declare function install(Y: typeof Yox): void;
 declare module 'yox' {
     interface ComponentOptions {
         [COMPONENT_HOOK_BEFORE_ENTER]?: RouteBeforeHook;
