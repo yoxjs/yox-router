@@ -1,5 +1,5 @@
 /**
- * yox.js v1.0.0-alpha.99
+ * yox.js v1.0.0-alpha.117
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -17,7 +17,7 @@
   var SYNTAX_PARTIAL = '#partial';
   var SYNTAX_IMPORT = '>';
   var SYNTAX_SPREAD = '...';
-  var SYNTAX_COMMENT = /^!\s/;
+  var SYNTAX_COMMENT = /^!(?:\s|--)/;
   var SLOT_DATA_PREFIX = '$slot_';
   var SLOT_NAME_DEFAULT = 'children';
   var HINT_STRING = 1;
@@ -40,6 +40,7 @@
   var HOOK_AFTER_UPDATE = 'afterUpdate';
   var HOOK_BEFORE_DESTROY = 'beforeDestroy';
   var HOOK_AFTER_DESTROY = 'afterDestroy';
+  var HOOK_BEFORE_PROPS_UPDATE = 'beforePropsUpdate';
 
   /**
    * 为了压缩，定义的常量
@@ -174,7 +175,7 @@
    * @return
    */
   function number(value) {
-      return typeof value === 'number';
+      return typeof value === 'number' && !isNaN(value);
   }
   /**
    * Check if value is boolean.
@@ -681,11 +682,23 @@
   function each$1(keypath, callback) {
       // 如果 keypath 是 toString 之类的原型字段
       // splitCache[keypath] 会取到原型链上的对象
-      var list = splitCache.hasOwnProperty(keypath)
-          ? splitCache[keypath]
-          : (splitCache[keypath] = keypath.split(RAW_DOT));
+      // is.array() 比 splitCache.hasOwnProperty(keypath) 快一些
+      // 虽然不如后者严谨，但在这里够用了
+      var list;
+      if (array(splitCache[keypath])) {
+          list = splitCache[keypath];
+      }
+      else {
+          if (indexOf$1(keypath, RAW_DOT) < 0) {
+              list = [keypath];
+          }
+          else {
+              list = keypath.split(RAW_DOT);
+          }
+          splitCache[keypath] = list;
+      }
       for (var i = 0, lastIndex = list.length - 1; i <= lastIndex; i++) {
-          if (callback(list[i], i === lastIndex) === FALSE) {
+          if (callback(list[i], i, lastIndex) === FALSE) {
               break;
           }
       }
@@ -745,22 +758,6 @@
    */
   function keys(object) {
       return Object.keys(object);
-  }
-  function sortKeyByAsc(a, b) {
-      return a.length - b.length;
-  }
-  function sortKeyByDesc(a, b) {
-      return b.length - a.length;
-  }
-  /**
-   * 排序对象的 key
-   *
-   * @param object
-   * @param desc 是否逆序，默认从小到大排序
-   * @return
-   */
-  function sort(object, desc) {
-      return keys(object).sort(desc ? sortKeyByDesc : sortKeyByAsc);
   }
   /**
    * 遍历对象
@@ -844,10 +841,10 @@
    * @return
    */
   function get(object, keypath) {
-      each$1(keypath, function (key, isLast) {
+      each$1(keypath, function (key, index, lastIndex) {
           if (object != NULL) {
               // 先直接取值
-              var value = object[key],
+              var value = object[key], 
               // 紧接着判断值是否存在
               // 下面会处理计算属性的值，不能在它后面设置 hasValue
               hasValue = value !== UNDEFINED;
@@ -855,7 +852,7 @@
               if (value && func(value.get)) {
                   value = value.get();
               }
-              if (isLast) {
+              if (index === lastIndex) {
                   if (hasValue) {
                       holder.value = value;
                       object = holder;
@@ -884,8 +881,8 @@
    * @param autofill 是否自动填充不存在的对象，默认自动填充
    */
   function set(object, keypath, value, autofill) {
-      each$1(keypath, function (key, isLast) {
-          if (isLast) {
+      each$1(keypath, function (key, index, lastIndex) {
+          if (index === lastIndex) {
               object[key] = value;
           }
           else if (object[key]) {
@@ -924,7 +921,6 @@
 
   var object$1 = /*#__PURE__*/Object.freeze({
     keys: keys,
-    sort: sort,
     each: each$2,
     clear: clear,
     extend: extend,
@@ -952,19 +948,19 @@
   /**
    * 是否有原生的日志特性，没有必要单独实现
    */
-  var nativeConsole = typeof console !== RAW_UNDEFINED ? console : NULL,
+  var nativeConsole = typeof console !== RAW_UNDEFINED ? console : NULL, 
   /**
    * 当前是否是源码调试，如果开启了代码压缩，empty function 里的注释会被干掉
    * 源码模式默认选 INFO，因为 DEBUG 输出的日志太多，会导致性能急剧下降
    */
-  defaultLogLevel = /yox/.test(toString(EMPTY_FUNCTION)) ? INFO : WARN,
+  defaultLogLevel = /yox/.test(toString(EMPTY_FUNCTION)) ? INFO : WARN, 
   /**
    * console 样式前缀
    * ie 和 edge 不支持 console.log 样式
    */
   stylePrefix = WINDOW && /edge|msie|trident/i.test(WINDOW.navigator.userAgent)
       ? EMPTY_STRING
-      : '%c',
+      : '%c', 
   /**
    * 日志打印函数
    */
@@ -1076,17 +1072,19 @@
               // 判断是否是发射事件
               // 如果 args 的第一个参数是 CustomEvent 类型，表示发射事件
               // 因为事件处理函数的参数列表是 (event, data)
-              var event_1 = args && args[0] instanceof CustomEvent
+              var event = args && args[0] instanceof CustomEvent
                   ? args[0]
                   : UNDEFINED;
-              each(list, function (options) {
+              // 这里不用 array.each，减少函数调用
+              for (var i = 0, length = list.length; i < length; i++) {
+                  var options = list[i];
                   // 命名空间不匹配
                   if (!matchNamespace(namespace.ns, options)
                       // 在 fire 过程中被移除了
                       || !has(list, options)
                       // 传了 filter，则用 filter 判断是否过滤此 options
                       || (filter && !filter(namespace, args, options))) {
-                      return;
+                      continue;
                   }
                   // 为 event 对象加上当前正在处理的 listener
                   // 这样方便业务层移除事件绑定
@@ -1094,12 +1092,12 @@
                   // 在这个 listener 里面获取不到当前 listener 的引用
                   // 为了能引用到，有时候会先定义 var listener = function
                   // 然后再 on('xx', listener) 这样其实是没有必要的
-                  if (event_1) {
-                      event_1.listener = options.fn;
+                  if (event) {
+                      event.listener = options.fn;
                   }
                   var result = execute(options.fn, options.ctx, args);
-                  if (event_1) {
-                      event_1.listener = UNDEFINED;
+                  if (event) {
+                      event.listener = UNDEFINED;
                   }
                   // 执行次数
                   options.num = options.num ? (options.num + 1) : 1;
@@ -1108,18 +1106,19 @@
                       instance.off(namespace, options.fn);
                   }
                   // 如果没有返回 false，而是调用了 event.stop 也算是返回 false
-                  if (event_1) {
+                  if (event) {
                       if (result === FALSE) {
-                          event_1.prevent().stop();
+                          event.prevent().stop();
                       }
-                      else if (event_1.isStoped) {
+                      else if (event.isStoped) {
                           result = FALSE;
                       }
                   }
                   if (result === FALSE) {
-                      return isComplete = FALSE;
+                      isComplete = FALSE;
+                      break;
                   }
-              });
+              }
           }
           return isComplete;
       };
@@ -2100,20 +2099,20 @@
   }
 
   // 首字母大写，或中间包含 -
-  var componentNamePattern = /^[$A-Z]|-/,
+  var componentNamePattern = /^[$A-Z]|-/, 
   // HTML 实体（中间最多 6 位，没见过更长的）
-  htmlEntityPattern = /&[#\w\d]{2,6};/,
+  htmlEntityPattern = /&[#\w\d]{2,6};/, 
   // 常见的自闭合标签
-  selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','),
+  selfClosingTagNames = 'area,base,embed,track,source,param,input,col,img,br,hr'.split(','), 
   // 常见的 svg 标签
-  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','),
+  svgTagNames = 'svg,g,defs,desc,metadata,symbol,use,image,path,rect,circle,line,ellipse,polyline,polygon,text,tspan,tref,textpath,marker,pattern,clippath,mask,filter,cursor,view,animate,font,font-face,glyph,missing-glyph,foreignObject'.split(','), 
   // 常见的字符串类型的属性
   // 注意：autocomplete,autocapitalize 不是布尔类型
-  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','),
+  stringProperyNames = 'id,class,name,value,for,accesskey,title,style,src,type,href,target,alt,placeholder,preload,poster,wrap,accept,pattern,dir,autocomplete,autocapitalize'.split(','), 
   // 常见的数字类型的属性
-  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','),
+  numberProperyNames = 'min,minlength,max,maxlength,step,width,height,size,rows,cols,tabindex'.split(','), 
   // 常见的布尔类型的属性
-  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','),
+  booleanProperyNames = 'disabled,checked,required,multiple,readonly,autofocus,autoplay,controls,loop,muted,novalidate,draggable,hidden,spellcheck'.split(','), 
   // 某些属性 attribute name 和 property name 不同
   attr2Prop = {};
   // 列举几个常见的
@@ -2339,9 +2338,9 @@
    */
   function createMemberIfNeeded(raw, nodes) {
       // 第一个节点要特殊处理
-      var firstNode = nodes.shift(),
+      var firstNode = nodes.shift(), 
       // 是否向上查找
-      lookup = TRUE,
+      lookup = TRUE, 
       // 偏移量，默认从当前 context 开始查找
       offset = 0;
       // 表示传入的 nodes 至少有两个节点（弹出了一个）
@@ -2351,13 +2350,13 @@
           // 1. 如果全是 literal 节点，则编译时 join
           // 2. 如果不全是 literal 节点，则运行时 join
           // 是否全是 Literal 节点
-          var isLiteral_1 = TRUE,
+          var isLiteral_1 = TRUE, 
           // 静态节点
-          staticNodes_1 = [],
+          staticNodes_1 = [], 
           // 对于 this.a.b[c] 这样的
           // 要还原静态部分 this.a.b 的 raw
           // 虽然 raw 没什么大用吧，谁让我是洁癖呢
-          staticRaw_1 = EMPTY_STRING,
+          staticRaw_1 = EMPTY_STRING, 
           // 动态节点
           dynamicNodes_1 = [];
           each(nodes, function (node) {
@@ -3053,7 +3052,7 @@
       Parser.prototype.scanBinary = function (startIndex) {
           // 二元运算，如 a + b * c / d，这里涉及运算符的优先级
           // 算法参考 https://en.wikipedia.org/wiki/Shunting-yard_algorithm
-          var instance = this,
+          var instance = this, 
           // 格式为 [ index1, node1, index2, node2, ... ]
           output = [], token, index, operator, operatorPrecedence, lastOperator, lastOperatorPrecedence;
           while (TRUE) {
@@ -3123,11 +3122,11 @@
           if (instance.is(CODE_QUESTION)) {
               // 跳过 ?
               instance.go();
-              yes = instance.scanBinary(index);
+              yes = instance.scanTernary();
               if (instance.is(CODE_COLON)) {
                   // 跳过 :
                   instance.go();
-                  no = instance.scanBinary(index);
+                  no = instance.scanTernary();
               }
               if (test && yes && no) {
                   // 类似 ' a ? 1 : 0 ' 这样的右侧有空格，需要撤回来
@@ -3243,37 +3242,37 @@
   }
 
   // 当前不位于 block 之间
-  var BLOCK_MODE_NONE = 1,
+  var BLOCK_MODE_NONE = 1, 
   // {{ x }}
-  BLOCK_MODE_SAFE = 2,
+  BLOCK_MODE_SAFE = 2, 
   // {{{ x }}}
-  BLOCK_MODE_UNSAFE = 3,
+  BLOCK_MODE_UNSAFE = 3, 
   // 缓存编译正则
-  patternCache$1 = {},
+  patternCache$1 = {}, 
   // 指令分隔符，如 on-click 和 lazy-click
-  directiveSeparator = '-',
+  directiveSeparator = '-', 
   // 调用的方法
-  methodPattern = /^[_$a-z]([\w]+)?$/,
+  methodPattern = /^[_$a-z]([\w]+)?$/, 
   // 没有命名空间的事件
-  eventPattern = /^[_$a-z]([\w]+)?$/i,
+  eventPattern = /^[_$a-z]([\w]+)?$/i, 
   // 有命名空间的事件
-  eventNamespacePattern = /^[_$a-z]([\w]+)?\.[_$a-z]([\w]+)?$/i,
+  eventNamespacePattern = /^[_$a-z]([\w]+)?\.[_$a-z]([\w]+)?$/i, 
   // 换行符
   // 比较神奇是，有时候你明明看不到换行符，却真的存在一个，那就是 \r
-  breaklinePattern = /^\s*[\n\r]\s*|\s*[\n\r]\s*$/g,
+  breaklinePattern = /^\s*[\n\r]\s*|\s*[\n\r]\s*$/g, 
   // 区间遍历
-  rangePattern = /\s*(=>|->)\s*/,
+  rangePattern = /\s*(=>|->)\s*/, 
   // 标签
-  tagPattern = /<(\/)?([$a-z][-a-z0-9]*)/i,
+  tagPattern = /<(\/)?([$a-z][-a-z0-9]*)/i, 
   // 注释
-  commentPattern = /<!--[\s\S]*?-->/g,
+  commentPattern = /<!--[\s\S]*?-->/g, 
   // 开始注释
-  openCommentPattern = /^([\s\S]*?)<!--/,
+  openCommentPattern = /^([\s\S]*?)<!--/, 
   // 结束注释
-  closeCommentPattern = /-->([\s\S]*?)$/,
+  closeCommentPattern = /-->([\s\S]*?)$/, 
   // 属性的 name
   // 支持 on-click.namespace="" 或 on-get-out="" 或 xml:xx=""
-  attributePattern = /^\s*([-$.:\w]+)(['"])?(?:=(['"]))?/,
+  attributePattern = /^\s*([-$.:\w]+)(['"])?(?:=(['"]))?/, 
   // 自闭合标签
   selfClosingTagPattern = /^\s*(\/)?>/;
   /**
@@ -3283,25 +3282,25 @@
       return trim(slice(str, prefix.length));
   }
   function compile$1(content) {
-      var nodeList = [], nodeStack = [],
+      var nodeList = [], nodeStack = [], 
       // 持有 if/elseif/else 节点
-      ifStack = [], currentElement, currentAttribute, length = content.length,
+      ifStack = [], currentElement, currentAttribute, length = content.length, 
       // 当前处理的位置
-      index = 0,
+      index = 0, 
       // 下一段开始的位置
-      nextIndex = 0,
+      nextIndex = 0, 
       // 开始定界符的位置，表示的是 {{ 的右侧位置
-      openBlockIndex = 0,
+      openBlockIndex = 0, 
       // 结束定界符的位置，表示的是 }} 的左侧位置
-      closeBlockIndex = 0,
+      closeBlockIndex = 0, 
       // 当前正在处理或即将处理的 block 类型
-      blockMode = BLOCK_MODE_NONE,
+      blockMode = BLOCK_MODE_NONE, 
       // mustache 注释可能出现嵌套插值的情况
       blockStack = [], indexList = [], code, startQuote, fatal$1 = function (msg) {
           {
               fatal("Error compiling template\n\n" + content + "\n\nmessage: " + msg);
           }
-      },
+      }, 
       /**
        * 常见的两种情况：
        *
@@ -3325,7 +3324,7 @@
       }, popStack = function (type, tagName) {
           var node = pop(nodeStack);
           if (node && node.type === type) {
-              var children = node.children,
+              var children = node.children, 
               // 优化单个子节点
               child = children && children.length === 1 && children[0], isElement = type === ELEMENT, isAttribute = type === ATTRIBUTE, isProperty = type === PROPERTY, isDirective = type === DIRECTIVE;
               var currentBranch = last(nodeStack);
@@ -3572,16 +3571,16 @@
       }, processDirectiveEmptyChildren = function (element, directive) {
           directive.value = TRUE;
       }, processDirectiveSingleText = function (directive, child) {
-          var text = child.text,
+          var text = child.text, 
           // model="xx" model="this.x" 值只能是标识符或 Member
-          isModel = directive.ns === DIRECTIVE_MODEL,
+          isModel = directive.ns === DIRECTIVE_MODEL, 
           // lazy 的值必须是大于 0 的数字
-          isLazy = directive.ns === DIRECTIVE_LAZY,
+          isLazy = directive.ns === DIRECTIVE_LAZY, 
           // 校验事件名称
           // 且命名空间不能用 native
-          isEvent = directive.ns === DIRECTIVE_EVENT,
+          isEvent = directive.ns === DIRECTIVE_EVENT, 
           // 自定义指令运行不合法的表达式
-          isCustom = directive.ns === DIRECTIVE_CUSTOM,
+          isCustom = directive.ns === DIRECTIVE_CUSTOM, 
           // 指令的值是纯文本，可以预编译表达式，提升性能
           expr, error;
           try {
@@ -3731,7 +3730,7 @@
               }
           }
       }, bindSpecialAttr = function (element, attr) {
-          var name = attr.name, value = attr.value,
+          var name = attr.name, value = attr.value, 
           // 这三个属性值要求是字符串
           isStringValueRequired = name === RAW_NAME || name === RAW_SLOT;
           {
@@ -3910,7 +3909,9 @@
                   // 方便 virtual dom 进行对比
                   // 这个跟 virtual dom 的实现原理密切相关，不加 stub 会有问题
                   if (!currentElement) {
-                      node.stub = TRUE;
+                      node.stub =
+                          // stub 会在运行时可能创建注释节点，使得父元素变成复杂节点
+                          node.isComplex = TRUE;
                   }
                   push(ifStack, node);
               }
@@ -4505,6 +4506,28 @@
       return args;
   }
   /**
+   * 确保表达式的优先级是正确的
+   */
+  function toGroup(code) {
+      // 数组不用加括号
+      if (/^\[[^\]]+\]$/.test(code)
+          // 对象不用加括号
+          || /^{[^\}]+}$/.test(code)
+          // 字符串不用加括号
+          || /^"[^"]+\"$/.test(code)
+          // 一元表达式不用加括号
+          || /^(?:[-+~!]|!!)(?:[\$\w]+|\([\$\w]+\))$/.test(code)
+          // 函数调用不用加括号
+          || /^\w+\([^\)\{\}]*\)$/.test(code)
+          // 避免重复加括号
+          || /^\([^\)]+\)$/.test(code)) {
+          return code;
+      }
+      return /[-+*\/%<>=!&^|,?:]/.test(code)
+          ? "(" + code + ")"
+          : code;
+  }
+  /**
    * 把 [ 'key1:value1', 'key2:value2' ] 格式转成 `{key1:value1,key2:value2}`
    */
   function toObject$1(fields) {
@@ -4545,7 +4568,7 @@
   }
 
   function generate(node, renderIdentifier, renderMemberKeypath, renderMemberLiteral, renderCall, holder, depIgnore, stack, inner) {
-      var value, isSpecialNode = FALSE,
+      var value, isSpecialNode = FALSE, 
       // 如果是内部临时值，不需要 holder
       needHolder = holder && !inner, generateChildNode = function (node) {
           return generate(node, renderIdentifier, renderMemberKeypath, renderMemberLiteral, renderCall, holder, depIgnore, stack, TRUE);
@@ -4558,16 +4581,17 @@
               value = node.operator + generateChildNode(node.node);
               break;
           case BINARY:
-              value = generateChildNode(node.left)
+              value = toGroup(generateChildNode(node.left))
                   + node.operator
-                  + generateChildNode(node.right);
+                  + toGroup(generateChildNode(node.right));
               break;
           case TERNARY:
-              value = generateChildNode(node.test)
+              // 虽然三元表达式优先级最低，但无法保证表达式内部没有 ,
+              value = toGroup(generateChildNode(node.test))
                   + QUESTION
-                  + generateChildNode(node.yes)
+                  + toGroup(generateChildNode(node.yes))
                   + COLON
-                  + generateChildNode(node.no);
+                  + toGroup(generateChildNode(node.no));
               break;
           case ARRAY:
               var items = node.nodes.map(generateChildNode);
@@ -4672,11 +4696,11 @@
    *
    */
   // 是否要执行 join 操作
-  var joinStack = [],
+  var joinStack = [], 
   // 是否正在收集子节点
   collectStack = [], nodeGenerator = {}, RENDER_EXPRESSION_IDENTIFIER = 'a', RENDER_EXPRESSION_MEMBER_KEYPATH = 'b', RENDER_EXPRESSION_MEMBER_LITERAL = 'c', RENDER_EXPRESSION_CALL = 'd', RENDER_TEXT_VNODE = 'e', RENDER_ATTRIBUTE_VNODE = 'f', RENDER_PROPERTY_VNODE = 'g', RENDER_LAZY_VNODE = 'h', RENDER_TRANSITION_VNODE = 'i', RENDER_BINDING_VNODE = 'j', RENDER_MODEL_VNODE = 'k', RENDER_EVENT_METHOD_VNODE = 'l', RENDER_EVENT_NAME_VNODE = 'm', RENDER_DIRECTIVE_VNODE = 'n', RENDER_SPREAD_VNODE = 'o', RENDER_COMMENT_VNODE = 'p', RENDER_ELEMENT_VNODE = 'q', RENDER_COMPONENT_VNODE = 'r', RENDER_SLOT = 's', RENDER_PARTIAL = 't', RENDER_IMPORT = 'u', RENDER_EACH = 'v', RENDER_RANGE = 'w', RENDER_EQUAL_RANGE = 'x', TO_STRING = 'y', ARG_STACK = 'z';
   // 序列化代码的参数列表
-  var codeArgs,
+  var codeArgs, 
   // 表达式求值是否要求返回字符串类型
   isStringRequired;
   function renderExpression(expr, holder, depIgnore, stack) {
@@ -4693,9 +4717,6 @@
   }
   function stringifyFunction(result, arg) {
       return RAW_FUNCTION + "(" + (arg || EMPTY_STRING) + "){" + (result || EMPTY_STRING) + "}";
-  }
-  function stringifyGroup(code) {
-      return "(" + code + ")";
   }
   function stringifyExpression(expr, toString) {
       var value = renderExpression(expr);
@@ -4723,13 +4744,20 @@
       }
       // 多个值拼接时，要求是字符串
       if (children) {
+          // 求值时要标识 isStringRequired
+          // 求完后复原
+          // 常见的应用场景是序列化 HTML 元素属性值，处理值时要求字符串，在处理属性名这个级别，不要求字符串
+          var oldValue = isStringRequired;
           isStringRequired = children.length > 1;
-          return stringifyChildren(children);
+          var result = stringifyChildren(children);
+          isStringRequired = oldValue;
+          return result;
       }
   }
   function stringifyChildren(children, isComplex) {
       // 如果是复杂节点的 children，则每个 child 的序列化都是函数调用的形式
-      // 因此最后可以拼接为 fn1(), fn2(), fn3() 这样依次调用，而不用再多此一举的使用数组，因为在 renderer 里也用不上这个数组
+      // 因此最后可以拼接为 fn1(), fn2(), fn3() 这样依次调用，而不用再多此一举的使用数组，
+      // 因为在 renderer 里也用不上这个数组
       // children 大于一个时，才有 join 的可能，单个值 join 啥啊...
       var isJoin = children.length > 1 && !isComplex;
       push(joinStack, isJoin);
@@ -4743,7 +4771,7 @@
       if (children) {
           var result = stringifyChildren(children, isComplex);
           return children.length > 1 && isComplex
-              ? stringifyGroup(result)
+              ? toGroup(result)
               : result;
       }
   }
@@ -4759,8 +4787,7 @@
           no = toCall(RENDER_COMMENT_VNODE);
       }
       if (isDef(yes) || isDef(no)) {
-          var isJoin = last(joinStack);
-          if (isJoin) {
+          if (isStringRequired) {
               if (isUndef(yes)) {
                   yes = EMPTY;
               }
@@ -4768,18 +4795,25 @@
                   no = EMPTY;
               }
           }
+          // 避免出现 a||b&&c 的情况
+          // 应该输出 (a||b)&&c
           if (isUndef(no)) {
-              result = test + AND + yes;
+              result = toGroup(test) + AND + yes;
           }
           else if (isUndef(yes)) {
-              result = NOT + test + AND + no;
+              result = toGroup(NOT + test) + AND + no;
           }
           else {
-              result = test + QUESTION + yes + COLON + no;
+              // 虽然三元表达式优先级最低，但无法保证表达式内部没有 ,
+              result = toGroup(test)
+                  + QUESTION
+                  + toGroup(yes)
+                  + COLON
+                  + toGroup(no);
           }
           // 如果是连接操作，因为 ?: 优先级最低，因此要加 ()
-          return isJoin
-              ? stringifyGroup(result)
+          return last(joinStack)
+              ? toGroup(result)
               : result;
       }
       return EMPTY;
@@ -4845,6 +4879,7 @@
               outputSlots = getComponentSlots(children);
           }
           else {
+              var oldValue = isStringRequired;
               isStringRequired = TRUE;
               collectStack[collectStack.length - 1] = isComplex;
               outputChilds = stringifyChildren(children, isComplex);
@@ -4855,6 +4890,7 @@
                   outputText = outputChilds;
                   outputChilds = UNDEFINED;
               }
+              isStringRequired = oldValue;
           }
       }
       pop(collectStack);
@@ -4870,7 +4906,7 @@
       outputRef = ref ? stringifyValue(ref.value, ref.expr, ref.children) : UNDEFINED;
       outputKey = key ? stringifyValue(key.value, key.expr, key.children) : UNDEFINED;
       if (isComponent) {
-          return toCall(RENDER_COMPONENT_VNODE,
+          return toCall(RENDER_COMPONENT_VNODE, 
           // 最常用 => 最不常用排序
           [
               staticTag,
@@ -4880,7 +4916,7 @@
               outputKey,
               dynamicTag ]);
       }
-      return toCall(RENDER_ELEMENT_VNODE,
+      return toCall(RENDER_ELEMENT_VNODE, 
       // 最常用 => 最不常用排序
       [
           staticTag,
@@ -5179,7 +5215,9 @@
                   lastVnode.text += text;
               }
               else {
+                  // 注释节点标签名是 '!'，这里区分一下
                   var textVnode = {
+                      tag: '#',
                       isText: TRUE,
                       text: text,
                       context: context,
@@ -5289,7 +5327,10 @@
           }
           return vnode;
       }, renderCommentVnode = function () {
+          // 注释节点和文本节点需要有个区分
+          // 如果两者都没有 tag，则 patchVnode 时，会认为两者是 patchable 的
           return appendVnode({
+              tag: '!',
               isComment: TRUE,
               text: EMPTY_STRING,
               keypath: $scope.$keypath,
@@ -5360,7 +5401,11 @@
           }
           return appendVnode(vnode);
       }, renderExpressionIdentifier = function (name, lookup, offset, holder, depIgnore, stack) {
-          var myStack = stack || $stack, result = findValue(myStack, myStack.length - 1 - (offset || 0), name, lookup, depIgnore);
+          var myStack = stack || $stack, index = myStack.length - 1;
+          if (offset) {
+              index -= offset;
+          }
+          var result = findValue(myStack, index, name, lookup, depIgnore);
           return holder ? result : result.value;
       }, renderExpressionMemberKeypath = function (identifier, runtimeKeypath) {
           unshift(runtimeKeypath, identifier);
@@ -5378,7 +5423,7 @@
           // 当 holder 为 true, args 为空时，args 会传入 false
           holder.value = execute(fn, context, args || UNDEFINED);
           return holder$1 ? holder : holder.value;
-      },
+      }, 
       // <slot name="xx"/>
       renderSlot = function (name, defaultRender) {
           var vnodeList = last(vnodeStack), vnodes = context.get(name);
@@ -5401,13 +5446,13 @@
               }
               renderedSlots[name] = TRUE;
           }
-      },
+      }, 
       // {{#partial name}}
       //   xx
       // {{/partial}}
       renderPartial = function (name, render) {
           localPartials[name] = render;
-      },
+      }, 
       // {{> name}}
       renderImport = function (name) {
           if (localPartials[name]) {
@@ -5487,7 +5532,7 @@
       return template(renderExpressionIdentifier, renderExpressionMemberKeypath, renderExpressionMemberLiteral, renderExpressionCall, renderTextVnode, renderAttributeVnode, renderPropertyVnode, renderLazyVnode, renderTransitionVnode, renderBindingVnode, renderModelVnode, renderEventMethodVnode, renderEventNameVnode, renderDirectiveVnode, renderSpreadVnode, renderCommentVnode, renderElementVnode, renderComponentVnode, renderSlot, renderPartial, renderImport, renderEach, renderRange, renderEqualRange, toString);
   }
 
-  var guid$1 = 0,
+  var guid$1 = 0, 
   // 这里先写 IE9 支持的接口
   innerText = 'textContent', innerHTML = 'innerHTML', createEvent = function (event, node) {
       return event;
@@ -5500,7 +5545,7 @@
       node.addEventListener(type, listener, FALSE);
   }, removeEventListener = function (node, type, listener) {
       node.removeEventListener(type, listener, FALSE);
-  },
+  }, 
   // IE9 不支持 classList
   addElementClass = function (node, className) {
       node.classList.add(className);
@@ -5527,15 +5572,15 @@
           }
       }
   }
-  var CHAR_WHITESPACE = ' ',
+  var CHAR_WHITESPACE = ' ', 
   /**
    * 绑定在 HTML 元素上的事件发射器
    */
-  EMITTER = '$emitter',
+  EMITTER = '$emitter', 
   /**
    * 跟输入事件配套使用的事件
    */
-  COMPOSITION_START = 'compositionstart',
+  COMPOSITION_START = 'compositionstart', 
   /**
    * 跟输入事件配套使用的事件
    */
@@ -5664,7 +5709,7 @@
       // 一个元素，相同的事件，只注册一个 native listener
       if (!nativeListeners[type]) {
           // 特殊事件
-          var special = specialEvents[type],
+          var special = specialEvents[type], 
           // 唯一的原生监听器
           nativeListener = function (event) {
               var customEvent = event instanceof CustomEvent
@@ -5849,27 +5894,6 @@
       };
       return Computed;
   }());
-
-  /**
-   * 从 keypath 数组中选择和 keypath 最匹配的那一个
-   *
-   * @param sorted 经过排序的 keypath 数组
-   * @param keypath
-   */
-  function matchBest (sorted, keypath) {
-      var result;
-      each(sorted, function (prefix) {
-          var length = match(keypath, prefix);
-          if (length >= 0) {
-              result = {
-                  name: prefix,
-                  prop: slice(keypath, length)
-              };
-              return FALSE;
-          }
-      });
-      return result;
-  }
 
   function readValue (source, keypath) {
       if (source == NULL || keypath === EMPTY_STRING) {
@@ -6072,7 +6096,7 @@
        * @return
        */
       Observer.prototype.get = function (keypath, defaultValue, depIgnore) {
-          var instance = this, currentComputed = Computed.current, data = instance.data, computed = instance.computed, reversedComputedKeys = instance.reversedComputedKeys;
+          var instance = this, currentComputed = Computed.current, data = instance.data, computed = instance.computed;
           // 传入 '' 获取整个 data
           if (keypath === EMPTY_STRING) {
               return data;
@@ -6082,18 +6106,9 @@
           if (currentComputed && !depIgnore) {
               currentComputed.add(keypath);
           }
-          var result, target;
+          var result;
           if (computed) {
-              target = computed[keypath];
-              if (target) {
-                  return target.get();
-              }
-              if (reversedComputedKeys) {
-                  var match = matchBest(reversedComputedKeys, keypath);
-                  if (match && match.prop) {
-                      result = get(computed[match.name].get(), match.prop);
-                  }
-              }
+              result = get(computed, keypath);
           }
           if (!result) {
               result = get(data, keypath);
@@ -6107,33 +6122,42 @@
        * @param value
        */
       Observer.prototype.set = function (keypath, value) {
-          var instance = this, data = instance.data, computed = instance.computed, reversedComputedKeys = instance.reversedComputedKeys, setValue = function (newValue, keypath) {
+          var instance = this, data = instance.data, computed = instance.computed, setValue = function (newValue, keypath) {
               var oldValue = instance.get(keypath);
               if (newValue === oldValue) {
                   return;
               }
-              var target;
-              if (computed) {
-                  target = computed[keypath];
-                  if (target) {
-                      target.set(newValue);
-                  }
-                  if (reversedComputedKeys) {
-                      var match = matchBest(reversedComputedKeys, keypath);
-                      if (match && match.prop) {
-                          target = computed[match.name];
-                          if (target) {
-                              var targetValue = target.get();
-                              if (object(targetValue)) {
-                                  set(targetValue, match.prop, newValue);
-                              }
+              var next;
+              each$1(keypath, function (key, index, lastIndex) {
+                  if (index === 0) {
+                      if (computed && computed[key]) {
+                          if (lastIndex === 0) {
+                              computed[key].set(newValue);
+                          }
+                          else {
+                              // 这里 next 可能为空
+                              next = computed[key].get();
                           }
                       }
+                      else {
+                          if (lastIndex === 0) {
+                              data[key] = newValue;
+                          }
+                          else {
+                              next = data[key] || (data[key] = {});
+                          }
+                      }
+                      return;
                   }
-              }
-              if (!target) {
-                  set(data, keypath, newValue);
-              }
+                  if (next) {
+                      if (index === lastIndex) {
+                          next[key] = newValue;
+                      }
+                      else {
+                          next = next[key] || (next[key] = {});
+                      }
+                  }
+              });
               instance.diff(keypath, newValue, oldValue);
           };
           if (string(keypath)) {
@@ -6151,7 +6175,7 @@
        * @param oldValue
        */
       Observer.prototype.diff = function (keypath, newValue, oldValue) {
-          var instance = this, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, asyncChanges = instance.asyncChanges,
+          var instance = this, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, asyncChanges = instance.asyncChanges, 
           /**
            * 我们认为 $ 开头的变量是不可递归的
            * 比如浏览器中常见的 $0 表示当前选中元素
@@ -6242,7 +6266,6 @@
                   instance.computed = {};
               }
               instance.computed[keypath] = computed;
-              instance.reversedComputedKeys = sort(instance.computed, TRUE);
               return computed;
           }
       };
@@ -6255,7 +6278,6 @@
           var instance = this, computed = instance.computed;
           if (computed && has$2(computed, keypath)) {
               delete computed[keypath];
-              instance.reversedComputedKeys = sort(computed, TRUE);
           }
       };
       /**
@@ -6267,7 +6289,7 @@
        */
       Observer.prototype.watch = function (keypath, watcher, immediate) {
           var instance = this, context = instance.context, syncEmitter = instance.syncEmitter, asyncEmitter = instance.asyncEmitter, bind = function (keypath, options) {
-              var emitter = options.sync ? syncEmitter : asyncEmitter,
+              var emitter = options.sync ? syncEmitter : asyncEmitter, 
               // formatWatcherOptions 保证了 options.watcher 一定存在
               listener = {
                   fn: options.watcher,
@@ -6485,7 +6507,7 @@
               name = EVENT_CHANGE;
           }
           else if (value > 0) {
-              handler = debounce(handler, value,
+              handler = debounce(handler, value, 
               // 避免连续多次点击，主要用于提交表单场景
               // 移动端的 tap 事件可自行在业务层打补丁实现
               name === EVENT_CLICK || name === EVENT_TAP);
@@ -6624,7 +6646,7 @@
       else {
           var element_1 = node, control_1 = vnode.tag === 'select'
               ? selectControl
-              : inputControl,
+              : inputControl, 
           // checkbox,radio,select 监听的是 change 事件
           eventName_1 = EVENT_CHANGE;
           if (control_1 === inputControl) {
@@ -6678,7 +6700,7 @@
   function bind$2(node, directive, vnode) {
       // binding 可能是模糊匹配
       // 比如延展属性 {{...obj}}，这里 binding 会是 `obj.*`
-      var binding = directive.modifier,
+      var binding = directive.modifier, 
       // 提前判断好是否是模糊匹配，避免 watcher 频繁执行判断逻辑
       isFuzzy$1 = isFuzzy(binding), watcher = function (newValue, _, keypath) {
           if (watcher) {
@@ -6750,7 +6772,7 @@
                   each$2(propTypes, function (rule, key) {
                       var value = source[key];
                       {
-                          checkProp(key, value, rule);
+                          checkProp($options.name, key, value, rule);
                       }
                       if (value === UNDEFINED) {
                           value = rule.value;
@@ -7091,7 +7113,12 @@
                   error("The namespace \"" + MODIFER_NATIVE + "\" is not permitted.");
               }
           }
-          isComplete = $emitter.fire(event, args);
+          // 向上发事件会经过自己
+          // 如果向下发事件再经过自己，就产生了一次重叠
+          // 这是没有必要的，而且会导致向下发事件时，外部能接收到该事件，但我们的本意只是想让子组件接收到事件
+          isComplete = downward && event.target === instance
+              ? TRUE
+              : $emitter.fire(event, args);
           if (isComplete) {
               if (downward) {
                   if ($children) {
@@ -7245,18 +7272,19 @@
        * 对于某些特殊场景，修改了数据，但是模板的依赖中并没有这一项
        * 而你非常确定需要更新模板，强制刷新正是你需要的
        */
-      Yox.prototype.forceUpdate = function (data) {
+      Yox.prototype.forceUpdate = function (props) {
           {
-              var instance = this, $vnode = instance.$vnode, $observer = instance.$observer, computed = $observer.computed;
+              var instance = this, $options = instance.$options, $vnode = instance.$vnode, $observer = instance.$observer, computed = $observer.computed;
               if ($vnode && computed) {
                   var template = computed[TEMPLATE_COMPUTED], oldValue = template.get();
-                  if (data) {
-                      instance.set(data);
+                  if (props) {
+                      execute($options[HOOK_BEFORE_PROPS_UPDATE], instance, props);
+                      instance.set(props);
                   }
                   // 当前可能正在进行下一轮更新
                   $observer.nextTask.run();
                   // 没有更新模板，强制刷新
-                  if (!data && oldValue === template.get()) {
+                  if (!props && oldValue === template.get()) {
                       instance.update(template.get(TRUE), $vnode);
                   }
               }
@@ -7315,11 +7343,11 @@
        */
       Yox.prototype.checkProp = function (key, value) {
           {
-              var propTypes = this.$options.propTypes;
+              var _a = this.$options, name = _a.name, propTypes = _a.propTypes;
               if (propTypes) {
                   var rule = propTypes[key];
                   if (rule) {
-                      checkProp(key, value, rule);
+                      checkProp(name, key, value, rule);
                   }
               }
           }
@@ -7447,7 +7475,7 @@
       /**
        * core 版本
        */
-      Yox.version = "1.0.0-alpha.99";
+      Yox.version = "1.0.0-alpha.117";
       /**
        * 方便外部共用的通用逻辑，特别是写插件，减少重复代码
        */
@@ -7467,7 +7495,7 @@
           ? numeric(value)
           : lower(toString$2.call(value)) === "[object " + type + "]";
   }
-  function checkProp(key, value, rule) {
+  function checkProp(componentName, key, value, rule) {
       // 传了数据
       if (value !== UNDEFINED) {
           var type = rule.type;
@@ -7477,7 +7505,7 @@
               // 自定义函数判断是否匹配类型
               // 自己打印警告信息吧
               if (func(type)) {
-                  type(key, value);
+                  type(key, value, componentName);
               }
               else {
                   var matched_1 = FALSE;
@@ -7495,17 +7523,17 @@
                       });
                   }
                   if (!matched_1) {
-                      warn("The type of prop \"" + key + "\" expected to be \"" + type + "\", but is \"" + value + "\".");
+                      warn("The type of prop \"" + key + "\" expected to be \"" + type + "\", but is \"" + value + "\".", componentName);
                   }
               }
           }
           else {
-              warn("The prop \"" + key + "\" in propTypes has no type.");
+              warn("The prop \"" + key + "\" in propTypes has no type.", componentName);
           }
       }
       // 没传值但此项是必传项
       else if (rule.required) {
-          warn("The prop \"" + key + "\" is marked as required, but its value is not found.");
+          warn("The prop \"" + key + "\" is marked as required, but its value is undefined.", componentName);
       }
   }
   function setFlexibleOptions(instance, key, value) {
