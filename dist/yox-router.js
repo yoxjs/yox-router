@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.46
+ * yox-router.js v1.0.0-alpha.47
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -54,43 +54,45 @@
   var COMPONENT_HOOK_BEFORE_LEAVE = 'beforeRouteLeave';
   var COMPONENT_HOOK_AFTER_LEAVE = 'afterRouteLeave';
 
-  var Hooks = function Hooks () {};
-
-  Hooks.prototype.setLocation = function setLocation (to, from) {
-      this.to = to;
-      this.from = from;
-      return this;
-  };
-  Hooks.prototype.clear = function clear () {
-      this.list = [];
-      return this;
-  };
-  Hooks.prototype.add = function add (hook, ctx) {
-      var ref = this;
-          var list = ref.list;
-      if (hook) {
-          list.push({
-              fn: hook,
-              ctx: ctx,
-          });
+  var Hooks = /** @class */ (function () {
+      function Hooks() {
       }
-      return this;
-  };
-  Hooks.prototype.next = function next (isGuard, next$1, callback) {
-      var task = this.list.shift();
-      if (task) {
-          if (isGuard) {
-              task.fn.call(task.ctx, this.to, this.from, next$1);
+      Hooks.prototype.setLocation = function (to, from) {
+          this.to = to;
+          this.from = from;
+          return this;
+      };
+      Hooks.prototype.clear = function () {
+          this.list = [];
+          return this;
+      };
+      Hooks.prototype.add = function (hook, ctx) {
+          var list = this.list;
+          if (hook) {
+              list.push({
+                  fn: hook,
+                  ctx: ctx,
+              });
+          }
+          return this;
+      };
+      Hooks.prototype.next = function (isGuard, next, callback) {
+          var task = this.list.shift();
+          if (task) {
+              if (isGuard) {
+                  task.fn.call(task.ctx, this.to, this.from, next);
+              }
+              else {
+                  task.fn.call(task.ctx, this.to, this.from);
+                  next();
+              }
           }
           else {
-              task.fn.call(task.ctx, this.to, this.from);
-              next$1();
+              callback();
           }
-      }
-      else {
-          callback();
-      }
-  };
+      };
+      return Hooks;
+  }());
 
   /**
    * 把字符串 value 解析成最合适的类型
@@ -156,7 +158,7 @@
    */
   function stringify$1(API, query) {
       var result = [];
-      var loop = function ( key ) {
+      var _loop_1 = function (key) {
           var value = query[key];
           if (API.is.array(value)) {
               API.array.each(value, function (value) {
@@ -173,8 +175,9 @@
               }
           }
       };
-
-      for (var key in query) loop( key );
+      for (var key in query) {
+          _loop_1(key);
+      }
       return result.join(SEPARATOR_QUERY);
   }
 
@@ -272,13 +275,13 @@
    */
   function stringifyUrl(path, params, query) {
       if (/\/\:\w+/.test(path)) {
-          var terms = [];
+          var terms_1 = [];
           API.array.each(path.split(SEPARATOR_PATH), function (item) {
-              terms.push(API.string.startsWith(item, PREFIX_PARAM) && params
+              terms_1.push(API.string.startsWith(item, PREFIX_PARAM) && params
                   ? params[item.substr(PREFIX_PARAM.length)]
                   : item);
           });
-          path = terms.join(SEPARATOR_PATH);
+          path = terms_1.join(SEPARATOR_PATH);
       }
       if (query) {
           var queryStr = stringify$1(API, query);
@@ -343,544 +346,526 @@
           }
       }
   }
-  var Router = function Router(options) {
-      var instance = this, el = options.el, route404 = options.route404 || default404;
-      instance.options = options;
-      instance.el = API.is.string(el)
-          ? API.dom.find(el)
-          : el;
-      {
-          if (!instance.el) {
-              API.logger.error("The \"el\" option must be an element or a selector.");
-              return;
-          }
-      }
-      instance.mode = options.mode === MODE_HISTORY && isSupported
-          ? historyMode
-          : hashMode;
-      instance.handler = function () {
-          var url = instance.mode.current();
-          var pending = instance.pending;
-          if (pending) {
-              var location = pending.location;
-              // 通过 push 或 go 触发
-              if (location.url === url) {
-                  instance.setHistory(location, pending.cursor);
-                  instance.setRoute(location);
+  var Router = /** @class */ (function () {
+      function Router(options) {
+          var instance = this, el = options.el, route404 = options.route404 || default404;
+          instance.options = options;
+          instance.el = API.is.string(el)
+              ? API.dom.find(el)
+              : el;
+          {
+              if (!instance.el) {
+                  API.logger.error("The \"el\" option must be an element or a selector.");
                   return;
               }
-              instance.pending = UNDEFINED;
           }
-          // 直接修改地址栏触发
-          instance.parseLocation(url, function (location) {
-              if (location) {
-                  instance.setHistory(location);
-                  instance.setRoute(location);
+          instance.mode = options.mode === MODE_HISTORY && isSupported
+              ? historyMode
+              : hashMode;
+          instance.handler = function () {
+              var url = instance.mode.current(), pending = instance.pending;
+              if (pending) {
+                  var location = pending.location;
+                  // 通过 push 或 go 触发
+                  if (location.url === url) {
+                      instance.setHistory(location, pending.cursor);
+                      instance.setRoute(location);
+                      return;
+                  }
+                  instance.pending = UNDEFINED;
+              }
+              // 直接修改地址栏触发
+              instance.parseLocation(url, function (location) {
+                  if (location) {
+                      instance.setHistory(location);
+                      instance.setRoute(location);
+                  }
+                  else {
+                      instance.push(instance.route404);
+                  }
+              });
+          };
+          instance.routes = [];
+          instance.name2Path = {};
+          instance.path2Route = {};
+          instance.history = [];
+          instance.cursor = -1;
+          instance.hooks = new Hooks();
+          API.array.each(options.routes, function (route) {
+              instance.add(route);
+          });
+          instance.route404 = instance.add(route404)[0];
+      }
+      /**
+       * 添加一个新的路由
+       */
+      Router.prototype.add = function (routeOptions) {
+          var instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
+              var name = routeOptions.name, component = routeOptions.component, children = routeOptions.children, load = routeOptions.load, parentPath = API.array.last(pathStack), parentRoute = API.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
+              API.array.each(path.split(SEPARATOR_PATH), function (item) {
+                  if (API.string.startsWith(item, PREFIX_PARAM)) {
+                      params.push(item.substr(PREFIX_PARAM.length));
+                  }
+              });
+              if (params.length) {
+                  route.params = params;
+              }
+              if (name) {
+                  route.name = name;
+              }
+              // component 和 load 二选一
+              if (component) {
+                  route.component = component;
+              }
+              else if (load) {
+                  route.load = load;
+              }
+              if (parentRoute) {
+                  route.parent = parentRoute;
+              }
+              if (children) {
+                  pathStack.push(path);
+                  routeStack.push(route);
+                  API.array.each(children, addRoute);
+                  routeStack.pop();
+                  pathStack.pop();
               }
               else {
-                  instance.push(instance.route404);
-              }
-          });
-      };
-      instance.routes = [];
-      instance.name2Path = {};
-      instance.path2Route = {};
-      instance.history = [];
-      instance.cursor = -1;
-      instance.hooks = new Hooks();
-      API.array.each(options.routes, function (route) {
-          instance.add(route);
-      });
-      instance.route404 = instance.add(route404)[0];
-  };
-  /**
-   * 添加一个新的路由
-   */
-  Router.prototype.add = function add (routeOptions) {
-      var instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
-          var name = routeOptions.name;
-              var component = routeOptions.component;
-              var children = routeOptions.children;
-              var load = routeOptions.load;
-              var parentPath = API.array.last(pathStack), parentRoute = API.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path: path, route: routeOptions }, params = [];
-          API.array.each(path.split(SEPARATOR_PATH), function (item) {
-              if (API.string.startsWith(item, PREFIX_PARAM)) {
-                  params.push(item.substr(PREFIX_PARAM.length));
-              }
-          });
-          if (params.length) {
-              route.params = params;
-          }
-          if (name) {
-              route.name = name;
-          }
-          // component 和 load 二选一
-          if (component) {
-              route.component = component;
-          }
-          else if (load) {
-              route.load = load;
-          }
-          if (parentRoute) {
-              route.parent = parentRoute;
-          }
-          if (children) {
-              pathStack.push(path);
-              routeStack.push(route);
-              API.array.each(children, addRoute);
-              routeStack.pop();
-              pathStack.pop();
-          }
-          else {
-              newRoutes.push(route);
-              instance.routes.push(route);
-              if (name) {
+                  newRoutes.push(route);
+                  instance.routes.push(route);
+                  if (name) {
+                      {
+                          if (API.object.has(instance.name2Path, name)) {
+                              API.logger.error("The name \"" + name + "\" of the route is existed.");
+                              return;
+                          }
+                      }
+                      instance.name2Path[name] = path;
+                  }
                   {
-                      if (API.object.has(instance.name2Path, name)) {
-                          API.logger.error(("The name \"" + name + "\" of the route is existed."));
+                      if (API.object.has(instance.path2Route, path)) {
+                          API.logger.error("The path \"" + path + "\" of the route is existed.");
                           return;
                       }
                   }
-                  instance.name2Path[name] = path;
+                  instance.path2Route[path] = route;
               }
-              {
-                  if (API.object.has(instance.path2Route, path)) {
-                      API.logger.error(("The path \"" + path + "\" of the route is existed."));
-                      return;
-                  }
-              }
-              instance.path2Route[path] = route;
-          }
+          };
+          addRoute(routeOptions);
+          return newRoutes;
       };
-      addRoute(routeOptions);
-      return newRoutes;
-  };
-  /**
-   * 删除一个已注册的路由
-   */
-  Router.prototype.remove = function remove (route) {
-      var instance = this;
-      API.array.remove(instance.routes, route);
-      if (route.name) {
-          delete instance.name2Path[route.name];
-      }
-      delete instance.path2Route[route.path];
-  };
-  /**
-   * target 有 3 种格式：
-   *
-   * 如果只是简单的 path，直接传字符串
-   *
-   * push('/index')
-   *
-   * 如果需要带参数，可传对象
-   *
-   * push({
-   *   path: '/index',
-   *   params: { },
-   *   query: { }
-   * })
-   *
-   * 如果路由配置了 name，可用 name 代替 path，如下：
-   *
-   * push({
-   *   name: 'index'
-   * })
-   *
-   * 也可以不传 path 或 name，只传 params 或 query
-   * 表示不修改 path，仅修改 params 或 query
-   *
-   */
-  Router.prototype.push = function push (target) {
-      var instance = this;
-          var mode = instance.mode;
-      instance.setUrl(instance.toUrl(target), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
-          instance.pending = pending;
-          if (mode.current() !== location.url) {
-              mode.push(location, instance.handler);
+      /**
+       * 删除一个已注册的路由
+       */
+      Router.prototype.remove = function (route) {
+          var instance = this;
+          API.array.remove(instance.routes, route);
+          if (route.name) {
+              delete instance.name2Path[route.name];
           }
-          else {
-              instance.setRoute(location);
-          }
-      });
-  };
-  /**
-   * 不改变 URL，只修改路由组件
-   */
-  Router.prototype.replace = function replace (target) {
-      var instance = this;
-      instance.setUrl(instance.toUrl(target), function () {
-          instance.replaceHistory(instance.location);
-      }, EMPTY_FUNCTION, function (location, pending) {
-          instance.pending = pending;
-          instance.setRoute(location);
-      });
-  };
-  /**
-   * 前进或后退 n 步
-   */
-  Router.prototype.go = function go (n) {
-      var instance = this;
-          var mode = instance.mode;
-          var cursor = instance.cursor + n, location = instance.history[cursor];
-      if (location) {
-          instance.setUrl(stringifyUrl(location.path, location.params, location.query), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
-              pending.cursor = cursor;
+          delete instance.path2Route[route.path];
+      };
+      /**
+       * target 有 3 种格式：
+       *
+       * 如果只是简单的 path，直接传字符串
+       *
+       * push('/index')
+       *
+       * 如果需要带参数，可传对象
+       *
+       * push({
+       *   path: '/index',
+       *   params: { },
+       *   query: { }
+       * })
+       *
+       * 如果路由配置了 name，可用 name 代替 path，如下：
+       *
+       * push({
+       *   name: 'index'
+       * })
+       *
+       * 也可以不传 path 或 name，只传 params 或 query
+       * 表示不修改 path，仅修改 params 或 query
+       *
+       */
+      Router.prototype.push = function (target) {
+          var instance = this, mode = instance.mode;
+          instance.setUrl(instance.toUrl(target), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
               instance.pending = pending;
               if (mode.current() !== location.url) {
-                  mode.go(n);
+                  mode.push(location, instance.handler);
               }
               else {
-                  instance.setHistory(location, cursor);
                   instance.setRoute(location);
               }
           });
-      }
-  };
-  /**
-   * 启动路由
-   */
-  Router.prototype.start = function start () {
-      this.mode.start(API.dom, this.handler);
-  };
-  /**
-   * 停止路由
-   */
-  Router.prototype.stop = function stop () {
-      this.mode.stop(API.dom, this.handler);
-  };
-  /**
-   * 钩子函数
-   */
-  Router.prototype.hook = function hook (route, componentHook, routerHook, isGuard, callback) {
-      var instance = this;
-          var location = instance.location;
-          var hooks = instance.hooks;
-          var pending = instance.pending;
-          var context = route.context;
-          var onComplete = function () {
-          // 如果钩子未被拦截，则会走进 onComplete
-          // 这里要把钩子事件冒泡上去，便于业务层处理
-          // 加命名空间是为了和 yox 生命周期钩子事件保持一致
-          if (context) {
-              context.fire(componentHook + NAMESPACE_HOOK, {
-                  from: hooks.from,
-                  to: hooks.to,
-              });
-          }
-          // 在发事件之后调用 callback
-          // 因为 callback 有可能销毁组件，导致事件发不出去
-          if (callback) {
-              callback();
-          }
-      }, next = function (value) {
-          if (value === UNDEFINED) {
-              hooks.next(isGuard, next, onComplete);
-          }
-          else {
-              // 只有前置守卫才有可能走进这里
-              // 此时 instance.location 还是旧地址
-              if (pending) {
-                  pending.onAbort();
-                  instance.pending = UNDEFINED;
-              }
-              if (value === FALSE) {
-                  if (location) {
-                      instance.push(location);
+      };
+      /**
+       * 不改变 URL，只修改路由组件
+       */
+      Router.prototype.replace = function (target) {
+          var instance = this;
+          instance.setUrl(instance.toUrl(target), function () {
+              instance.replaceHistory(instance.location);
+          }, EMPTY_FUNCTION, function (location, pending) {
+              instance.pending = pending;
+              instance.setRoute(location);
+          });
+      };
+      /**
+       * 前进或后退 n 步
+       */
+      Router.prototype.go = function (n) {
+          var instance = this, mode = instance.mode, cursor = instance.cursor + n, location = instance.history[cursor];
+          if (location) {
+              instance.setUrl(stringifyUrl(location.path, location.params, location.query), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
+                  pending.cursor = cursor;
+                  instance.pending = pending;
+                  if (mode.current() !== location.url) {
+                      mode.go(n);
                   }
-              }
-              else {
-                  // 跳转到别的路由
-                  instance.push(value);
-              }
+                  else {
+                      instance.setHistory(location, cursor);
+                      instance.setRoute(location);
+                  }
+              });
           }
       };
-      hooks
-          .clear()
-          // 先调用组件的钩子
-          .add(route.component[componentHook], context)
-          // 再调用路由配置的钩子
-          .add(route.route[routerHook], route.route)
-          // 最后调用路由实例的钩子
-          .add(instance.options[routerHook], instance);
-      next();
-  };
-  Router.prototype.setHistory = function setHistory (location, index) {
-      var ref = this;
-          var history = ref.history;
-          var cursor = ref.cursor;
-      // 如果没传 cursor，表示 push
-      if (!API.is.number(index)) {
-          index = cursor + 1;
-          // 确保下一个为空
-          // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
-          if (history[index]) {
-              history.length = index;
-          }
-      }
-      history[index] = location;
-      this.cursor = index;
-  };
-  Router.prototype.replaceHistory = function replaceHistory (location) {
-      var ref = this;
-          var history = ref.history;
-          var cursor = ref.cursor;
-      if (history[cursor]) {
-          history[cursor] = location;
-      }
-  };
-  Router.prototype.toUrl = function toUrl (target) {
-      if (API.is.string(target)) {
-          return formatPath(target);
-      }
-      var instance = this, location = instance.location, routeTarget = target, params = routeTarget.params, path;
-      if (routeTarget.name) {
-          path = instance.name2Path[routeTarget.name];
-      }
-      else if (routeTarget.path) {
-          path = formatPath(routeTarget.path);
-      }
-      else if (location) {
-          path = location.path;
-          if (!params) {
-              params = location.params;
-          }
-      }
-      {
-          if (!API.is.string(path)) {
-              API.logger.error("The path is not found.");
-          }
-      }
-      return stringifyUrl(path, params, routeTarget.query);
-  };
-  Router.prototype.setUrl = function setUrl (url, onComplete, onAbort, callback) {
-      // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
-      var instance = this;
-      instance.parseLocation(url, function (location) {
-          if (location) {
-              callback(location, {
-                  location: location,
-                  onComplete: onComplete,
-                  onAbort: onAbort,
-              });
-          }
-      });
-  };
-  Router.prototype.parseLocation = function parseLocation (url, callback) {
-      var realpath, search, index = url.indexOf(SEPARATOR_SEARCH);
-      if (index >= 0) {
-          realpath = url.slice(0, index);
-          search = url.slice(index + 1);
-      }
-      else {
-          realpath = url;
-      }
-      // 匹配已注册的 route
-      var instance = this, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, matchRoute = function (routes, callback) {
-          var index = 0, route;
-          loop: while (route = routes[index++]) {
-              var path = route.path;
-              // 动态路由
-              if (route.params) {
-                  var pathTerms = path.split(SEPARATOR_PATH);
-                  // path 段数量必须一致，否则没有比较的意义
-                  if (length === pathTerms.length) {
-                      var params = {};
-                      for (var i = 0; i < length; i++) {
-                          if (API.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-                              params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse(API, realpathTerms[i]);
-                          }
-                          // 非参数段不相同
-                          else if (pathTerms[i] !== realpathTerms[i]) {
-                              continue loop;
-                          }
+      /**
+       * 启动路由
+       */
+      Router.prototype.start = function () {
+          this.mode.start(API.dom, this.handler);
+      };
+      /**
+       * 停止路由
+       */
+      Router.prototype.stop = function () {
+          this.mode.stop(API.dom, this.handler);
+      };
+      /**
+       * 钩子函数
+       */
+      Router.prototype.hook = function (route, componentHook, routerHook, isGuard, callback) {
+          var instance = this, location = instance.location, hooks = instance.hooks, pending = instance.pending, context = route.context, onComplete = function () {
+              // 如果钩子未被拦截，则会走进 onComplete
+              // 这里要把钩子事件冒泡上去，便于业务层处理
+              // 加命名空间是为了和 yox 生命周期钩子事件保持一致
+              if (context) {
+                  context.fire(componentHook + NAMESPACE_HOOK, {
+                      from: hooks.from,
+                      to: hooks.to,
+                  });
+              }
+              // 在发事件之后调用 callback
+              // 因为 callback 有可能销毁组件，导致事件发不出去
+              if (callback) {
+                  callback();
+              }
+          }, next = function (value) {
+              if (value === UNDEFINED) {
+                  hooks.next(isGuard, next, onComplete);
+              }
+              else {
+                  // 只有前置守卫才有可能走进这里
+                  // 此时 instance.location 还是旧地址
+                  if (pending) {
+                      pending.onAbort();
+                      instance.pending = UNDEFINED;
+                  }
+                  if (value === FALSE) {
+                      if (location) {
+                          instance.push(location);
                       }
-                      callback(route, params);
+                  }
+                  else {
+                      // 跳转到别的路由
+                      instance.push(value);
+                  }
+              }
+          };
+          hooks
+              .clear()
+              // 先调用组件的钩子
+              .add(route.component[componentHook], context)
+              // 再调用路由配置的钩子
+              .add(route.route[routerHook], route.route)
+              // 最后调用路由实例的钩子
+              .add(instance.options[routerHook], instance);
+          next();
+      };
+      Router.prototype.setHistory = function (location, index) {
+          var _a = this, history = _a.history, cursor = _a.cursor;
+          // 如果没传 cursor，表示 push
+          if (!API.is.number(index)) {
+              index = cursor + 1;
+              // 确保下一个为空
+              // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
+              if (history[index]) {
+                  history.length = index;
+              }
+          }
+          history[index] = location;
+          this.cursor = index;
+      };
+      Router.prototype.replaceHistory = function (location) {
+          var _a = this, history = _a.history, cursor = _a.cursor;
+          if (history[cursor]) {
+              history[cursor] = location;
+          }
+      };
+      Router.prototype.toUrl = function (target) {
+          if (API.is.string(target)) {
+              return formatPath(target);
+          }
+          var instance = this, location = instance.location, routeTarget = target, params = routeTarget.params, path;
+          if (routeTarget.name) {
+              path = instance.name2Path[routeTarget.name];
+          }
+          else if (routeTarget.path) {
+              path = formatPath(routeTarget.path);
+          }
+          else if (location) {
+              path = location.path;
+              if (!params) {
+                  params = location.params;
+              }
+          }
+          {
+              if (!API.is.string(path)) {
+                  API.logger.error("The path is not found.");
+              }
+          }
+          return stringifyUrl(path, params, routeTarget.query);
+      };
+      Router.prototype.setUrl = function (url, onComplete, onAbort, callback) {
+          // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
+          var instance = this;
+          instance.parseLocation(url, function (location) {
+              if (location) {
+                  callback(location, {
+                      location: location,
+                      onComplete: onComplete,
+                      onAbort: onAbort,
+                  });
+              }
+          });
+      };
+      Router.prototype.parseLocation = function (url, callback) {
+          var realpath, search, index = url.indexOf(SEPARATOR_SEARCH);
+          if (index >= 0) {
+              realpath = url.slice(0, index);
+              search = url.slice(index + 1);
+          }
+          else {
+              realpath = url;
+          }
+          // 匹配已注册的 route
+          var instance = this, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, matchRoute = function (routes, callback) {
+              var index = 0, route;
+              loop: while (route = routes[index++]) {
+                  var path = route.path;
+                  // 动态路由
+                  if (route.params) {
+                      var pathTerms = path.split(SEPARATOR_PATH);
+                      // path 段数量必须一致，否则没有比较的意义
+                      if (length === pathTerms.length) {
+                          var params = {};
+                          for (var i = 0; i < length; i++) {
+                              if (API.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
+                                  params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse(API, realpathTerms[i]);
+                              }
+                              // 非参数段不相同
+                              else if (pathTerms[i] !== realpathTerms[i]) {
+                                  continue loop;
+                              }
+                          }
+                          callback(route, params);
+                          return;
+                      }
+                  }
+                  // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
+                  else if (route.load && API.string.startsWith(realpath, path)) {
+                      var routeCallback = function (lazyRoute) {
+                          instance.remove(route);
+                          matchRoute(instance.add(lazyRoute['default'] || lazyRoute), callback);
+                      };
+                      var promise = route.load(routeCallback);
+                      if (promise) {
+                          promise.then(routeCallback);
+                      }
+                      return;
+                  }
+                  else if (path === realpath) {
+                      callback(route);
                       return;
                   }
               }
-              // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-              else if (route.load && API.string.startsWith(realpath, path)) {
-                  var routeCallback = function (lazyRoute) {
-                      instance.remove(route);
-                      matchRoute(instance.add(lazyRoute['default'] || lazyRoute), callback);
-                  };
-                  var promise = route.load(routeCallback);
-                  if (promise) {
-                      promise.then(routeCallback);
-                  }
-                  return;
-              }
-              else if (path === realpath) {
-                  callback(route);
-                  return;
-              }
-          }
-          callback();
-      };
-      matchRoute(instance.routes, function (route, params) {
-          if (route) {
-              var location = {
-                  url: url,
-                  path: route.path
-              };
-              if (params) {
-                  location.params = params;
-              }
-              if (search) {
-                  var query = parse$1(API, search);
-                  if (query) {
-                      location.query = query;
-                  }
-              }
-              callback(location);
-          }
-          else {
-              {
-                  API.logger.error(("The path \"" + realpath + "\" can't match a route."));
-              }
               callback();
-          }
-      });
-  };
-  Router.prototype.diffRoute = function diffRoute (route, oldRoute, onComplete, startRoute, childRoute, oldTopRoute) {
-      // 更新链路
-      if (childRoute) {
-          route.child = childRoute;
-          childRoute.parent = route;
-      }
-      if (oldRoute) {
-          // 同级的两个组件不同，疑似起始更新的路由
-          if (oldRoute.component !== route.component) {
-              startRoute = route;
-          }
-          else {
-              // 把上次的组件实例搞过来
-              route.context = oldRoute.context;
-          }
-      }
-      else {
-          startRoute = route;
-      }
-      if (route.parent) {
-          this.diffRoute(API.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route, oldRoute || oldTopRoute);
-          return;
-      }
-      // 整个组件树全换掉
-      if (startRoute === route) {
-          var context;
-          // 当层级较多的路由切换到层级较少的路由
-          if (oldRoute) {
-              while (oldRoute) {
-                  context = oldRoute.context;
-                  oldRoute = oldRoute.parent;
-              }
-          }
-          // 当层级较少的路由切换到层级较多的路由
-          else if (oldTopRoute) {
-              context = oldTopRoute.context;
-          }
-          if (context) {
-              startRoute.context = context;
-          }
-      }
-      // 到达根组件，结束
-      onComplete(route, startRoute);
-  };
-  Router.prototype.patchRoute = function patchRoute (route, startRoute) {
-      var instance = this, location = instance.location;
-      // 从上往下更新 props
-      while (route) {
-          var parent = route.parent;
-              var context = route.context;
-              var component = route.component;
-          if (route === startRoute) {
-              if (parent) {
-                  context = parent.context;
-                  context.forceUpdate(filterProps(parent, location, parent.component));
-                  context = context.$routeView;
-                  if (context) {
-                      var props = {}, name = ROUTE_COMPONENT + (++guid);
-                      props[ROUTE_COMPONENT] = name;
-                      context.component(name, component);
-                      context.forceUpdate(props);
-                  }
-              }
-              else {
-                  if (context) {
-                      context.destroy();
-                  }
-                  // 每层路由组件都有 $route 和 $router 属性
-                  var extensions = {
-                      $router: instance,
-                      $route: route
+          };
+          matchRoute(instance.routes, function (route, params) {
+              if (route) {
+                  var location = {
+                      url: url,
+                      path: route.path
                   };
-                  var options = API.object.extend({
-                      el: instance.el,
-                      props: filterProps(route, location, component),
-                      extensions: extensions,
-                  }, component);
-                  options.events = options.events
-                      ? API.object.extend(options.events, hookEvents)
-                      : hookEvents;
-                  route.context = new API(options);
-              }
-          }
-          else if (context) {
-              if (context.$vnode) {
-                  context.$route = route;
-                  context.forceUpdate(filterProps(route, location, component));
+                  if (params) {
+                      location.params = params;
+                  }
+                  if (search) {
+                      var query = parse$1(API, search);
+                      if (query) {
+                          location.query = query;
+                      }
+                  }
+                  callback(location);
               }
               else {
-                  route.context = UNDEFINED;
+                  {
+                      API.logger.error("The path \"" + realpath + "\" can't match a route.");
+                  }
+                  callback();
               }
-              if (route.child) {
-                  route = route.child;
-                  continue;
-              }
-          }
-          break;
-      }
-  };
-  Router.prototype.setRoute = function setRoute (location) {
-      var instance = this, linkedRoute = instance.path2Route[location.path], redirect = linkedRoute.route.redirect;
-      if (redirect) {
-          if (API.is.func(redirect)) {
-              redirect = redirect(location);
-          }
-          if (redirect) {
-              instance.push(redirect);
-              return;
-          }
-      }
-      var newRoute = API.object.copy(linkedRoute), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
-          instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
-              instance.hook(newRoute, startRoute ? COMPONENT_HOOK_BEFORE_ENTER : COMPONENT_HOOK_BEFORE_UPDATE, startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE, TRUE, function () {
-                  instance.route = newRoute;
-                  instance.location = location;
-                  instance.patchRoute(route, startRoute);
-              });
           });
       };
-      instance.hooks.setLocation(location, oldLocation);
-      if (oldRoute && oldLocation && location.path !== oldLocation.path) {
-          instance.hook(oldRoute, COMPONENT_HOOK_BEFORE_LEAVE, ROUTER_HOOK_BEFORE_LEAVE, TRUE, enterRoute);
-          return;
-      }
-      enterRoute();
-  };
+      Router.prototype.diffRoute = function (route, oldRoute, onComplete, startRoute, childRoute, oldTopRoute) {
+          // 更新链路
+          if (childRoute) {
+              route.child = childRoute;
+              childRoute.parent = route;
+          }
+          if (oldRoute) {
+              // 同级的两个组件不同，疑似起始更新的路由
+              if (oldRoute.component !== route.component) {
+                  startRoute = route;
+              }
+              else {
+                  // 把上次的组件实例搞过来
+                  route.context = oldRoute.context;
+              }
+          }
+          else {
+              startRoute = route;
+          }
+          if (route.parent) {
+              this.diffRoute(API.object.copy(route.parent), oldRoute ? oldRoute.parent : UNDEFINED, onComplete, startRoute, route, oldRoute || oldTopRoute);
+              return;
+          }
+          // 整个组件树全换掉
+          if (startRoute === route) {
+              var context = void 0;
+              // 当层级较多的路由切换到层级较少的路由
+              if (oldRoute) {
+                  while (oldRoute) {
+                      context = oldRoute.context;
+                      oldRoute = oldRoute.parent;
+                  }
+              }
+              // 当层级较少的路由切换到层级较多的路由
+              else if (oldTopRoute) {
+                  context = oldTopRoute.context;
+              }
+              if (context) {
+                  startRoute.context = context;
+              }
+          }
+          // 到达根组件，结束
+          onComplete(route, startRoute);
+      };
+      Router.prototype.patchRoute = function (route, startRoute) {
+          var instance = this, location = instance.location;
+          // 从上往下更新 props
+          while (route) {
+              var parent = route.parent, context = route.context, component = route.component;
+              if (route === startRoute) {
+                  if (parent) {
+                      context = parent.context;
+                      context.forceUpdate(filterProps(parent, location, parent.component));
+                      context = context.$routeView;
+                      if (context) {
+                          var props = {}, name = ROUTE_COMPONENT + (++guid);
+                          props[ROUTE_COMPONENT] = name;
+                          context.component(name, component);
+                          context.forceUpdate(props);
+                      }
+                  }
+                  else {
+                      if (context) {
+                          context.destroy();
+                      }
+                      // 每层路由组件都有 $route 和 $router 属性
+                      var extensions = {
+                          $router: instance,
+                          $route: route
+                      };
+                      var options = API.object.extend({
+                          el: instance.el,
+                          props: filterProps(route, location, component),
+                          extensions: extensions,
+                      }, component);
+                      options.events = options.events
+                          ? API.object.extend(options.events, hookEvents)
+                          : hookEvents;
+                      route.context = new API(options);
+                  }
+              }
+              else if (context) {
+                  if (context.$vnode) {
+                      context.$route = route;
+                      context.forceUpdate(filterProps(route, location, component));
+                  }
+                  else {
+                      route.context = UNDEFINED;
+                  }
+                  if (route.child) {
+                      route = route.child;
+                      continue;
+                  }
+              }
+              break;
+          }
+      };
+      Router.prototype.setRoute = function (location) {
+          var instance = this, linkedRoute = instance.path2Route[location.path], redirect = linkedRoute.route.redirect;
+          if (redirect) {
+              if (API.is.func(redirect)) {
+                  redirect = redirect(location);
+              }
+              if (redirect) {
+                  instance.push(redirect);
+                  return;
+              }
+          }
+          var newRoute = API.object.copy(linkedRoute), oldRoute = instance.route, oldLocation = instance.location, enterRoute = function () {
+              instance.diffRoute(newRoute, oldRoute, function (route, startRoute) {
+                  instance.hook(newRoute, startRoute ? COMPONENT_HOOK_BEFORE_ENTER : COMPONENT_HOOK_BEFORE_UPDATE, startRoute ? ROUTER_HOOK_BEFORE_ENTER : ROUTER_HOOK_BEFORE_UPDATE, TRUE, function () {
+                      instance.route = newRoute;
+                      instance.location = location;
+                      instance.patchRoute(route, startRoute);
+                  });
+              });
+          };
+          instance.hooks.setLocation(location, oldLocation);
+          if (oldRoute && oldLocation && location.path !== oldLocation.path) {
+              instance.hook(oldRoute, COMPONENT_HOOK_BEFORE_LEAVE, ROUTER_HOOK_BEFORE_LEAVE, TRUE, enterRoute);
+              return;
+          }
+          enterRoute();
+      };
+      return Router;
+  }());
   var default404 = {
       path: '/404',
       component: {
           template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
       }
   }, directive = {
-      bind: function bind(node, directive, vnode) {
+      bind: function (node, directive, vnode) {
           // 当前组件如果是根组件，则没有 $root 属性
           var $root = vnode.context.$root || vnode.context, router = $root.$router, listener = vnode.data[directive.key] = function (_) {
-              var value = directive.value;
-              var getter = directive.getter;
-              var target = value;
+              var value = directive.value, getter = directive.getter, target = value;
               if (value && getter && API.string.has(value, '{')) {
                   target = getter();
               }
@@ -893,7 +878,7 @@
               API.dom.on(node, EVENT_CLICK, listener);
           }
       },
-      unbind: function unbind(node, directive, vnode) {
+      unbind: function (node, directive, vnode) {
           var listener = vnode.data[directive.key];
           if (vnode.isComponent) {
               node.off(EVENT_CLICK, listener);
@@ -904,7 +889,7 @@
       },
   }, RouterView = {
       template: '<$' + ROUTE_COMPONENT + '/>',
-      beforeCreate: function beforeCreate(options) {
+      beforeCreate: function (options) {
           var context = options.context, 
           // context 一定有 $route 属性
           route = context.$route.child;
@@ -915,14 +900,14 @@
               components[name] = route.component;
           }
       },
-      beforeDestroy: function beforeDestroy() {
+      beforeDestroy: function () {
           this.$context.$routeView = UNDEFINED;
       }
   };
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.46";
+  var version = "1.0.0-alpha.47";
   /**
    * 安装插件
    */
@@ -937,8 +922,7 @@
       hookEvents = {};
       hookEvents['beforeCreate' + NAMESPACE_HOOK] = function (event, data) {
           if (data) {
-              var options = data;
-              var context = options.context;
+              var options = data, context = options.context;
               // 当前组件是 <router-view> 中的动态组件
               if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
                   // 找到渲染 <router-view> 的父级组件，它是一定存在的

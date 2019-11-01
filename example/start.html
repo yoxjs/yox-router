@@ -8,7 +8,21 @@
 
 <body>
   <div id="app"></div>
-  <script src="./yox.js"></script>
+
+  <!--[if IE]>
+  <script src="https://cdn.bootcss.com/es6-promise/4.1.1/es6-promise.auto.min.js"></script>
+  <![endif]-->
+
+  <!--[if lt IE 9]>
+  <script src="https://cdn.bootcss.com/es5-shim/4.5.13/es5-shim.min.js"></script>
+  <script src="https://cdn.bootcss.com/es5-shim/4.5.13/es5-sham.min.js"></script>
+  <![endif]-->
+
+  <!--[if lt IE 8]>
+  <script src="https://cdn.bootcss.com/json3/3.3.3/json3.min.js"></script>
+  <![endif]-->
+
+  <script src="https://unpkg.com/yox@1.0.0-alpha.118/dist/legacy/dev/yox.js"></script>
   <script src="../dist/yox-router.js"></script>
   <script>
     Yox.use(YoxRouter)
@@ -21,16 +35,7 @@
         {
           path: '/',
           component: {
-            template: `
-              <div>
-                <button o-push="/foo">
-                  Foo
-                </button>
-                <button o-push="/bar">
-                  Bar
-                </button>
-              </div>
-            `
+            template: '<div><button o-push="/foo">Foo</button><button o-push="/bar">Bar</button></div>'
           }
         },
         {

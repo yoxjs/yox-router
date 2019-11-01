@@ -45,7 +45,8 @@ const output = []
 if (process.env.NODE_FORMAT === 'es') {
   plugins.push(
     typescript({
-      target: 'es6'
+      target: 'es6',
+      include: []
     })
   )
   output.push({
@@ -57,7 +58,11 @@ if (process.env.NODE_FORMAT === 'es') {
 }
 else {
   plugins.push(
-    typescript(),
+    // rollup 貌似有 bug，非得加个 include 才行
+    typescript({
+      target: 'es5',
+      include: []
+    }),
     buble()
   )
   output.push({
