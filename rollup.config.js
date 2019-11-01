@@ -46,7 +46,6 @@ if (process.env.NODE_FORMAT === 'es') {
   plugins.push(
     typescript({
       target: 'es6',
-      include: []
     })
   )
   output.push({
@@ -58,12 +57,10 @@ if (process.env.NODE_FORMAT === 'es') {
 }
 else {
   plugins.push(
-    // rollup 貌似有 bug，非得加个 include 才行
-    typescript({
-      target: 'es5',
-      include: []
-    }),
-    buble()
+    typescript(),
+    buble({
+      namedFunctionExpressions: false
+    })
   )
   output.push({
     file: `dist/${name}${suffix}`,
