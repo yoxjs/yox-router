@@ -14,6 +14,11 @@ import {
   SEPARATOR_PATH,
 } from '../constant'
 
+import {
+  isSupported,
+  replaceState,
+} from './history'
+
 // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
 const HASH_PREFIX = '#!',
 
@@ -30,6 +35,19 @@ export function stop(api: DomApi, handler: Function) {
 
 export function push(location: Location, handler: Function) {
   LOCATION.hash = HASH_PREFIX + location.url
+}
+
+export function replace(location: Location, handler: Function) {
+
+  const url = LOCATION.protocol + '//' + LOCATION.host + LOCATION.pathname + HASH_PREFIX + location.url
+
+  if (isSupported) {
+    replaceState(url, handler)
+  }
+  else {
+    LOCATION.replace(url)
+  }
+
 }
 
 export function go(n: number) {

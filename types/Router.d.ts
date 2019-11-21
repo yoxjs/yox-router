@@ -10,8 +10,6 @@ export declare class Router {
     name2Path: Record<string, string>;
     path2Route: Record<string, LinkedRoute>;
     mode: RouterMode;
-    history: Location[];
-    cursor: number;
     pending?: RoutePending;
     hooks: Hooks;
     handler: Function;
@@ -21,7 +19,7 @@ export declare class Router {
     /**
      * 添加一个新的路由
      */
-    add(routeOptions: RouteOptions): LinkedRoute[];
+    add(routeOptions: RouteOptions, parentRoute: LinkedRoute | void): LinkedRoute[];
     /**
      * 删除一个已注册的路由
      */
@@ -53,7 +51,7 @@ export declare class Router {
      */
     push(target: Target): void;
     /**
-     * 不改变 URL，只修改路由组件
+     * 替换当前路由栈
      */
     replace(target: Target): void;
     /**
@@ -72,8 +70,6 @@ export declare class Router {
      * 钩子函数
      */
     hook(route: LinkedRoute, componentHook: string, routerHook: string, isGuard: boolean, callback?: Function): void;
-    private setHistory;
-    private replaceHistory;
     private toUrl;
     private setUrl;
     private parseLocation;

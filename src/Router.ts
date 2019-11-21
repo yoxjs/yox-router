@@ -62,9 +62,7 @@ const ROUTE_COMPONENT = 'RouteComponent',
 
 NAMESPACE_HOOK = '.hook',
 
-EVENT_CLICK = 'click',
-
-EMPTY_FUNCTION = new Function()
+EVENT_CLICK = 'click'
 
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
@@ -213,10 +211,6 @@ export class Router {
 
   mode: RouterMode
 
-  history: Location[]
-
-  cursor: number
-
   pending?: RoutePending
 
   // 路由钩子
@@ -254,25 +248,11 @@ export class Router {
 
     instance.handler = function () {
 
-      const url = instance.mode.current(), { pending } = instance
-
-      if (pending) {
-        const { location } = pending
-        // 通过 push 或 go 触发
-        if (location.url === url) {
-          instance.setHistory(location, pending.cursor)
-          instance.setRoute(location)
-          return
-        }
-        instance.pending = UNDEFINED
-      }
-
-      // 直接修改地址栏触发
+      // 从地址栏读取最新 url
       instance.parseLocation(
-        url,
+        instance.mode.current(),
         function (location) {
           if (location) {
-            instance.setHistory(location)
             instance.setRoute(location)
           }
           else {
@@ -280,14 +260,12 @@ export class Router {
           }
         }
       )
+
     }
 
     instance.routes = []
     instance.name2Path = {}
     instance.path2Route = {}
-
-    instance.history = []
-    instance.cursor = -1
 
     instance.hooks = new Hooks()
 
@@ -459,15 +437,9 @@ export class Router {
 
     instance.setUrl(
       instance.toUrl(target),
-      EMPTY_FUNCTION,
-      EMPTY_FUNCTION,
-      function (location, pending) {
-        instance.pending = pending
+      function (location) {
         if (mode.current() !== location.url) {
           mode.push(location, instance.handler)
-        }
-        else {
-          instance.setRoute(location)
         }
       }
     )
@@ -475,21 +447,18 @@ export class Router {
   }
 
   /**
-   * 不改变 URL，只修改路由组件
+   * 替换当前路由栈
    */
   replace(target: Target) {
 
-    const instance = this
+    const instance = this, { mode } = instance
 
     instance.setUrl(
       instance.toUrl(target),
-      function () {
-        instance.replaceHistory(instance.location as Location)
-      },
-      EMPTY_FUNCTION,
-      function (location, pending) {
-        instance.pending = pending
-        instance.setRoute(location)
+      function (location) {
+        if (mode.current() !== location.url) {
+          mode.replace(location, instance.handler)
+        }
       }
     )
 
@@ -499,35 +468,7 @@ export class Router {
    * 前进或后退 n 步
    */
   go(n: number) {
-
-    const instance = this,
-
-    { mode } = instance,
-
-    cursor = instance.cursor + n,
-
-    location = instance.history[cursor]
-
-    if (location) {
-      instance.setUrl(
-        stringifyUrl(location.path, location.params, location.query),
-        EMPTY_FUNCTION,
-        EMPTY_FUNCTION,
-        function (location, pending) {
-          pending.cursor = cursor
-          instance.pending = pending
-
-          if (mode.current() !== location.url) {
-            mode.go(n)
-          }
-          else {
-            instance.setHistory(location, cursor)
-            instance.setRoute(location)
-          }
-        }
-      )
-    }
-
+    this.mode.go(n)
   }
 
   /**
@@ -611,33 +552,6 @@ export class Router {
 
   }
 
-  private setHistory(location: Location, index: number | void) {
-
-    const { history, cursor } = this
-
-    // 如果没传 cursor，表示 push
-    if (!API.is.number(index)) {
-      index = cursor + 1
-      // 确保下一个为空
-      // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
-      if (history[index]) {
-        history.length = index
-      }
-    }
-
-    history[index as number] = location
-
-    this.cursor = index as number
-
-  }
-
-  private replaceHistory(location: Location) {
-    const { history, cursor } = this
-    if (history[cursor]) {
-      history[cursor] = location
-    }
-  }
-
   private toUrl(target: Target): string {
 
     if (API.is.string(target)) {
@@ -681,12 +595,7 @@ export class Router {
 
   }
 
-  private setUrl(
-    url: string,
-    onComplete: Function,
-    onAbort: Function,
-    callback: (locaiton: Location, pending: RoutePending) => void
-  ) {
+  private setUrl(url: string, callback: (locaiton: Location) => void) {
 
     // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
     const instance = this
@@ -695,14 +604,7 @@ export class Router {
       url,
       function (location) {
         if (location) {
-          callback(
-            location,
-            {
-              location,
-              onComplete,
-              onAbort,
-            }
-          )
+          callback(location)
         }
       }
     )

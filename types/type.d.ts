@@ -56,8 +56,6 @@ export interface LinkedRoute {
     child?: LinkedRoute;
 }
 export interface RoutePending {
-    cursor?: number;
-    location: Location;
     onComplete: Function;
     onAbort: Function;
 }

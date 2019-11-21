@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.49
+ * yox-router.js v1.0.0-alpha.50
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -169,22 +169,80 @@ function stringify$1(API, query) {
     return result.join(SEPARATOR_QUERY);
 }
 
-// hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
-const HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
+const POP_STATE = 'popstate';
+const isSupported = 'pushState' in HISTORY;
 function start(api, handler) {
-    api.on(WINDOW, HASH_CHANGE, handler);
+    api.on(WINDOW, POP_STATE, handler);
     handler();
 }
 function stop(api, handler) {
-    api.off(WINDOW, HASH_CHANGE, handler);
+    api.off(WINDOW, POP_STATE, handler);
 }
 function push(location, handler) {
-    LOCATION.hash = HASH_PREFIX + location.url;
+    // 调用 pushState 不会触发 popstate 事件
+    // 因此这里需要手动调用一次 handler
+    HISTORY.pushState({}, '', location.url);
+    handler();
+}
+function replace(location, handler) {
+    // 调用 replaceState 不会触发 popstate 事件
+    // 因此这里需要手动调用一次 handler
+    replaceState(location.url, handler);
 }
 function go(n) {
     HISTORY.go(n);
 }
 function current() {
+    return LOCATION.pathname + LOCATION.search;
+}
+function replaceState(url, handler) {
+    // try...catch the pushState call to get around Safari
+    // DOM Exception 18 where it limits to 100 pushState calls
+    try {
+        HISTORY.replaceState({}, '', url);
+        handler();
+    }
+    catch (e) {
+        LOCATION.replace(url);
+    }
+}
+
+var historyMode = /*#__PURE__*/Object.freeze({
+  isSupported: isSupported,
+  start: start,
+  stop: stop,
+  push: push,
+  replace: replace,
+  go: go,
+  current: current,
+  replaceState: replaceState
+});
+
+// hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
+const HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
+function start$1(api, handler) {
+    api.on(WINDOW, HASH_CHANGE, handler);
+    handler();
+}
+function stop$1(api, handler) {
+    api.off(WINDOW, HASH_CHANGE, handler);
+}
+function push$1(location, handler) {
+    LOCATION.hash = HASH_PREFIX + location.url;
+}
+function replace$1(location, handler) {
+    const url = LOCATION.protocol + '//' + LOCATION.host + LOCATION.pathname + HASH_PREFIX + location.url;
+    if (isSupported) {
+        replaceState(url, handler);
+    }
+    else {
+        LOCATION.replace(url);
+    }
+}
+function go$1(n) {
+    HISTORY.go(n);
+}
+function current$1() {
     // 不能直接读取 window.location.hash
     // 因为 Firefox 会做 pre-decode
     const href = LOCATION.href, index = href.indexOf(HASH_PREFIX);
@@ -194,46 +252,16 @@ function current() {
 }
 
 var hashMode = /*#__PURE__*/Object.freeze({
-  start: start,
-  stop: stop,
-  push: push,
-  go: go,
-  current: current
-});
-
-const POP_STATE = 'popstate';
-const isSupported = 'pushState' in HISTORY;
-function start$1(api, handler) {
-    api.on(WINDOW, POP_STATE, handler);
-    handler();
-}
-function stop$1(api, handler) {
-    api.off(WINDOW, POP_STATE, handler);
-}
-function push$1(location, handler) {
-    // 调用 pushState 不会触发 popstate 事件
-    // 因此这里需要手动调用一次 handler
-    HISTORY.pushState({}, '', location.url);
-    handler();
-}
-function go$1(n) {
-    HISTORY.go(n);
-}
-function current$1() {
-    return LOCATION.pathname + LOCATION.search;
-}
-
-var historyMode = /*#__PURE__*/Object.freeze({
-  isSupported: isSupported,
   start: start$1,
   stop: stop$1,
   push: push$1,
+  replace: replace$1,
   go: go$1,
   current: current$1
 });
 
 let API, hookEvents, guid = 0;
-const ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = '.hook', EVENT_CLICK = 'click', EMPTY_FUNCTION = new Function();
+const ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = '.hook', EVENT_CLICK = 'click';
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
  */
@@ -351,21 +379,9 @@ class Router {
             ? historyMode
             : hashMode;
         instance.handler = function () {
-            const url = instance.mode.current(), { pending } = instance;
-            if (pending) {
-                const { location } = pending;
-                // 通过 push 或 go 触发
-                if (location.url === url) {
-                    instance.setHistory(location, pending.cursor);
-                    instance.setRoute(location);
-                    return;
-                }
-                instance.pending = UNDEFINED;
-            }
-            // 直接修改地址栏触发
-            instance.parseLocation(url, function (location) {
+            // 从地址栏读取最新 url
+            instance.parseLocation(instance.mode.current(), function (location) {
                 if (location) {
-                    instance.setHistory(location);
                     instance.setRoute(location);
                 }
                 else {
@@ -376,8 +392,6 @@ class Router {
         instance.routes = [];
         instance.name2Path = {};
         instance.path2Route = {};
-        instance.history = [];
-        instance.cursor = -1;
         instance.hooks = new Hooks();
         API.array.each(options.routes, function (route) {
             instance.add(route);
@@ -486,46 +500,28 @@ class Router {
      */
     push(target) {
         const instance = this, { mode } = instance;
-        instance.setUrl(instance.toUrl(target), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
-            instance.pending = pending;
+        instance.setUrl(instance.toUrl(target), function (location) {
             if (mode.current() !== location.url) {
                 mode.push(location, instance.handler);
-            }
-            else {
-                instance.setRoute(location);
             }
         });
     }
     /**
-     * 不改变 URL，只修改路由组件
+     * 替换当前路由栈
      */
     replace(target) {
-        const instance = this;
-        instance.setUrl(instance.toUrl(target), function () {
-            instance.replaceHistory(instance.location);
-        }, EMPTY_FUNCTION, function (location, pending) {
-            instance.pending = pending;
-            instance.setRoute(location);
+        const instance = this, { mode } = instance;
+        instance.setUrl(instance.toUrl(target), function (location) {
+            if (mode.current() !== location.url) {
+                mode.replace(location, instance.handler);
+            }
         });
     }
     /**
      * 前进或后退 n 步
      */
     go(n) {
-        const instance = this, { mode } = instance, cursor = instance.cursor + n, location = instance.history[cursor];
-        if (location) {
-            instance.setUrl(stringifyUrl(location.path, location.params, location.query), EMPTY_FUNCTION, EMPTY_FUNCTION, function (location, pending) {
-                pending.cursor = cursor;
-                instance.pending = pending;
-                if (mode.current() !== location.url) {
-                    mode.go(n);
-                }
-                else {
-                    instance.setHistory(location, cursor);
-                    instance.setRoute(location);
-                }
-            });
-        }
+        this.mode.go(n);
     }
     /**
      * 启动路由
@@ -590,26 +586,6 @@ class Router {
             .add(instance.options[routerHook], instance);
         next();
     }
-    setHistory(location, index) {
-        const { history, cursor } = this;
-        // 如果没传 cursor，表示 push
-        if (!API.is.number(index)) {
-            index = cursor + 1;
-            // 确保下一个为空
-            // 如果不为空，肯定是调用过 go()，此时直接清掉后面的就行了
-            if (history[index]) {
-                history.length = index;
-            }
-        }
-        history[index] = location;
-        this.cursor = index;
-    }
-    replaceHistory(location) {
-        const { history, cursor } = this;
-        if (history[cursor]) {
-            history[cursor] = location;
-        }
-    }
     toUrl(target) {
         if (API.is.string(target)) {
             return formatPath(target);
@@ -634,16 +610,12 @@ class Router {
         }
         return stringifyUrl(path, params, routeTarget.query);
     }
-    setUrl(url, onComplete, onAbort, callback) {
+    setUrl(url, callback) {
         // 这里无需判断新旧 url 是否相同，因为存在 replace，即使它们相同也不等价于不用跳转
         const instance = this;
         instance.parseLocation(url, function (location) {
             if (location) {
-                callback(location, {
-                    location,
-                    onComplete,
-                    onAbort,
-                });
+                callback(location);
             }
         });
     }
@@ -904,7 +876,7 @@ placeholderComponent = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.49";
+const version = "1.0.0-alpha.50";
 /**
  * 安装插件
  */
