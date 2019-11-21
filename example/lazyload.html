@@ -19,30 +19,52 @@
       // 路由就是一个路径对应一个组件
       routes: [
         {
-          path: '/user',
-          load: function (callback) {
-            setTimeout(
-              function () {
-                callback({
-                  path: '/user/:id',
-                  component: {
-                    propTypes: {
-                      id: {
-                        type: 'string'
+          path: '/index',
+          component: {
+            template: `
+              <div>
+                <h1>index</h1>
+                <router-view />
+              </div>
+            `
+          },
+          children: [
+            {
+              path: '',
+              component: {
+                template: `
+                  <div>
+                    <h1>home</h1>
+                  </div>
+                `
+              }
+            },
+            {
+              path: 'user',
+              load: function (callback) {
+                setTimeout(
+                  function () {
+                    callback({
+                      path: 'user/:id',
+                      component: {
+                        propTypes: {
+                          id: {
+                            type: 'string'
+                          }
+                        },
+                        template: '<div>id: {{id}}</div>',
+                        afterMount: function () {
+                          console.log(this.$router.location)
+                        }
                       }
-                    },
-                    template: '<div>id: {{id}}</div>',
-                    afterMount: function () {
-                      console.log(this.$router.location)
-                    }
-                  }
-                })
-              },
-              1000
-            )
-          }
-
-        }
+                    })
+                  },
+                  1000
+                )
+              }
+            }
+          ]
+        },
       ],
       // 当 path 未在 routes 中定义时，跳转到 404 路由
       route404: {

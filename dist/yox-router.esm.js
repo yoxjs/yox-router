@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.48
+ * yox-router.js v1.0.0-alpha.49
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -387,7 +387,7 @@ class Router {
     /**
      * 添加一个新的路由
      */
-    add(routeOptions) {
+    add(routeOptions, parentRoute) {
         const instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
             let { name, component, children, load } = routeOptions, parentPath = API.array.last(pathStack), parentRoute = API.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path, route: routeOptions }, params = [];
             API.array.each(path.split(SEPARATOR_PATH), function (item) {
@@ -402,11 +402,13 @@ class Router {
                 route.name = name;
             }
             // component 和 load 二选一
-            if (component) {
-                route.component = component;
-            }
-            else if (load) {
+            if (load) {
                 route.load = load;
+            }
+            else {
+                // 每一级都必须有一个组件
+                // 如果没有，则用占位组件，避免业务层写太多无用的组件
+                route.component = component || placeholderComponent;
             }
             if (parentRoute) {
                 route.parent = parentRoute;
@@ -439,6 +441,10 @@ class Router {
                 instance.path2Route[path] = route;
             }
         };
+        if (parentRoute) {
+            pathStack.push(parentRoute.path);
+            routeStack.push(parentRoute);
+        }
         addRoute(routeOptions);
         return newRoutes;
     }
@@ -678,7 +684,7 @@ class Router {
                 else if (route.load && API.string.startsWith(realpath, path)) {
                     const routeCallback = function (lazyRoute) {
                         instance.remove(route);
-                        matchRoute(instance.add(lazyRoute['default'] || lazyRoute), callback);
+                        matchRoute(instance.add(lazyRoute['default'] || lazyRoute, route.parent), callback);
                     };
                     const promise = route.load(routeCallback);
                     if (promise) {
@@ -848,6 +854,10 @@ const default404 = {
     component: {
         template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
     }
+}, 
+// 占位组件
+placeholderComponent = {
+    template: '<router-view />'
 }, directive = {
     bind(node, directive, vnode) {
         // 当前组件如果是根组件，则没有 $root 属性
@@ -894,7 +904,7 @@ const default404 = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.48";
+const version = "1.0.0-alpha.49";
 /**
  * 安装插件
  */

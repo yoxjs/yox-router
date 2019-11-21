@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.48
+ * yox-router.js v1.0.0-alpha.49
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -396,7 +396,7 @@
   /**
    * 添加一个新的路由
    */
-  Router.prototype.add = function (routeOptions) {
+  Router.prototype.add = function (routeOptions, parentRoute) {
       var instance = this, newRoutes = [], pathStack = [], routeStack = [], addRoute = function (routeOptions) {
           var name = routeOptions.name;
               var component = routeOptions.component;
@@ -415,11 +415,13 @@
               route.name = name;
           }
           // component 和 load 二选一
-          if (component) {
-              route.component = component;
-          }
-          else if (load) {
+          if (load) {
               route.load = load;
+          }
+          else {
+              // 每一级都必须有一个组件
+              // 如果没有，则用占位组件，避免业务层写太多无用的组件
+              route.component = component || placeholderComponent;
           }
           if (parentRoute) {
               route.parent = parentRoute;
@@ -452,6 +454,10 @@
               instance.path2Route[path] = route;
           }
       };
+      if (parentRoute) {
+          pathStack.push(parentRoute.path);
+          routeStack.push(parentRoute);
+      }
       addRoute(routeOptions);
       return newRoutes;
   };
@@ -703,7 +709,7 @@
               else if (route.load && API.string.startsWith(realpath, path)) {
                   var routeCallback = function (lazyRoute) {
                       instance.remove(route);
-                      matchRoute(instance.add(lazyRoute['default'] || lazyRoute), callback);
+                      matchRoute(instance.add(lazyRoute['default'] || lazyRoute, route.parent), callback);
                   };
                   var promise = route.load(routeCallback);
                   if (promise) {
@@ -874,6 +880,10 @@
       component: {
           template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
       }
+  }, 
+  // 占位组件
+  placeholderComponent = {
+      template: '<router-view />'
   }, directive = {
       bind: function(node, directive, vnode) {
           // 当前组件如果是根组件，则没有 $root 属性
@@ -922,7 +932,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.48";
+  var version = "1.0.0-alpha.49";
   /**
    * 安装插件
    */

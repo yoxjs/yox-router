@@ -305,7 +305,7 @@ export class Router {
   /**
    * 添加一个新的路由
    */
-  add(routeOptions: RouteOptions) {
+  add(routeOptions: RouteOptions, parentRoute: LinkedRoute | void) {
 
     const instance = this,
 
@@ -349,11 +349,13 @@ export class Router {
       }
 
       // component 和 load 二选一
-      if (component) {
-        route.component = component
-      }
-      else if (load) {
+      if (load) {
         route.load = load
+      }
+      else {
+        // 每一级都必须有一个组件
+        // 如果没有，则用占位组件，避免业务层写太多无用的组件
+        route.component = component || placeholderComponent
       }
 
       if (parentRoute) {
@@ -396,6 +398,11 @@ export class Router {
 
       }
 
+    }
+
+    if (parentRoute) {
+      pathStack.push(parentRoute.path)
+      routeStack.push(parentRoute)
     }
 
     addRoute(routeOptions)
@@ -755,7 +762,7 @@ export class Router {
           const routeCallback: RouteCallback = function (lazyRoute) {
             instance.remove(route as LinkedRoute)
             matchRoute(
-              instance.add(lazyRoute['default'] || lazyRoute),
+              instance.add(lazyRoute['default'] || lazyRoute, (route as LinkedRoute).parent),
               callback
             )
           }
@@ -1025,6 +1032,11 @@ const default404 = {
   component: {
     template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
   }
+},
+
+// 占位组件
+placeholderComponent = {
+  template: '<router-view />'
 },
 
 directive = {
