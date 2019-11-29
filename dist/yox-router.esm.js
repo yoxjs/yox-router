@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.50
+ * yox-router.js v1.0.0-alpha.51
  * (c) 2017-2019 musicode
  * Released under the MIT License.
  */
@@ -259,6 +259,12 @@ var hashMode = /*#__PURE__*/Object.freeze({
   go: go$1,
   current: current$1
 });
+
+function template404(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y){var $0=void 0,$2=!0;return q("div",$0,$0,"This is a default 404 page, please set \"route404\" for your own 404 page.",$2)}
+
+function templatePlaceholder(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y){return r("router-view")}
+
+function templateRouterView(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y){var $0=void 0;return r($0,$0,$0,$0,$0,"RouteComponent")}
 
 let API, hookEvents, guid = 0;
 const ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = '.hook', EVENT_CLICK = 'click';
@@ -824,12 +830,12 @@ class Router {
 const default404 = {
     path: '/404',
     component: {
-        template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
+        template: template404
     }
 }, 
 // 占位组件
 placeholderComponent = {
-    template: '<router-view />'
+    template: templatePlaceholder
 }, directive = {
     bind(node, directive, vnode) {
         // 当前组件如果是根组件，则没有 $root 属性
@@ -857,7 +863,7 @@ placeholderComponent = {
         }
     },
 }, RouterView = {
-    template: '<$' + ROUTE_COMPONENT + '/>',
+    template: templateRouterView,
     beforeCreate(options) {
         const context = options.context, 
         // context 一定有 $route 属性
@@ -876,7 +882,7 @@ placeholderComponent = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.50";
+const version = "1.0.0-alpha.51";
 /**
  * 安装插件
  */

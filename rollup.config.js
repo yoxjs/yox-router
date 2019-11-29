@@ -10,6 +10,8 @@ import buble from 'rollup-plugin-buble'
 import { terser } from 'rollup-plugin-terser'
 // 本地服务器
 import serve from 'rollup-plugin-serve'
+// yox 模板预编译
+import yoxTemplate from 'rollup-plugin-yox-template'
 
 import { name, version, author, license } from './package.json'
 
@@ -33,7 +35,8 @@ const replaces = {
 }
 
 let plugins = [
-  replace(replaces)
+  replace(replaces),
+  yoxTemplate()
 ]
 
 if (minify) {
@@ -78,7 +81,7 @@ if (minify) {
 }
 
 plugins.push(
-  filesize()
+  filesize(),
 )
 
 if (port) {

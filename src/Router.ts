@@ -929,16 +929,20 @@ export class Router {
 
 }
 
+import template404 from './template/404.hbs'
+import templatePlaceholder from './template/Placeholder.hbs'
+import templateRouterView from './template/RouterView.hbs'
+
 const default404 = {
   path: '/404',
   component: {
-    template: '<div>This is a default 404 page, please set "route404" for your own 404 page.</div>'
+    template: template404
   }
 },
 
 // 占位组件
 placeholderComponent = {
-  template: '<router-view />'
+  template: templatePlaceholder
 },
 
 directive = {
@@ -977,7 +981,7 @@ directive = {
 },
 
 RouterView: ComponentOptions = {
-  template: '<$' + ROUTE_COMPONENT + '/>',
+  template: templateRouterView,
   beforeCreate(options) {
 
     const context = options.context as YoxInterface,
