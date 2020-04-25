@@ -1,6 +1,6 @@
 {
   "name": "yox-router",
-  "version": "1.0.0-alpha.53",
+  "version": "1.0.0-alpha.54",
   "description": "Official Router for Yox.js",
   "main": "dist/yox-router.js",
   "module": "dist/yox-router.esm.js",
@@ -43,6 +43,7 @@
     "typescript": "^3.5.3"
   },
   "dependencies": {
-    "yox": "^1.0.0-alpha.121"
+    "yox": "^1.0.0-alpha.122",
+    "yox-template-loader": "^0.3.3"
   }
 }
