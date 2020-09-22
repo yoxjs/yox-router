@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.53
+ * yox-router.js v1.0.0-alpha.55
  * (c) 2017-2020 musicode
  * Released under the MIT License.
  */
@@ -208,6 +208,7 @@ function replaceState(url, handler) {
 }
 
 var historyMode = /*#__PURE__*/Object.freeze({
+  __proto__: null,
   isSupported: isSupported,
   start: start,
   stop: stop,
@@ -252,6 +253,7 @@ function current$1() {
 }
 
 var hashMode = /*#__PURE__*/Object.freeze({
+  __proto__: null,
   start: start$1,
   stop: stop$1,
   push: push$1,
@@ -264,7 +266,7 @@ function template404(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){var $0=voi
 
 function templatePlaceholder(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){return r("router-view")}
 
-function templateRouterView(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){var $0=void 0;return r($0,$0,$0,$0,$0,"RouteComponent")}
+function templateRouterView(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){var $2=!0;return r(a("RouteComponent",$2))}
 
 let API, hookEvents, guid = 0;
 const ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = '.hook', EVENT_CLICK = 'click';
@@ -882,7 +884,7 @@ placeholderComponent = {
 /**
  * 版本
  */
-const version = "1.0.0-alpha.53";
+const version = "1.0.0-alpha.55";
 /**
  * 安装插件
  */
