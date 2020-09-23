@@ -1,5 +1,4 @@
-import {
-  DomApi,
+import Yox, {
   Listener,
 } from 'yox'
 
@@ -24,13 +23,13 @@ const HASH_PREFIX = '#!',
 
 HASH_CHANGE = 'hashchange'
 
-export function start(api: DomApi, handler: Function) {
-  api.on(WINDOW, HASH_CHANGE, handler as Listener)
+export function start(handler: Function) {
+  Yox.dom.on(WINDOW, HASH_CHANGE, handler as Listener)
   handler()
 }
 
-export function stop(api: DomApi, handler: Function) {
-  api.off(WINDOW, HASH_CHANGE, handler)
+export function stop(handler: Function) {
+  Yox.dom.off(WINDOW, HASH_CHANGE, handler)
 }
 
 export function push(location: Location, handler: Function) {

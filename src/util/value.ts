@@ -12,12 +12,12 @@ import {
 /**
  * 把字符串 value 解析成最合适的类型
  */
-export function parse(API: typeof Yox, value: string) {
+export function parse(value: string) {
   let result: any
-  if (API.is.numeric(value)) {
+  if (Yox.is.numeric(value)) {
     result = +value
   }
-  else if (API.is.string(value)) {
+  else if (Yox.is.string(value)) {
     if (value === RAW_TRUE) {
       result = TRUE
     }
@@ -34,11 +34,11 @@ export function parse(API: typeof Yox, value: string) {
   return result
 }
 
-export function stringify(API: typeof Yox, value: any): string | void {
-  if (API.is.string(value)) {
+export function stringify(value: any): string | void {
+  if (Yox.is.string(value)) {
     return encodeURIComponent(value)
   }
-  else if (API.is.number(value) || API.is.boolean(value)) {
+  else if (Yox.is.number(value) || Yox.is.boolean(value)) {
     return value.toString()
   }
   else if (value === NULL) {

@@ -56,7 +56,7 @@ import * as valueUtil from './util/value'
 import * as hashMode from './mode/hash'
 import * as historyMode from './mode/history'
 
-let API: typeof Yox, hookEvents: Record<string, Listener>, guid = 0
+let hookEvents: Record<string, Listener>, guid = 0
 
 const ROUTE_COMPONENT = 'RouteComponent',
 
@@ -70,10 +70,10 @@ EVENT_CLICK = 'click'
 function formatPath(path: string, parentPath: string | void) {
 
   // 如果不是 / 开头，表示是相对路径
-  if (!API.string.startsWith(path, SEPARATOR_PATH)) {
+  if (!Yox.string.startsWith(path, SEPARATOR_PATH)) {
     // 确保 parentPath 以 / 结尾
     if (parentPath) {
-      if (!API.string.endsWith(parentPath, SEPARATOR_PATH)) {
+      if (!Yox.string.endsWith(parentPath, SEPARATOR_PATH)) {
         parentPath += SEPARATOR_PATH
       }
     }
@@ -85,9 +85,9 @@ function formatPath(path: string, parentPath: string | void) {
 
   // 如果 path 以 / 结尾，删掉它
   if (path !== SEPARATOR_PATH
-    && API.string.endsWith(path, SEPARATOR_PATH)
+    && Yox.string.endsWith(path, SEPARATOR_PATH)
   ) {
-    path = API.string.slice(path, 0, -SEPARATOR_PATH.length)
+    path = Yox.string.slice(path, 0, -SEPARATOR_PATH.length)
   }
 
   return path
@@ -103,11 +103,11 @@ function stringifyUrl(path: string, params: Data | void, query: Data | void) {
 
     const terms: string[] = []
 
-    API.array.each(
+    Yox.array.each(
       path.split(SEPARATOR_PATH),
       function (item) {
         terms.push(
-          API.string.startsWith(item, PREFIX_PARAM) && params
+          Yox.string.startsWith(item, PREFIX_PARAM) && params
             ? params[item.substr(PREFIX_PARAM.length)]
             : item
         )
@@ -119,7 +119,7 @@ function stringifyUrl(path: string, params: Data | void, query: Data | void) {
   }
 
   if (query) {
-    const queryStr = queryUtil.stringify(API, query)
+    const queryStr = queryUtil.stringify(query)
     if (queryStr) {
       path += SEPARATOR_SEARCH + queryStr
     }
@@ -147,7 +147,7 @@ function filterProps(route: LinkedRoute, location: Location, options: ComponentO
 
     // 从 location.params 挑出 route.params 定义过的参数
     if (routeParams && locationParams) {
-      props = props ? API.object.copy(props) : {}
+      props = props ? Yox.object.copy(props) : {}
       for (let i = 0, length = routeParams.length; i < length; i++) {
         (props as Data)[routeParams[i]] = locationParams[routeParams[i]]
       }
@@ -231,13 +231,13 @@ export class Router {
 
     instance.options = options
 
-    instance.el = API.is.string(el)
-      ? API.dom.find(el as string) as Element
+    instance.el = Yox.is.string(el)
+      ? Yox.dom.find(el as string) as Element
       : el as Element
 
     if (process.env.NODE_ENV === 'development') {
       if (!instance.el) {
-        API.logger.error(`The "el" option must be an element or a selector.`)
+        Yox.logger.error(`The "el" option must be an element or a selector.`)
         return
       }
     }
@@ -269,7 +269,7 @@ export class Router {
 
     instance.hooks = new Hooks()
 
-    API.array.each(
+    Yox.array.each(
       options.routes,
       function (route) {
         instance.add(route)
@@ -297,9 +297,9 @@ export class Router {
 
       let { name, component, children, load } = routeOptions,
 
-      parentPath = API.array.last(pathStack),
+      parentPath = Yox.array.last(pathStack),
 
-      parentRoute = API.array.last(routeStack),
+      parentRoute = Yox.array.last(routeStack),
 
       path = formatPath(routeOptions.path, parentPath),
 
@@ -307,10 +307,10 @@ export class Router {
 
       params: string[] = []
 
-      API.array.each(
+      Yox.array.each(
         path.split(SEPARATOR_PATH),
         function (item) {
-          if (API.string.startsWith(item, PREFIX_PARAM)) {
+          if (Yox.string.startsWith(item, PREFIX_PARAM)) {
             params.push(
               item.substr(PREFIX_PARAM.length)
             )
@@ -343,7 +343,7 @@ export class Router {
       if (children) {
         pathStack.push(path)
         routeStack.push(route)
-        API.array.each(
+        Yox.array.each(
           children,
           addRoute
         )
@@ -357,8 +357,8 @@ export class Router {
 
         if (name) {
           if (process.env.NODE_ENV === 'development') {
-            if (API.object.has(instance.name2Path, name)) {
-              API.logger.error(`The name "${name}" of the route is existed.`)
+            if (Yox.object.has(instance.name2Path, name)) {
+              Yox.logger.error(`The name "${name}" of the route is existed.`)
               return
             }
           }
@@ -366,8 +366,8 @@ export class Router {
         }
 
         if (process.env.NODE_ENV === 'development') {
-          if (API.object.has(instance.path2Route, path)) {
-            API.logger.error(`The path "${path}" of the route is existed.`)
+          if (Yox.object.has(instance.path2Route, path)) {
+            Yox.logger.error(`The path "${path}" of the route is existed.`)
             return
           }
         }
@@ -396,7 +396,7 @@ export class Router {
 
     const instance = this
 
-    API.array.remove(instance.routes, route)
+    Yox.array.remove(instance.routes, route)
 
     if (route.name) {
       delete instance.name2Path[route.name]
@@ -475,14 +475,14 @@ export class Router {
    * 启动路由
    */
   start() {
-    this.mode.start(API.dom, this.handler)
+    this.mode.start(this.handler)
   }
 
   /**
    * 停止路由
    */
   stop() {
-    this.mode.stop(API.dom, this.handler)
+    this.mode.stop(this.handler)
   }
 
   /**
@@ -554,7 +554,7 @@ export class Router {
 
   private toUrl(target: Target): string {
 
-    if (API.is.string(target)) {
+    if (Yox.is.string(target)) {
       return formatPath(target as string)
     }
 
@@ -582,8 +582,8 @@ export class Router {
     }
 
     if (process.env.NODE_ENV === 'development') {
-      if (!API.is.string(path)) {
-        API.logger.error(`The path is not found.`)
+      if (!Yox.is.string(path)) {
+        Yox.logger.error(`The path is not found.`)
       }
     }
 
@@ -647,8 +647,8 @@ export class Router {
           if (length === pathTerms.length) {
             const params: Data = {}
             for (let i = 0; i < length; i++) {
-              if (API.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-                params[pathTerms[i].substr(PREFIX_PARAM.length)] = valueUtil.parse(API, realpathTerms[i])
+              if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
+                params[pathTerms[i].substr(PREFIX_PARAM.length)] = valueUtil.parse(realpathTerms[i])
               }
               // 非参数段不相同
               else if (pathTerms[i] !== realpathTerms[i]) {
@@ -660,7 +660,7 @@ export class Router {
           }
         }
         // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-        else if (route.load && API.string.startsWith(realpath, path)) {
+        else if (route.load && Yox.string.startsWith(realpath, path)) {
           const routeCallback: RouteCallback = function (lazyRoute) {
             instance.remove(route as LinkedRoute)
             matchRoute(
@@ -696,7 +696,7 @@ export class Router {
             location.params = params
           }
           if (search) {
-            const query = queryUtil.parse(API, search)
+            const query = queryUtil.parse(search)
             if (query) {
               location.query = query
             }
@@ -705,7 +705,7 @@ export class Router {
         }
         else {
           if (process.env.NODE_ENV === 'development') {
-            API.logger.error(`The path "${realpath}" can't match a route.`)
+            Yox.logger.error(`The path "${realpath}" can't match a route.`)
           }
           callback()
         }
@@ -745,7 +745,7 @@ export class Router {
 
     if (route.parent) {
       this.diffRoute(
-        API.object.copy(route.parent),
+        Yox.object.copy(route.parent),
         oldRoute ? oldRoute.parent : UNDEFINED,
         onComplete,
         startRoute,
@@ -825,7 +825,7 @@ export class Router {
             $route: route
           }
 
-          const options: ComponentOptions = API.object.extend(
+          const options: ComponentOptions = Yox.object.extend(
             {
               el: instance.el,
               props: filterProps(route, location, component as ComponentOptions),
@@ -835,10 +835,10 @@ export class Router {
           )
 
           options.events = options.events
-            ? API.object.extend(options.events, hookEvents)
+            ? Yox.object.extend(options.events, hookEvents)
             : hookEvents
 
-          route.context = new API(options)
+          route.context = new Yox(options)
 
         }
 
@@ -872,7 +872,7 @@ export class Router {
     redirect = linkedRoute.route.redirect
 
     if (redirect) {
-      if (API.is.func(redirect)) {
+      if (Yox.is.func(redirect)) {
         redirect = (redirect as Redirect)(location)
       }
       if (redirect) {
@@ -881,7 +881,7 @@ export class Router {
       }
     }
 
-    const newRoute = API.object.copy(linkedRoute),
+    const newRoute = Yox.object.copy(linkedRoute),
 
     oldRoute = instance.route,
 
@@ -955,7 +955,7 @@ directive = {
 
     listener = vnode.data[directive.key] = function (_: CustomEventInterface) {
       let { value, getter } = directive, target: any = value
-      if (value && getter && API.string.has(value as string, '{')) {
+      if (value && getter && Yox.string.has(value as string, '{')) {
         target = getter()
       }
       router[directive.name](target)
@@ -965,7 +965,7 @@ directive = {
       (node as YoxInterface).on(EVENT_CLICK, listener)
     }
     else {
-      API.dom.on(node as HTMLElement, EVENT_CLICK, listener)
+      Yox.dom.on(node as HTMLElement, EVENT_CLICK, listener)
     }
 
   },
@@ -975,7 +975,7 @@ directive = {
       (node as YoxInterface).off(EVENT_CLICK, listener)
     }
     else {
-      API.dom.off(node as HTMLElement, EVENT_CLICK, listener)
+      Yox.dom.off(node as HTMLElement, EVENT_CLICK, listener)
     }
   },
 },
@@ -1018,15 +1018,13 @@ export const version = process.env.NODE_VERSION
  */
 export function install(Y: typeof Yox): void {
 
-  API = Y
-
-  API.directive({
+  Y.directive({
     push: directive,
     replace: directive,
     go: directive,
   })
 
-  API.component('router-view', RouterView)
+  Y.component('router-view', RouterView)
 
   hookEvents = {}
   hookEvents['beforeCreate' + NAMESPACE_HOOK] = function (event: CustomEventInterface, data?: Data) {

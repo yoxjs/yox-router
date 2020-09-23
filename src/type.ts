@@ -1,6 +1,5 @@
 import {
   Data,
-  DomApi,
   YoxInterface,
   ComponentOptions,
 } from 'yox'
@@ -86,8 +85,8 @@ export interface RoutePending {
 }
 
 export interface RouterMode {
-  start(api: DomApi, handler: Function): void
-  stop(api: DomApi, handler: Function): void
+  start(handler: Function): void
+  stop(handler: Function): void
   push(location: Location, handler: Function): void
   go(n: number): void
   current(): string

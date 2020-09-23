@@ -14,3 +14,6 @@ js
 src
 tsconfig.json
 rollup.config.js
+global.d.ts
+README.md
+LICENSE

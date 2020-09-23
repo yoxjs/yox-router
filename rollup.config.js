@@ -96,6 +96,7 @@ if (port) {
 module.exports = [
   {
     input: 'src/Router.ts',
+    external: ['yox'],
     output,
     plugins
   }
