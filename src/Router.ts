@@ -1,8 +1,8 @@
 import Yox, {
   Data,
-  Listener,
   VNode,
   Directive,
+  ListenerOptions,
   ComponentOptions,
   CustomEventInterface,
   YoxInterface,
@@ -56,11 +56,11 @@ import * as valueUtil from './util/value'
 import * as hashMode from './mode/hash'
 import * as historyMode from './mode/history'
 
-let hookEvents: Record<string, Listener>, guid = 0
+let hookEvents: Record<string, ListenerOptions>, guid = 0
 
 const ROUTE_COMPONENT = 'RouteComponent',
 
-NAMESPACE_HOOK = '.hook',
+NAMESPACE_HOOK = 'hook',
 
 EVENT_CLICK = 'click'
 
@@ -502,7 +502,10 @@ export class Router {
       // 加命名空间是为了和 yox 生命周期钩子事件保持一致
       if (context) {
         context.fire(
-          componentHook + NAMESPACE_HOOK,
+          {
+            type: componentHook,
+            ns: NAMESPACE_HOOK,
+          },
           {
             from: hooks.from,
             to: hooks.to,
@@ -1026,54 +1029,67 @@ export function install(Y: typeof Yox): void {
 
   Y.component('router-view', RouterView)
 
-  hookEvents = {}
-  hookEvents['beforeCreate' + NAMESPACE_HOOK] = function (event: CustomEventInterface, data?: Data) {
-    if (data) {
-      let options = data as ComponentOptions, { context } = options
-      // 当前组件是 <router-view> 中的动态组件
-      if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-        // 找到渲染 <router-view> 的父级组件，它是一定存在的
-        context = context.$context as YoxInterface
-
-        const router = context.$router as Router,
-
-        // context 一定有 $route 属性
-        route = (context.$route as LinkedRoute).child as LinkedRoute
-
-        if (route) {
-          options.extensions = {
-            $router: router,
-            $route: route,
-          }
-          if (router.location) {
-            options.props = filterProps(route, router.location, options)
+  hookEvents = {
+    beforeCreate: {
+      ns: NAMESPACE_HOOK,
+      listener(event: CustomEventInterface, data?: Data) {
+        if (data) {
+          let options = data as ComponentOptions, { context } = options
+          // 当前组件是 <router-view> 中的动态组件
+          if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+            // 找到渲染 <router-view> 的父级组件，它是一定存在的
+            context = context.$context as YoxInterface
+    
+            const router = context.$router as Router,
+    
+            // context 一定有 $route 属性
+            route = (context.$route as LinkedRoute).child as LinkedRoute
+    
+            if (route) {
+              options.extensions = {
+                $router: router,
+                $route: route,
+              }
+              if (router.location) {
+                options.props = filterProps(route, router.location, options)
+              }
+            }
           }
         }
       }
-    }
-  }
-  hookEvents['afterMount' + NAMESPACE_HOOK] = function (event: CustomEventInterface) {
-    updateRoute(
-      event.target as YoxInterface,
-      COMPONENT_HOOK_AFTER_ENTER,
-      ROUTER_HOOK_AFTER_ENTER,
-      TRUE
-    )
-  }
-  hookEvents['afterUpdate' + NAMESPACE_HOOK] = function (event: CustomEventInterface) {
-    updateRoute(
-      event.target as YoxInterface,
-      COMPONENT_HOOK_AFTER_UPDATE,
-      ROUTER_HOOK_AFTER_UPDATE,
-      TRUE
-    )
-  }
-  hookEvents['afterDestroy' + NAMESPACE_HOOK] = function (event: CustomEventInterface) {
-    updateRoute(
-      event.target as YoxInterface,
-      COMPONENT_HOOK_AFTER_LEAVE,
-      ROUTER_HOOK_AFTER_LEAVE
-    )
+    },
+    afterMount: {
+      ns: NAMESPACE_HOOK,
+      listener(event: CustomEventInterface) {
+        updateRoute(
+          event.target as YoxInterface,
+          COMPONENT_HOOK_AFTER_ENTER,
+          ROUTER_HOOK_AFTER_ENTER,
+          TRUE
+        )
+      }
+    },
+    afterUpdate: {
+      ns: NAMESPACE_HOOK,
+      listener(event: CustomEventInterface) {
+        updateRoute(
+          event.target as YoxInterface,
+          COMPONENT_HOOK_AFTER_UPDATE,
+          ROUTER_HOOK_AFTER_UPDATE,
+          TRUE
+        )
+      }
+    },
+    afterDestroy: {
+      ns: NAMESPACE_HOOK,
+      listener(event: CustomEventInterface) {
+        updateRoute(
+          event.target as YoxInterface,
+          COMPONENT_HOOK_AFTER_LEAVE,
+          ROUTER_HOOK_AFTER_LEAVE
+        )
+      }
+    },
   }
 
 }

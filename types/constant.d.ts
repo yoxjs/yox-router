@@ -1,4 +1,4 @@
-export declare const WINDOW: Window;
+export declare const WINDOW: Window & typeof globalThis;
 export declare const LOCATION: Location;
 export declare const HISTORY: History;
 export declare const UNDEFINED: undefined;

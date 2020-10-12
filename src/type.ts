@@ -88,6 +88,7 @@ export interface RouterMode {
   start(handler: Function): void
   stop(handler: Function): void
   push(location: Location, handler: Function): void
+  replace(location: Location, handler: Function): void
   go(n: number): void
   current(): string
 }

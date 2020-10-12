@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.57
+ * yox-router.js v1.0.0-alpha.58
  * (c) 2017-2020 musicode
  * Released under the MIT License.
  */
@@ -7,10 +7,8 @@
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('yox')) :
   typeof define === 'function' && define.amd ? define(['exports', 'yox'], factory) :
-  (global = global || self, factory(global.YoxRouter = {}, global.Yox));
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.YoxRouter = {}, global.Yox));
 }(this, (function (exports, Yox) { 'use strict';
-
-  Yox = Yox && Object.prototype.hasOwnProperty.call(Yox, 'default') ? Yox['default'] : Yox;
 
   var WINDOW = window;
   var LOCATION = WINDOW.location;
@@ -280,7 +278,7 @@
   function templateRouterView(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){var $2=!0;return r(a("RouteComponent",$2))}
 
   var hookEvents, guid = 0;
-  var ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = '.hook', EVENT_CLICK = 'click';
+  var ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = 'hook', EVENT_CLICK = 'click';
   /**
    * 格式化路径，确保它以 / 开头，不以 / 结尾
    */
@@ -573,7 +571,10 @@
           // 这里要把钩子事件冒泡上去，便于业务层处理
           // 加命名空间是为了和 yox 生命周期钩子事件保持一致
           if (context) {
-              context.fire(componentHook + NAMESPACE_HOOK, {
+              context.fire({
+                  type: componentHook,
+                  ns: NAMESPACE_HOOK,
+              }, {
                   from: hooks.from,
                   to: hooks.to,
               });
@@ -908,7 +909,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.57";
+  var version = "1.0.0-alpha.58";
   /**
    * 安装插件
    */
@@ -919,38 +920,51 @@
           go: directive,
       });
       Y.component('router-view', RouterView);
-      hookEvents = {};
-      hookEvents['beforeCreate' + NAMESPACE_HOOK] = function (event, data) {
-          if (data) {
-              var options = data;
-              var context = options.context;
-              // 当前组件是 <router-view> 中的动态组件
-              if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-                  // 找到渲染 <router-view> 的父级组件，它是一定存在的
-                  context = context.$context;
-                  var router = context.$router, 
-                  // context 一定有 $route 属性
-                  route = context.$route.child;
-                  if (route) {
-                      options.extensions = {
-                          $router: router,
-                          $route: route,
-                      };
-                      if (router.location) {
-                          options.props = filterProps(route, router.location, options);
+      hookEvents = {
+          beforeCreate: {
+              ns: NAMESPACE_HOOK,
+              listener: function(event, data) {
+                  if (data) {
+                      var options = data;
+                      var context = options.context;
+                      // 当前组件是 <router-view> 中的动态组件
+                      if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+                          // 找到渲染 <router-view> 的父级组件，它是一定存在的
+                          context = context.$context;
+                          var router = context.$router, 
+                          // context 一定有 $route 属性
+                          route = context.$route.child;
+                          if (route) {
+                              options.extensions = {
+                                  $router: router,
+                                  $route: route,
+                              };
+                              if (router.location) {
+                                  options.props = filterProps(route, router.location, options);
+                              }
+                          }
                       }
                   }
               }
-          }
-      };
-      hookEvents['afterMount' + NAMESPACE_HOOK] = function (event) {
-          updateRoute(event.target, COMPONENT_HOOK_AFTER_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
-      };
-      hookEvents['afterUpdate' + NAMESPACE_HOOK] = function (event) {
-          updateRoute(event.target, COMPONENT_HOOK_AFTER_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
-      };
-      hookEvents['afterDestroy' + NAMESPACE_HOOK] = function (event) {
-          updateRoute(event.target, COMPONENT_HOOK_AFTER_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
+          },
+          afterMount: {
+              ns: NAMESPACE_HOOK,
+              listener: function(event) {
+                  updateRoute(event.target, COMPONENT_HOOK_AFTER_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
+              }
+          },
+          afterUpdate: {
+              ns: NAMESPACE_HOOK,
+              listener: function(event) {
+                  updateRoute(event.target, COMPONENT_HOOK_AFTER_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
+              }
+          },
+          afterDestroy: {
+              ns: NAMESPACE_HOOK,
+              listener: function(event) {
+                  updateRoute(event.target, COMPONENT_HOOK_AFTER_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
+              }
+          },
       };
   }
 
