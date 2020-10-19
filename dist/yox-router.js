@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.58
+ * yox-router.js v1.0.0-alpha.59
  * (c) 2017-2020 musicode
  * Released under the MIT License.
  */
@@ -686,7 +686,12 @@
               else if (route.load && Yox.string.startsWith(realpath, path)) {
                   var routeCallback = function (lazyRoute) {
                       instance.remove(route);
-                      matchRoute(instance.add(lazyRoute['default'] || lazyRoute, route.parent), callback);
+                      // 支持函数，方便动态生成路由，比如根据权限创建不同的路由
+                      var lazyRouteOptions = lazyRoute['default'] || lazyRoute;
+                      if (Yox.is.func(lazyRouteOptions)) {
+                          lazyRouteOptions = lazyRouteOptions();
+                      }
+                      matchRoute(instance.add(lazyRouteOptions, route.parent), callback);
                   };
                   var promise = route.load(routeCallback);
                   if (promise) {
@@ -909,7 +914,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.58";
+  var version = "1.0.0-alpha.59";
   /**
    * 安装插件
    */

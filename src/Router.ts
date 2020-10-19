@@ -665,11 +665,20 @@ export class Router {
         // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
         else if (route.load && Yox.string.startsWith(realpath, path)) {
           const routeCallback: RouteCallback = function (lazyRoute) {
+
             instance.remove(route as LinkedRoute)
+            
+            // 支持函数，方便动态生成路由，比如根据权限创建不同的路由
+            let lazyRouteOptions = lazyRoute['default'] || lazyRoute
+            if (Yox.is.func(lazyRouteOptions)) {
+              lazyRouteOptions = lazyRouteOptions()
+            }
+
             matchRoute(
-              instance.add(lazyRoute['default'] || lazyRoute, (route as LinkedRoute).parent),
+              instance.add(lazyRouteOptions, (route as LinkedRoute).parent),
               callback
             )
+
           }
           const promise = route.load(routeCallback)
           if (promise) {
