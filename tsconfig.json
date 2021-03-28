@@ -4,6 +4,7 @@
     "module": "ESNEXT",
     "rootDir": "./src",
     "outDir": "./js",
+    "moduleResolution": "node",
     "declarationDir": "./types",
     "declaration": true,
     "declarationMap": false,
