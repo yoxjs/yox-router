@@ -2,9 +2,7 @@ import Yox, {
   Data,
   VNode,
   Directive,
-  ListenerOptions,
   ComponentOptions,
-  CustomEventInterface,
   YoxInterface,
 } from 'yox'
 
@@ -56,11 +54,9 @@ import * as valueUtil from './util/value'
 import * as hashMode from './mode/hash'
 import * as historyMode from './mode/history'
 
-let hookEvents: Record<string, ListenerOptions>, guid = 0
+let guid = 0
 
 const ROUTE_COMPONENT = 'RouteComponent',
-
-NAMESPACE_HOOK = 'hook',
 
 EVENT_CLICK = 'click'
 
@@ -498,14 +494,10 @@ export class Router {
 
     onComplete = function () {
       // 如果钩子未被拦截，则会走进 onComplete
-      // 这里要把钩子事件冒泡上去，便于业务层处理
-      // 加命名空间是为了和 yox 生命周期钩子事件保持一致
       if (context) {
-        context.fire(
-          {
-            type: componentHook,
-            ns: NAMESPACE_HOOK,
-          },
+        Yox.lifeCycle.fire(
+          context,
+          componentHook,
           {
             from: hooks.from,
             to: hooks.to,
@@ -667,7 +659,7 @@ export class Router {
           const routeCallback: RouteCallback = function (lazyRoute) {
 
             instance.remove(route as LinkedRoute)
-            
+
             // 支持函数，方便动态生成路由，比如根据权限创建不同的路由
             let lazyRouteOptions = lazyRoute['default'] || lazyRoute
             if (Yox.is.func(lazyRouteOptions)) {
@@ -831,26 +823,20 @@ export class Router {
             context.destroy()
           }
 
-          // 每层路由组件都有 $route 和 $router 属性
-          const extensions = {
-            $router: instance,
-            $route: route
-          }
-
-          const options: ComponentOptions = Yox.object.extend(
-            {
-              el: instance.el,
-              props: filterProps(route, location, component as ComponentOptions),
-              extensions,
-            },
-            component as ComponentOptions
+          route.context = new Yox(
+            Yox.object.extend(
+              {
+                el: instance.el,
+                props: filterProps(route, location, component as ComponentOptions),
+                // 每层路由组件都有 $route 和 $router 属性
+                extensions: {
+                  $router: instance,
+                  $route: route
+                },
+              },
+              component as ComponentOptions
+            )
           )
-
-          options.events = options.events
-            ? Yox.object.extend(options.events, hookEvents)
-            : hookEvents
-
-          route.context = new Yox(options)
 
         }
 
@@ -965,7 +951,7 @@ directive = {
 
     router = $root.$router as Router,
 
-    listener = vnode.data[directive.key] = function (_: CustomEventInterface) {
+    listener = vnode.data[directive.key] = function (_: any) {
       let { value, getter } = directive, target: any = value
       if (value && getter && Yox.string.has(value as string, '{')) {
         target = getter()
@@ -1020,6 +1006,54 @@ RouterView: ComponentOptions = {
   }
 }
 
+Yox.lifeCycle
+.on('beforeCreate', function (_: YoxInterface, data: Data) {
+  let options = data.options as ComponentOptions, { context } = options
+  // 当前组件是 <router-view> 中的动态组件
+  if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+    // 找到渲染 <router-view> 的父级组件，它是一定存在的
+    context = context.$context as YoxInterface
+
+    const router = context.$router as Router,
+
+    // context 一定有 $route 属性
+    route = (context.$route as LinkedRoute).child as LinkedRoute
+
+    if (route) {
+      options.extensions = {
+        $router: router,
+        $route: route,
+      }
+      if (router.location) {
+        options.props = filterProps(route, router.location, options)
+      }
+    }
+  }
+})
+.on('afterMount', function (component: YoxInterface) {
+  updateRoute(
+    component,
+    COMPONENT_HOOK_AFTER_ENTER,
+    ROUTER_HOOK_AFTER_ENTER,
+    TRUE
+  )
+})
+.on('afterUpdate', function (component: YoxInterface) {
+  updateRoute(
+    component,
+    COMPONENT_HOOK_AFTER_UPDATE,
+    ROUTER_HOOK_AFTER_UPDATE,
+    TRUE
+  )
+})
+.on('afterDestroy', function (component: YoxInterface) {
+  updateRoute(
+    component,
+    COMPONENT_HOOK_AFTER_LEAVE,
+    ROUTER_HOOK_AFTER_LEAVE
+  )
+})
+
 /**
  * 版本
  */
@@ -1037,69 +1071,6 @@ export function install(Y: typeof Yox): void {
   })
 
   Y.component('router-view', RouterView)
-
-  hookEvents = {
-    beforeCreate: {
-      ns: NAMESPACE_HOOK,
-      listener(event: CustomEventInterface, data?: Data) {
-        if (data) {
-          let options = data as ComponentOptions, { context } = options
-          // 当前组件是 <router-view> 中的动态组件
-          if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-            // 找到渲染 <router-view> 的父级组件，它是一定存在的
-            context = context.$context as YoxInterface
-    
-            const router = context.$router as Router,
-    
-            // context 一定有 $route 属性
-            route = (context.$route as LinkedRoute).child as LinkedRoute
-    
-            if (route) {
-              options.extensions = {
-                $router: router,
-                $route: route,
-              }
-              if (router.location) {
-                options.props = filterProps(route, router.location, options)
-              }
-            }
-          }
-        }
-      }
-    },
-    afterMount: {
-      ns: NAMESPACE_HOOK,
-      listener(event: CustomEventInterface) {
-        updateRoute(
-          event.target as YoxInterface,
-          COMPONENT_HOOK_AFTER_ENTER,
-          ROUTER_HOOK_AFTER_ENTER,
-          TRUE
-        )
-      }
-    },
-    afterUpdate: {
-      ns: NAMESPACE_HOOK,
-      listener(event: CustomEventInterface) {
-        updateRoute(
-          event.target as YoxInterface,
-          COMPONENT_HOOK_AFTER_UPDATE,
-          ROUTER_HOOK_AFTER_UPDATE,
-          TRUE
-        )
-      }
-    },
-    afterDestroy: {
-      ns: NAMESPACE_HOOK,
-      listener(event: CustomEventInterface) {
-        updateRoute(
-          event.target as YoxInterface,
-          COMPONENT_HOOK_AFTER_LEAVE,
-          ROUTER_HOOK_AFTER_LEAVE
-        )
-      }
-    },
-  }
 
 }
 

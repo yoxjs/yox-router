@@ -1,6 +1,6 @@
 /**
- * yox-router.js v1.0.0-alpha.59
- * (c) 2017-2020 musicode
+ * yox-router.js v1.0.0-alpha.100
+ * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
 
@@ -264,14 +264,14 @@ var hashMode = /*#__PURE__*/Object.freeze({
   current: current$1
 });
 
-function template404(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){var $0=void 0,$2=!0;return q("div",$0,function(){e("This is a default 404 page, please set \"route404\" for your own 404 page.");},$2)}
+function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_1,_2,_7){var $3=!0;return _a({tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$3})}
 
-function templatePlaceholder(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){return r("router-view")}
+function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_1,_2,_7){var $3=!0;return _b({tag:'router-view',isComponent:$3})}
 
-function templateRouterView(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x){var $2=!0;return r(a("RouteComponent",$2))}
+function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_1,_2,_7){var $3=!0;return _b({tag:_y({name:'RouteComponent',lookup:$3}),isComponent:$3})}
 
-let hookEvents, guid = 0;
-const ROUTE_COMPONENT = 'RouteComponent', NAMESPACE_HOOK = 'hook', EVENT_CLICK = 'click';
+let guid = 0;
+const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
 /**
  * 格式化路径，确保它以 / 开头，不以 / 结尾
  */
@@ -551,13 +551,8 @@ class Router {
     hook(route, componentHook, routerHook, isGuard, callback) {
         const instance = this, { location, hooks, pending } = instance, { context } = route, onComplete = function () {
             // 如果钩子未被拦截，则会走进 onComplete
-            // 这里要把钩子事件冒泡上去，便于业务层处理
-            // 加命名空间是为了和 yox 生命周期钩子事件保持一致
             if (context) {
-                context.fire({
-                    type: componentHook,
-                    ns: NAMESPACE_HOOK,
-                }, {
+                Yox.lifeCycle.fire(context, componentHook, {
                     from: hooks.from,
                     to: hooks.to,
                 });
@@ -779,20 +774,15 @@ class Router {
                     if (context) {
                         context.destroy();
                     }
-                    // 每层路由组件都有 $route 和 $router 属性
-                    const extensions = {
-                        $router: instance,
-                        $route: route
-                    };
-                    const options = Yox.object.extend({
+                    route.context = new Yox(Yox.object.extend({
                         el: instance.el,
                         props: filterProps(route, location, component),
-                        extensions,
-                    }, component);
-                    options.events = options.events
-                        ? Yox.object.extend(options.events, hookEvents)
-                        : hookEvents;
-                    route.context = new Yox(options);
+                        // 每层路由组件都有 $route 和 $router 属性
+                        extensions: {
+                            $router: instance,
+                            $route: route
+                        },
+                    }, component));
                 }
             }
             else if (context) {
@@ -891,10 +881,40 @@ placeholderComponent = {
         this.$context.$routeView = UNDEFINED;
     }
 };
+Yox.lifeCycle
+    .on('beforeCreate', function (_, data) {
+    let options = data.options, { context } = options;
+    // 当前组件是 <router-view> 中的动态组件
+    if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
+        // 找到渲染 <router-view> 的父级组件，它是一定存在的
+        context = context.$context;
+        const router = context.$router, 
+        // context 一定有 $route 属性
+        route = context.$route.child;
+        if (route) {
+            options.extensions = {
+                $router: router,
+                $route: route,
+            };
+            if (router.location) {
+                options.props = filterProps(route, router.location, options);
+            }
+        }
+    }
+})
+    .on('afterMount', function (component) {
+    updateRoute(component, COMPONENT_HOOK_AFTER_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
+})
+    .on('afterUpdate', function (component) {
+    updateRoute(component, COMPONENT_HOOK_AFTER_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
+})
+    .on('afterDestroy', function (component) {
+    updateRoute(component, COMPONENT_HOOK_AFTER_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
+});
 /**
  * 版本
  */
-const version = "1.0.0-alpha.59";
+const version = "1.0.0-alpha.100";
 /**
  * 安装插件
  */
@@ -905,51 +925,6 @@ function install(Y) {
         go: directive,
     });
     Y.component('router-view', RouterView);
-    hookEvents = {
-        beforeCreate: {
-            ns: NAMESPACE_HOOK,
-            listener(event, data) {
-                if (data) {
-                    let options = data, { context } = options;
-                    // 当前组件是 <router-view> 中的动态组件
-                    if (context && context.$options.beforeCreate === RouterView.beforeCreate) {
-                        // 找到渲染 <router-view> 的父级组件，它是一定存在的
-                        context = context.$context;
-                        const router = context.$router, 
-                        // context 一定有 $route 属性
-                        route = context.$route.child;
-                        if (route) {
-                            options.extensions = {
-                                $router: router,
-                                $route: route,
-                            };
-                            if (router.location) {
-                                options.props = filterProps(route, router.location, options);
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        afterMount: {
-            ns: NAMESPACE_HOOK,
-            listener(event) {
-                updateRoute(event.target, COMPONENT_HOOK_AFTER_ENTER, ROUTER_HOOK_AFTER_ENTER, TRUE);
-            }
-        },
-        afterUpdate: {
-            ns: NAMESPACE_HOOK,
-            listener(event) {
-                updateRoute(event.target, COMPONENT_HOOK_AFTER_UPDATE, ROUTER_HOOK_AFTER_UPDATE, TRUE);
-            }
-        },
-        afterDestroy: {
-            ns: NAMESPACE_HOOK,
-            listener(event) {
-                updateRoute(event.target, COMPONENT_HOOK_AFTER_LEAVE, ROUTER_HOOK_AFTER_LEAVE);
-            }
-        },
-    };
 }
 
 export { Router, install, version };
