@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.103
+ * yox-router.js v1.0.0-alpha.104
  * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
@@ -914,7 +914,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.103";
+const version = "1.0.0-alpha.104";
 /**
  * 安装插件
  */
