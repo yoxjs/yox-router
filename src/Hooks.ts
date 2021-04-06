@@ -1,8 +1,5 @@
 import {
   Task,
-} from 'yox'
-
-import {
   Location,
 } from './type'
 

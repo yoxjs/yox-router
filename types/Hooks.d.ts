@@ -1,5 +1,4 @@
-import { Task } from 'yox';
-import { Location } from './type';
+import { Task, Location } from './type';
 export default class Hooks {
     list: Task[];
     to: Location;

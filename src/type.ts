@@ -25,6 +25,11 @@ export type RouteBeforeHook = (to: Location, from: Location | void, next: (value
 
 export type RouteAfterHook = (to: Location, from: Location | void) => void
 
+export interface Task {
+  fn: Function
+  ctx?: any
+}
+
 export interface Location {
   path: string
   url?: string

@@ -6,6 +6,10 @@ export declare type RouteCallback = (route: RouteOptions) => void;
 export declare type RouteLoader = (callback: RouteCallback) => Promise<any> | void;
 export declare type RouteBeforeHook = (to: Location, from: Location | void, next: (value?: false | string | RouteTarget) => void) => void;
 export declare type RouteAfterHook = (to: Location, from: Location | void) => void;
+export interface Task {
+    fn: Function;
+    ctx?: any;
+}
 export interface Location {
     path: string;
     url?: string;
