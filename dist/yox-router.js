@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.106
+ * yox-router.js v1.0.0-alpha.107
  * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
@@ -271,11 +271,11 @@
     current: current$1
   });
 
-  function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_0,_1,_4){var $3=!0;return _a({tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$3})}
+  function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_0,_1,_5){var $3=!0;return _a({tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$3})}
 
-  function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_0,_1,_4){var $3=!0;return _b({tag:'router-view',isComponent:$3})}
+  function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_0,_1,_5){var $3=!0;return _b({tag:'router-view',isComponent:$3})}
 
-  function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_0,_1,_4){var $3=!0,_v0=function(_2){return _2.length - 1};return _b({tag:_y(_v0,['RouteComponent'],$3).value,isComponent:$3})}
+  function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_0,_1,_5){var $3=!0,_v0=function(_2){return _2.length - 1};return _b({tag:_y(_v0,['RouteComponent'],$3).value,isComponent:$3})}
 
   var guid = 0;
   var ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -935,7 +935,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.106";
+  var version = "1.0.0-alpha.107";
   /**
    * 安装插件
    */
