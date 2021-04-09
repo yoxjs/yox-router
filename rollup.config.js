@@ -31,7 +31,8 @@ const port = process.env.NODE_PORT
 
 const replaces = {
   'process.env.NODE_ENV': JSON.stringify(env),
-  'process.env.NODE_VERSION': JSON.stringify(version)
+  'process.env.NODE_VERSION': JSON.stringify(version),
+  preventAssignment: true
 }
 
 let plugins = [
