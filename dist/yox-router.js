@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.110
+ * yox-router.js v1.0.0-alpha.111
  * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
@@ -95,7 +95,7 @@
   /**
    * 把字符串 value 解析成最合适的类型
    */
-  function parse(value) {
+  function parse$1(value) {
       var result;
       if (Yox.is.numeric(value)) {
           result = +value;
@@ -116,7 +116,7 @@
       }
       return result;
   }
-  function stringify(value) {
+  function stringify$1(value) {
       if (Yox.is.string(value)) {
           return encodeURIComponent(value);
       }
@@ -131,7 +131,7 @@
   /**
    * 把 GET 参数解析成对象
    */
-  function parse$1(query) {
+  function parse(query) {
       var result;
       Yox.array.each(query.split(SEPARATOR_QUERY), function (term) {
           var terms = term.split(SEPARATOR_PAIR), key = Yox.string.trim(terms[0]), value = terms[1];
@@ -139,7 +139,7 @@
               if (!result) {
                   result = {};
               }
-              value = parse(value);
+              value = parse$1(value);
               if (Yox.string.endsWith(key, FLAG_ARRAY)) {
                   key = Yox.string.slice(key, 0, -FLAG_ARRAY.length);
                   Yox.array.push(result[key] || (result[key] = []), value);
@@ -154,20 +154,20 @@
   /**
    * 把对象解析成 key1=value1&key2=value2
    */
-  function stringify$1(query) {
+  function stringify(query) {
       var result = [];
       var loop = function ( key ) {
           var value = query[key];
           if (Yox.is.array(value)) {
               Yox.array.each(value, function (value) {
-                  var str = stringify(value);
+                  var str = stringify$1(value);
                   if (Yox.is.string(str)) {
                       result.push(key + FLAG_ARRAY + SEPARATOR_PAIR + str);
                   }
               });
           }
           else {
-              var str = stringify(value);
+              var str = stringify$1(value);
               if (Yox.is.string(str)) {
                   result.push(key + SEPARATOR_PAIR + str);
               }
@@ -180,28 +180,28 @@
 
   var POP_STATE = 'popstate';
   var isSupported = 'pushState' in HISTORY;
-  function start(handler) {
+  function start$1(handler) {
       Yox.dom.on(WINDOW, POP_STATE, handler);
       handler();
   }
-  function stop(handler) {
+  function stop$1(handler) {
       Yox.dom.off(WINDOW, POP_STATE, handler);
   }
-  function push(location, handler) {
+  function push$1(location, handler) {
       // 调用 pushState 不会触发 popstate 事件
       // 因此这里需要手动调用一次 handler
       HISTORY.pushState({}, '', location.url);
       handler();
   }
-  function replace(location, handler) {
+  function replace$1(location, handler) {
       // 调用 replaceState 不会触发 popstate 事件
       // 因此这里需要手动调用一次 handler
       replaceState(location.url, handler);
   }
-  function go(n) {
+  function go$1(n) {
       HISTORY.go(n);
   }
-  function current() {
+  function current$1() {
       return LOCATION.pathname + LOCATION.search;
   }
   function replaceState(url, handler) {
@@ -219,28 +219,28 @@
   var historyMode = /*#__PURE__*/Object.freeze({
     __proto__: null,
     isSupported: isSupported,
-    start: start,
-    stop: stop,
-    push: push,
-    replace: replace,
-    go: go,
-    current: current,
+    start: start$1,
+    stop: stop$1,
+    push: push$1,
+    replace: replace$1,
+    go: go$1,
+    current: current$1,
     replaceState: replaceState
   });
 
   // hash 前缀，Google 的规范是 #! 开头，如 #!/path/sub?key=value
   var HASH_PREFIX = '#!', HASH_CHANGE = 'hashchange';
-  function start$1(handler) {
+  function start(handler) {
       Yox.dom.on(WINDOW, HASH_CHANGE, handler);
       handler();
   }
-  function stop$1(handler) {
+  function stop(handler) {
       Yox.dom.off(WINDOW, HASH_CHANGE, handler);
   }
-  function push$1(location, handler) {
+  function push(location, handler) {
       LOCATION.hash = HASH_PREFIX + location.url;
   }
-  function replace$1(location, handler) {
+  function replace(location, handler) {
       var url = LOCATION.protocol + '//' + LOCATION.host + LOCATION.pathname + HASH_PREFIX + location.url;
       if (isSupported) {
           replaceState(url, handler);
@@ -249,10 +249,10 @@
           LOCATION.replace(url);
       }
   }
-  function go$1(n) {
+  function go(n) {
       HISTORY.go(n);
   }
-  function current$1() {
+  function current() {
       // 不能直接读取 window.location.hash
       // 因为 Firefox 会做 pre-decode
       var href = LOCATION.href, index = href.indexOf(HASH_PREFIX);
@@ -263,19 +263,19 @@
 
   var hashMode = /*#__PURE__*/Object.freeze({
     __proto__: null,
-    start: start$1,
-    stop: stop$1,
-    push: push$1,
-    replace: replace$1,
-    go: go$1,
-    current: current$1
+    start: start,
+    stop: stop,
+    push: push,
+    replace: replace,
+    go: go,
+    current: current
   });
 
-  function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_v){var $3=!0;return _b({tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$3})}
+  function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_z,_w,_x){var $3=!0;_w[_w.length]=_b({context:_a,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$3});}
 
-  function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_v){var $3=!0;return _c({tag:'router-view',isComponent:$3})}
+  function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_z,_w,_x){var $3=!0;_w[_w.length]=_x[_x.length]=_c({context:_a,tag:'router-view',isComponent:$3});}
 
-  function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_v){var $3=!0,_0=function(_s){return _s.length - 1};return _c({tag:_o(_0,['RouteComponent'],$3).value,isComponent:$3})}
+  function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_z,_w,_x){var $3=!0,_v0=function(_u){return _u.length-1};_w[_w.length]=_x[_x.length]=_c({context:_a,tag:_q(_v0,['RouteComponent'],$3).value,isComponent:$3});}
 
   var guid = 0;
   var ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -317,7 +317,7 @@
           path = terms.join(SEPARATOR_PATH);
       }
       if (query) {
-          var queryStr = stringify$1(query);
+          var queryStr = stringify(query);
           if (queryStr) {
               path += SEPARATOR_SEARCH + queryStr;
           }
@@ -666,7 +666,7 @@
                       var params = {};
                       for (var i = 0; i < length; i++) {
                           if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-                              params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse(realpathTerms[i]);
+                              params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse$1(realpathTerms[i]);
                           }
                           // 非参数段不相同
                           else if (pathTerms[i] !== realpathTerms[i]) {
@@ -711,7 +711,7 @@
                   location.params = params;
               }
               if (search) {
-                  var query = parse$1(search);
+                  var query = parse(search);
                   if (query) {
                       location.query = query;
                   }
@@ -935,7 +935,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.110";
+  var version = "1.0.0-alpha.111";
   /**
    * 安装插件
    */
