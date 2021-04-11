@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.113
+ * yox-router.js v1.0.0-alpha.114
  * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
@@ -264,11 +264,11 @@ var hashMode = /*#__PURE__*/Object.freeze({
   current: current
 });
 
-function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_1,_2,_8,_5,_6){var $3=!0;_5[_5.length]=_b({context:_a,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$3});}
+function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__h,__m,__n,__k,__l){var $3=!0;__k[__k.length]=_a({context:_y,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$3});}
 
-function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_1,_2,_8,_5,_6){var $3=!0;_5[_5.length]=_6[_6.length]=_c({context:_a,tag:'router-view',isComponent:$3});}
+function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__h,__m,__n,__k,__l){var $3=!0;__k[__k.length]=__l[__l.length]=_b({context:_y,tag:'router-view',isComponent:$3});}
 
-function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_1,_2,_8,_5,_6){var $3=!0,_v0=function(_3){return _3.length-1};_5[_5.length]=_6[_6.length]=_c({context:_a,tag:_p(_v0,['RouteComponent'],$3).value,isComponent:$3});}
+function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__h,__m,__n,__k,__l){var $3=!0;__k[__k.length]=__l[__l.length]=_b({context:_y,tag:_p('RouteComponent',__m.RouteComponent).value,isComponent:$3});}
 
 let guid = 0;
 const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -914,7 +914,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.113";
+const version = "1.0.0-alpha.114";
 /**
  * 安装插件
  */
