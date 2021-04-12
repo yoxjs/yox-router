@@ -11,6 +11,8 @@ import {
   ROUTER_HOOK_AFTER_UPDATE,
   ROUTER_HOOK_BEFORE_LEAVE,
   ROUTER_HOOK_AFTER_LEAVE,
+  ROUTER_HOOK_BEFORE_LOAD,
+  ROUTER_HOOK_AFTER_LOAD,
 } from './constant'
 
 export type Target = string | RouteTarget
@@ -55,6 +57,8 @@ export interface RouterOptions {
   [ROUTER_HOOK_AFTER_UPDATE]?: RouteAfterHook
   [ROUTER_HOOK_BEFORE_LEAVE]?: RouteBeforeHook
   [ROUTER_HOOK_AFTER_LEAVE]?: RouteAfterHook
+  [ROUTER_HOOK_BEFORE_LOAD]?: (path: string) => void
+  [ROUTER_HOOK_AFTER_LOAD]?: (path: string, location: Location | void) => void
 }
 
 export interface RouteOptions {
@@ -77,6 +81,7 @@ export interface LinkedRoute {
   route: RouteOptions
   name?: string
   load?: RouteLoader
+  loading?: boolean
   component?: ComponentOptions
   params?: string[]
   context?: YoxInterface

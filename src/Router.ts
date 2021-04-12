@@ -22,6 +22,8 @@ import {
   ROUTER_HOOK_AFTER_UPDATE,
   ROUTER_HOOK_BEFORE_LEAVE,
   ROUTER_HOOK_AFTER_LEAVE,
+  ROUTER_HOOK_BEFORE_LOAD,
+  ROUTER_HOOK_AFTER_LOAD,
 
   COMPONENT_HOOK_BEFORE_ENTER,
   COMPONENT_HOOK_AFTER_ENTER,
@@ -621,98 +623,145 @@ export class Router {
     // 匹配已注册的 route
     const instance = this,
 
+    { options, routes, location } = instance,
+
     realpathTerms = realpath.split(SEPARATOR_PATH),
 
     length = realpathTerms.length,
 
-    matchRoute = function (
-      routes: LinkedRoute[],
-      callback: (route?: LinkedRoute, params?: Data) => void
+    createLocation = function (
+      route: LinkedRoute,
+      params?: Data
     ) {
-
-      let index = 0, route: LinkedRoute | void
-
-      loop: while (route = routes[index++]) {
-        const path = route.path
-
-        // 动态路由
-        if (route.params) {
-          const pathTerms = path.split(SEPARATOR_PATH)
-          // path 段数量必须一致，否则没有比较的意义
-          if (length === pathTerms.length) {
-            const params: Data = {}
-            for (let i = 0; i < length; i++) {
-              if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-                params[pathTerms[i].substr(PREFIX_PARAM.length)] = valueUtil.parse(realpathTerms[i])
-              }
-              // 非参数段不相同
-              else if (pathTerms[i] !== realpathTerms[i]) {
-                continue loop
-              }
-            }
-            callback(route, params)
-            return
-          }
+      const location: Location = {
+        url,
+        path: route.path
+      }
+      if (params) {
+        location.params = params
+      }
+      if (search) {
+        const query = queryUtil.parse(search)
+        if (query) {
+          location.query = query
         }
-        // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-        else if (route.load && Yox.string.startsWith(realpath, path)) {
-          const routeCallback: RouteCallback = function (lazyRoute) {
+      }
+      return location
+    },
 
-            instance.remove(route as LinkedRoute)
+    matchRoute = function (
+      route: LinkedRoute,
+      callback: (location?: Location) => boolean
+    ) {
+      const path = route.path
 
-            // 支持函数，方便动态生成路由，比如根据权限创建不同的路由
-            let lazyRouteOptions = lazyRoute['default'] || lazyRoute
-            if (Yox.is.func(lazyRouteOptions)) {
-              lazyRouteOptions = lazyRouteOptions()
+      // 动态路由
+      if (route.params) {
+        const pathTerms = path.split(SEPARATOR_PATH)
+        // path 段数量必须一致，否则没有比较的意义
+        if (length === pathTerms.length) {
+
+          const params: Data = { }
+
+          for (let i = 0; i < length; i++) {
+            if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
+              params[pathTerms[i].substr(PREFIX_PARAM.length)] = valueUtil.parse(realpathTerms[i])
             }
+            // 非参数段不相同
+            else if (pathTerms[i] !== realpathTerms[i]) {
+              return
+            }
+          }
 
-            matchRoute(
-              instance.add(lazyRouteOptions, (route as LinkedRoute).parent),
-              callback
+          return callback(
+            createLocation(route, params)
+          )
+        }
+      }
+      // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
+      else if (route.load && Yox.string.startsWith(realpath, path)) {
+
+        if (route.loading) {
+          return TRUE
+        }
+
+        const beforeLoad = options[ROUTER_HOOK_BEFORE_LOAD],
+        afterLoad = options[ROUTER_HOOK_AFTER_LOAD],
+        routeCallback: RouteCallback = function (lazyRoute) {
+
+          instance.remove(route as LinkedRoute)
+
+          // 支持函数，方便动态生成路由，比如根据权限创建不同的路由
+          let lazyRouteOptions = lazyRoute['default'] || lazyRoute
+          if (Yox.is.func(lazyRouteOptions)) {
+            lazyRouteOptions = lazyRouteOptions()
+          }
+
+          // 注册新的路由
+          const newRoutes = instance.add(lazyRouteOptions, (route as LinkedRoute).parent)
+
+          // 懒加载到此结束
+          route.loading = FALSE
+
+          if (location === instance.location) {
+            matchRoutes(
+              newRoutes,
+              function (newLocation) {
+                if (afterLoad) {
+                  afterLoad.call(instance, realpath, newLocation)
+                }
+                return callback(newLocation)
+              }
             )
+          }
+          else if (afterLoad) {
+            afterLoad.call(instance, realpath)
+          }
 
-          }
-          const promise = route.load(routeCallback)
-          if (promise) {
-            promise.then(routeCallback)
-          }
-          return
         }
-        else if (path === realpath) {
-          callback(route)
+
+        route.loading = TRUE
+
+        if (beforeLoad) {
+          beforeLoad.call(instance, realpath)
+        }
+
+        const promise = route.load(routeCallback)
+        if (promise) {
+          promise.then(routeCallback)
+        }
+
+        return TRUE
+      }
+      else if (path === realpath) {
+        return callback(
+          createLocation(route)
+        )
+      }
+    },
+
+    matchRoutes = function (
+      routes: LinkedRoute[],
+      callback: (location?: Location) => boolean
+    ) {
+      for (let i = 0, length = routes.length; i < length; i++) {
+        if (matchRoute(routes[i], callback)) {
           return
         }
       }
-
       callback()
-
     }
 
-    matchRoute(
-      instance.routes,
-      function (route, params) {
-        if (route) {
-          const location: Location = {
-            url,
-            path: route.path
-          }
-          if (params) {
-            location.params = params
-          }
-          if (search) {
-            const query = queryUtil.parse(search)
-            if (query) {
-              location.query = query
-            }
-          }
-          callback(location)
-        }
-        else {
-          if (process.env.NODE_ENV === 'development') {
+    matchRoutes(
+      routes,
+      function (location) {
+        if (process.env.NODE_ENV === 'development') {
+          if (!location) {
             Yox.logger.error(`The path "${realpath}" can't match a route.`)
           }
-          callback()
         }
+        callback(location)
+        return TRUE
       }
     )
 

@@ -1,5 +1,5 @@
 import { Data, YoxInterface, ComponentOptions } from 'yox';
-import { ROUTER_HOOK_BEFORE_ENTER, ROUTER_HOOK_AFTER_ENTER, ROUTER_HOOK_BEFORE_UPDATE, ROUTER_HOOK_AFTER_UPDATE, ROUTER_HOOK_BEFORE_LEAVE, ROUTER_HOOK_AFTER_LEAVE } from './constant';
+import { ROUTER_HOOK_BEFORE_ENTER, ROUTER_HOOK_AFTER_ENTER, ROUTER_HOOK_BEFORE_UPDATE, ROUTER_HOOK_AFTER_UPDATE, ROUTER_HOOK_BEFORE_LEAVE, ROUTER_HOOK_AFTER_LEAVE, ROUTER_HOOK_BEFORE_LOAD, ROUTER_HOOK_AFTER_LOAD } from './constant';
 export declare type Target = string | RouteTarget;
 export declare type Redirect = (to: Location) => Target;
 export declare type RouteCallback = (route: RouteOptions) => void;
@@ -33,6 +33,8 @@ export interface RouterOptions {
     [ROUTER_HOOK_AFTER_UPDATE]?: RouteAfterHook;
     [ROUTER_HOOK_BEFORE_LEAVE]?: RouteBeforeHook;
     [ROUTER_HOOK_AFTER_LEAVE]?: RouteAfterHook;
+    [ROUTER_HOOK_BEFORE_LOAD]?: (path: string) => void;
+    [ROUTER_HOOK_AFTER_LOAD]?: (path: string, location: Location | void) => void;
 }
 export interface RouteOptions {
     path: string;
@@ -53,6 +55,7 @@ export interface LinkedRoute {
     route: RouteOptions;
     name?: string;
     load?: RouteLoader;
+    loading?: boolean;
     component?: ComponentOptions;
     params?: string[];
     context?: YoxInterface;

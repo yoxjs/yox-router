@@ -72,6 +72,12 @@
         component: {
           template: '<div>not found</div>'
         }
+      },
+      beforeLoad(path) {
+        console.log('beforeLoad', path)
+      },
+      afterLoad(path, location) {
+        console.log('afterLoad', path, location)
       }
     })
 

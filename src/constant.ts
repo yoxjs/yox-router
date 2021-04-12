@@ -57,6 +57,12 @@ export const ROUTER_HOOK_BEFORE_LEAVE = 'beforeLeave'
 // 导航钩子 - 路由离开之后
 export const ROUTER_HOOK_AFTER_LEAVE = 'afterLeave'
 
+// 导航钩子 - 路由懒加载开始
+export const ROUTER_HOOK_BEFORE_LOAD = 'beforeLoad'
+
+// 导航钩子 - 路由懒加载结束
+export const ROUTER_HOOK_AFTER_LOAD = 'afterLoad'
+
 // 组件 Options 上的导航钩子
 export const COMPONENT_HOOK_BEFORE_ENTER = 'beforeRouteEnter'
 export const COMPONENT_HOOK_AFTER_ENTER = 'afterRouteEnter'
