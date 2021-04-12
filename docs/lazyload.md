@@ -42,6 +42,17 @@ export default {
 
 ```js
 new YoxRouter.Router({
+  beforeLoad(path) {
+    // path 触发了懒加载
+    // 此时可显示 loading
+  },
+  afterLoad(path, location) {
+    // 懒加载结束
+    // 此时可隐藏 loading
+    // location 可能为空的情况有两种：
+    // 1. 懒加载之后，用户切换到其他路径
+    // 2. 懒加载之后，未找到与 path 匹配的路由配置
+  },
   routes: [
     {
       path: '/user',
