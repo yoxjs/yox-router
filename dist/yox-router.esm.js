@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.116
+ * yox-router.js v1.0.0-alpha.117
  * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
@@ -264,11 +264,11 @@ var hashMode = /*#__PURE__*/Object.freeze({
   current: current
 });
 
-var template404 = (function(){var $2=!0,$4={tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',isStatic:$2};return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){__j[__j.length]=$4;}})();
+function template404($$){var $2=!0,$4={isStatic:$2,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.'};return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__k,__l,__i,__j){__i[__i.length]=$4;}}
 
-var templatePlaceholder = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){__j[__j.length]=__k[__k.length]={tag:'router-view',isComponent:$2,context:_x};}})();
+function templatePlaceholder($$){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__k,__l,__i,__j){__i[__i.length]=__j[__j.length]={context:$$,isComponent:$2,tag:'router-view'};}}
 
-var templateRouterView = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){__j[__j.length]=__k[__k.length]={tag:_o('RouteComponent',__l.RouteComponent).value,isComponent:$2,context:_x};}})();
+function templateRouterView($$){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__k,__l,__i,__j){__i[__i.length]=__j[__j.length]={context:$$,isComponent:$2,tag:_o('RouteComponent',__k.RouteComponent).value};}}
 
 let guid = 0;
 const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -914,7 +914,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.116";
+const version = "1.0.0-alpha.117";
 /**
  * 安装插件
  */
