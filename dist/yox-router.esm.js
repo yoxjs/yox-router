@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.118
+ * yox-router.js v1.0.0-alpha.119
  * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
@@ -42,6 +42,10 @@ const ROUTER_HOOK_AFTER_UPDATE = 'afterUpdate';
 const ROUTER_HOOK_BEFORE_LEAVE = 'beforeLeave';
 // 导航钩子 - 路由离开之后
 const ROUTER_HOOK_AFTER_LEAVE = 'afterLeave';
+// 导航钩子 - 路由懒加载开始
+const ROUTER_HOOK_BEFORE_LOAD = 'beforeLoad';
+// 导航钩子 - 路由懒加载结束
+const ROUTER_HOOK_AFTER_LOAD = 'afterLoad';
 // 组件 Options 上的导航钩子
 const COMPONENT_HOOK_BEFORE_ENTER = 'beforeRouteEnter';
 const COMPONENT_HOOK_AFTER_ENTER = 'afterRouteEnter';
@@ -264,11 +268,11 @@ var hashMode = /*#__PURE__*/Object.freeze({
   current: current
 });
 
-function template404($$){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__k,__l,__i,__j){__i[__i.length]={context:$$,isStatic:$2,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.'};}}
+function template404(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){var $2=!0;__j[__j.length]={context:_x,isPure:$2,isStatic:$2,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.'};}
 
-function templatePlaceholder($$){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__k,__l,__i,__j){__i[__i.length]=__j[__j.length]={context:$$,isComponent:$2,tag:'router-view'};}}
+function templatePlaceholder(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){var $2=!0;__j[__j.length]=__k[__k.length]={context:_x,isComponent:$2,tag:'router-view'};}
 
-function templateRouterView($$){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__k,__l,__i,__j){__i[__i.length]=__j[__j.length]={context:$$,isComponent:$2,tag:_o('RouteComponent',__k.RouteComponent).value};}}
+function templateRouterView(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){var $2=!0;__j[__j.length]=__k[__k.length]={context:_x,isComponent:$2,tag:_o('RouteComponent',__l.RouteComponent).value};}
 
 let guid = 0;
 const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -637,76 +641,98 @@ class Router {
             realpath = url;
         }
         // 匹配已注册的 route
-        const instance = this, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, matchRoute = function (routes, callback) {
-            let index = 0, route;
-            loop: while (route = routes[index++]) {
-                const path = route.path;
-                // 动态路由
-                if (route.params) {
-                    const pathTerms = path.split(SEPARATOR_PATH);
-                    // path 段数量必须一致，否则没有比较的意义
-                    if (length === pathTerms.length) {
-                        const params = {};
-                        for (let i = 0; i < length; i++) {
-                            if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-                                params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse$1(realpathTerms[i]);
-                            }
-                            // 非参数段不相同
-                            else if (pathTerms[i] !== realpathTerms[i]) {
-                                continue loop;
-                            }
-                        }
-                        callback(route, params);
-                        return;
-                    }
+        const instance = this, { options, routes, location } = instance, realpathTerms = realpath.split(SEPARATOR_PATH), length = realpathTerms.length, createLocation = function (route, params) {
+            const location = {
+                url,
+                path: route.path
+            };
+            if (params) {
+                location.params = params;
+            }
+            if (search) {
+                const query = parse(search);
+                if (query) {
+                    location.query = query;
                 }
-                // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
-                else if (route.load && Yox.string.startsWith(realpath, path)) {
-                    const routeCallback = function (lazyRoute) {
-                        instance.remove(route);
-                        // 支持函数，方便动态生成路由，比如根据权限创建不同的路由
-                        let lazyRouteOptions = lazyRoute['default'] || lazyRoute;
-                        if (Yox.is.func(lazyRouteOptions)) {
-                            lazyRouteOptions = lazyRouteOptions();
+            }
+            return location;
+        }, matchRoute = function (route, callback) {
+            const path = route.path;
+            // 动态路由
+            if (route.params) {
+                const pathTerms = path.split(SEPARATOR_PATH);
+                // path 段数量必须一致，否则没有比较的意义
+                if (length === pathTerms.length) {
+                    const params = {};
+                    for (let i = 0; i < length; i++) {
+                        if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
+                            params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse$1(realpathTerms[i]);
                         }
-                        matchRoute(instance.add(lazyRouteOptions, route.parent), callback);
-                    };
-                    const promise = route.load(routeCallback);
-                    if (promise) {
-                        promise.then(routeCallback);
+                        // 非参数段不相同
+                        else if (pathTerms[i] !== realpathTerms[i]) {
+                            return;
+                        }
                     }
-                    return;
+                    return callback(createLocation(route, params));
                 }
-                else if (path === realpath) {
-                    callback(route);
+            }
+            // 懒加载路由，前缀匹配成功后，意味着懒加载回来的路由一定有我们想要的
+            else if (route.load && Yox.string.startsWith(realpath, path)) {
+                if (route.loading) {
+                    return TRUE;
+                }
+                const beforeLoad = options[ROUTER_HOOK_BEFORE_LOAD], afterLoad = options[ROUTER_HOOK_AFTER_LOAD], routeCallback = function (lazyRoute) {
+                    instance.remove(route);
+                    // 支持函数，方便动态生成路由，比如根据权限创建不同的路由
+                    let lazyRouteOptions = lazyRoute['default'] || lazyRoute;
+                    if (Yox.is.func(lazyRouteOptions)) {
+                        lazyRouteOptions = lazyRouteOptions();
+                    }
+                    // 注册新的路由
+                    const newRoutes = instance.add(lazyRouteOptions, route.parent);
+                    // 懒加载到此结束
+                    route.loading = FALSE;
+                    if (location === instance.location) {
+                        matchRoutes(newRoutes, function (newLocation) {
+                            if (afterLoad) {
+                                afterLoad.call(instance, realpath, newLocation);
+                            }
+                            return callback(newLocation);
+                        });
+                    }
+                    else if (afterLoad) {
+                        afterLoad.call(instance, realpath);
+                    }
+                };
+                route.loading = TRUE;
+                if (beforeLoad) {
+                    beforeLoad.call(instance, realpath);
+                }
+                const promise = route.load(routeCallback);
+                if (promise) {
+                    promise.then(routeCallback);
+                }
+                return TRUE;
+            }
+            else if (path === realpath) {
+                return callback(createLocation(route));
+            }
+        }, matchRoutes = function (routes, callback) {
+            for (let i = 0, length = routes.length; i < length; i++) {
+                if (matchRoute(routes[i], callback)) {
                     return;
                 }
             }
             callback();
         };
-        matchRoute(instance.routes, function (route, params) {
-            if (route) {
-                const location = {
-                    url,
-                    path: route.path
-                };
-                if (params) {
-                    location.params = params;
-                }
-                if (search) {
-                    const query = parse(search);
-                    if (query) {
-                        location.query = query;
-                    }
-                }
-                callback(location);
-            }
-            else {
-                {
+        matchRoutes(routes, function (location) {
+            {
+                if (!location) {
                     Yox.logger.error(`The path "${realpath}" can't match a route.`);
                 }
-                callback();
             }
+            callback(location);
+            return TRUE;
         });
     }
     diffRoute(route, oldRoute, onComplete, startRoute, childRoute, oldTopRoute) {
@@ -914,7 +940,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.118";
+const version = "1.0.0-alpha.119";
 /**
  * 安装插件
  */
