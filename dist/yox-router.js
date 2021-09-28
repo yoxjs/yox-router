@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.125
+ * yox-router.js v1.0.0-alpha.126
  * (c) 2017-2021 musicode
  * Released under the MIT License.
  */
@@ -275,11 +275,11 @@
     current: current
   });
 
-  var template404 = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){__j[__j.length]={context:_x,isPure:$2,isStatic:$2,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',type:3};}})();
+  var template404 = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__h,__i,__n,__o,__l,__m){__l[__l.length]={context:_z,isPure:$2,isStatic:$2,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',type:3};}})();
 
-  var templatePlaceholder = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){__j[__j.length]=__k[__k.length]={context:_x,isComponent:$2,tag:'router-view',type:4};}})();
+  var templatePlaceholder = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__h,__i,__n,__o,__l,__m){__l[__l.length]=__m[__m.length]={context:_z,isComponent:$2,tag:'router-view',type:4};}})();
 
-  var templateRouterView = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__l,__m,__j,__k){__j[__j.length]=__k[__k.length]={context:_x,isComponent:$2,tag:_o('RouteComponent',__l.RouteComponent).value,type:4};}})();
+  var templateRouterView = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,__a,__b,__c,__d,__e,__f,__g,__h,__i,__n,__o,__l,__m){__l[__l.length]=__m[__m.length]={context:_z,isComponent:$2,tag:_q('RouteComponent',__n.RouteComponent).value,type:4};}})();
 
   var guid = 0;
   var ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -965,7 +965,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.125";
+  var version = "1.0.0-alpha.126";
   /**
    * 安装插件
    */
