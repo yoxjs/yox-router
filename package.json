@@ -1,6 +1,6 @@
 {
   "name": "yox-router",
-  "version": "1.0.0-alpha.126",
+  "version": "1.0.0-alpha.127",
   "description": "Official Router for Yox.js",
   "main": "dist/yox-router.js",
   "module": "dist/yox-router.esm.js",
@@ -38,10 +38,10 @@
     "rollup-plugin-serve": "^1.1.0",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.30.0",
-    "rollup-plugin-yox-template": "^0.3.5",
+    "rollup-plugin-yox-template": "^0.3.6",
     "typescript": "^4.2.4"
   },
   "dependencies": {
-    "yox": "^1.0.0-alpha.226"
+    "yox": "^1.0.0-alpha.227"
   }
 }
