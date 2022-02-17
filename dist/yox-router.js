@@ -1,6 +1,6 @@
 /**
- * yox-router.js v1.0.0-alpha.133
- * (c) 2017-2021 musicode
+ * yox-router.js v1.0.0-alpha.134
+ * (c) 2017-2022 musicode
  * Released under the MIT License.
  */
 
@@ -275,11 +275,11 @@
     current: current
   });
 
-  var template404 = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_U,_V,_S,_T){_S[_S.length]={context:_G,isPure:$2,isStatic:$2,operator:_B,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',type:3};}})();
+  var template404 = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_Q,_R,_W,_X,_U,_V){_U[_U.length]={context:_I,isPure:$2,isStatic:$2,operator:_D,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',type:3};}})();
 
-  var templatePlaceholder = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_U,_V,_S,_T){_S[_S.length]=_T[_T.length]={context:_G,isComponent:$2,operator:_C,tag:'router-view',type:4};}})();
+  var templatePlaceholder = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_Q,_R,_W,_X,_U,_V){_U[_U.length]=_V[_V.length]={context:_I,isComponent:$2,operator:_E,tag:'router-view',type:4};}})();
 
-  var templateRouterView = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_U,_V,_S,_T){_S[_S.length]=_T[_T.length]={context:_G,isComponent:$2,operator:_C,tag:_q('RouteComponent',_U.RouteComponent).value,type:4};}})();
+  var templateRouterView = (function(){var $2=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_Q,_R,_W,_X,_U,_V){_U[_U.length]=_V[_V.length]={context:_I,isComponent:$2,operator:_E,tag:_s('RouteComponent',_W.RouteComponent).value,type:4};}})();
 
   var guid = 0;
   var ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -965,7 +965,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.133";
+  var version = "1.0.0-alpha.134";
   /**
    * 安装插件
    */
