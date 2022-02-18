@@ -80,7 +80,7 @@ export declare class Router {
 /**
  * 版本
  */
-export declare const version = "1.0.0-alpha.135";
+export declare const version = "1.0.0-alpha.136";
 /**
  * 安装插件
  */
