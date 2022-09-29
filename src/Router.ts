@@ -106,7 +106,7 @@ function stringifyUrl(path: string, params: Data | void, query: Data | void) {
       function (item) {
         terms.push(
           Yox.string.startsWith(item, PREFIX_PARAM) && params
-            ? params[item.substr(PREFIX_PARAM.length)]
+            ? params[item.substring(PREFIX_PARAM.length)]
             : item
         )
       }
@@ -310,7 +310,7 @@ export class Router {
         function (item) {
           if (Yox.string.startsWith(item, PREFIX_PARAM)) {
             params.push(
-              item.substr(PREFIX_PARAM.length)
+              item.substring(PREFIX_PARAM.length)
             )
           }
         }
@@ -665,7 +665,7 @@ export class Router {
 
           for (let i = 0; i < length; i++) {
             if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-              params[pathTerms[i].substr(PREFIX_PARAM.length)] = valueUtil.parse(realpathTerms[i])
+              params[pathTerms[i].substring(PREFIX_PARAM.length)] = valueUtil.parse(realpathTerms[i])
             }
             // 非参数段不相同
             else if (pathTerms[i] !== realpathTerms[i]) {

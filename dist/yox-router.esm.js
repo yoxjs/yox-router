@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.156
+ * yox-router.js v1.0.0-alpha.200
  * (c) 2017-2022 musicode
  * Released under the MIT License.
  */
@@ -254,7 +254,7 @@ function current() {
     // 因为 Firefox 会做 pre-decode
     const href = LOCATION.href, index = href.indexOf(HASH_PREFIX);
     return index > 0
-        ? href.substr(index + HASH_PREFIX.length)
+        ? href.substring(index + HASH_PREFIX.length)
         : SEPARATOR_PATH;
 }
 
@@ -268,11 +268,11 @@ var hashMode = /*#__PURE__*/Object.freeze({
   current: current
 });
 
-var template404 = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_Q,_U,_V,_T){_T.push({context:_G,isPure:$3,isStatic:$3,operator:_B,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',type:3});}})();
+var template404 = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,isPure:$3,isStatic:$3,operator:_y,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',type:3});}})();
 
-var templatePlaceholder = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_Q,_U,_V,_T){_T.push({context:_G,isComponent:$3,operator:_C,tag:'router-view',type:4});}})();
+var templatePlaceholder = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,isComponent:$3,operator:_z,tag:'router-view',type:4});}})();
 
-var templateRouterView = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_L,_M,_N,_O,_P,_Q,_U,_V,_T){_T.push({context:_G,isComponent:$3,operator:_C,tag:_r(_Q,'RouteComponent',_U.RouteComponent).value,type:4});}})();
+var templateRouterView = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,isComponent:$3,operator:_z,tag:_p(_K,'RouteComponent',_O.RouteComponent).value,type:4});}})();
 
 let guid = 0;
 const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -308,7 +308,7 @@ function stringifyUrl(path, params, query) {
         const terms = [];
         Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
             terms.push(Yox.string.startsWith(item, PREFIX_PARAM) && params
-                ? params[item.substr(PREFIX_PARAM.length)]
+                ? params[item.substring(PREFIX_PARAM.length)]
                 : item);
         });
         path = terms.join(SEPARATOR_PATH);
@@ -420,7 +420,7 @@ class Router {
             let { name, component, children, load } = routeOptions, parentPath = Yox.array.last(pathStack), parentRoute = Yox.array.last(routeStack), path = formatPath(routeOptions.path, parentPath), route = { path, route: routeOptions }, params = [];
             Yox.array.each(path.split(SEPARATOR_PATH), function (item) {
                 if (Yox.string.startsWith(item, PREFIX_PARAM)) {
-                    params.push(item.substr(PREFIX_PARAM.length));
+                    params.push(item.substring(PREFIX_PARAM.length));
                 }
             });
             if (params.length) {
@@ -666,7 +666,7 @@ class Router {
                     const params = {};
                     for (let i = 0; i < length; i++) {
                         if (Yox.string.startsWith(pathTerms[i], PREFIX_PARAM)) {
-                            params[pathTerms[i].substr(PREFIX_PARAM.length)] = parse$1(realpathTerms[i]);
+                            params[pathTerms[i].substring(PREFIX_PARAM.length)] = parse$1(realpathTerms[i]);
                         }
                         // 非参数段不相同
                         else if (pathTerms[i] !== realpathTerms[i]) {
@@ -940,7 +940,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.156";
+const version = "1.0.0-alpha.200";
 /**
  * 安装插件
  */

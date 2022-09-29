@@ -60,7 +60,7 @@ export function current() {
   const href = LOCATION.href, index = href.indexOf(HASH_PREFIX)
 
   return index > 0
-    ? href.substr(index + HASH_PREFIX.length)
+    ? href.substring(index + HASH_PREFIX.length)
     : SEPARATOR_PATH
 
 }
