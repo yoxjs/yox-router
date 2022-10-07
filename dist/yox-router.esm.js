@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.201
+ * yox-router.js v1.0.0-alpha.300
  * (c) 2017-2022 musicode
  * Released under the MIT License.
  */
@@ -270,9 +270,9 @@ var hashMode = /*#__PURE__*/Object.freeze({
 
 var template404 = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,isPure:$3,isStatic:$3,operator:_y,tag:'div',text:'This is a default 404 page, please set "route404" for your own 404 page.',type:3});}})();
 
-var templatePlaceholder = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,isComponent:$3,operator:_z,tag:'router-view',type:4});}})();
+var templatePlaceholder = (function(){return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,operator:_z,tag:'router-view',type:4});}})();
 
-var templateRouterView = (function(){var $3=!0;return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,isComponent:$3,operator:_z,tag:_p(_K,'RouteComponent',_O.RouteComponent).value,type:4});}})();
+var templateRouterView = (function(){return function(_a,_b,_c,_d,_e,_f,_g,_h,_i,_j,_k,_l,_m,_n,_o,_p,_q,_r,_s,_t,_u,_v,_w,_x,_y,_z,_A,_B,_C,_D,_E,_F,_G,_H,_I,_J,_K,_O,_P,_N){_N.push({context:_D,operator:_z,tag:_p(_K,'RouteComponent',_O.RouteComponent).value,type:4});}})();
 
 let guid = 0;
 const ROUTE_COMPONENT = 'RouteComponent', EVENT_CLICK = 'click';
@@ -940,7 +940,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.201";
+const version = "1.0.0-alpha.300";
 /**
  * 安装插件
  */
