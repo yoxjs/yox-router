@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.300
+ * yox-router.js v1.0.0-alpha.301
  * (c) 2017-2022 musicode
  * Released under the MIT License.
  */
@@ -864,32 +864,32 @@ const default404 = {
 // 占位组件
 placeholderComponent = {
     template: templatePlaceholder
-}, directive = {
-    bind(node, directive, vnode) {
-        // 当前组件如果是根组件，则没有 $root 属性
-        const $root = vnode.context.$root || vnode.context, router = $root.$router, listener = vnode.data[directive.key] = function (_) {
-            let { value, getter } = directive, target = value;
-            if (value && getter && Yox.string.has(value, '{')) {
-                target = getter();
+}, directive = function (node, directive, vnode) {
+    let currentDirective = directive;
+    const isComponent = vnode.type === 4, 
+    // 当前组件如果是根组件，则没有 $root 属性
+    $root = vnode.context.$root || vnode.context, router = $root.$router, listener = function (_) {
+        router[currentDirective.name](currentDirective.value);
+    };
+    if (isComponent) {
+        node.on(EVENT_CLICK, listener);
+    }
+    else {
+        Yox.dom.on(node, EVENT_CLICK, listener);
+    }
+    return {
+        afterUpdate(directive) {
+            currentDirective = directive;
+        },
+        beforeDestroy() {
+            if (isComponent) {
+                node.off(EVENT_CLICK, listener);
             }
-            router[directive.name](target);
-        };
-        if (vnode.isComponent) {
-            node.on(EVENT_CLICK, listener);
+            else {
+                Yox.dom.off(node, EVENT_CLICK, listener);
+            }
         }
-        else {
-            Yox.dom.on(node, EVENT_CLICK, listener);
-        }
-    },
-    unbind(node, directive, vnode) {
-        const listener = vnode.data[directive.key];
-        if (vnode.isComponent) {
-            node.off(EVENT_CLICK, listener);
-        }
-        else {
-            Yox.dom.off(node, EVENT_CLICK, listener);
-        }
-    },
+    };
 }, RouterView = {
     template: templateRouterView,
     beforeCreate(options) {
@@ -940,7 +940,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.300";
+const version = "1.0.0-alpha.301";
 /**
  * 安装插件
  */

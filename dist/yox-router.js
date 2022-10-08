@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.300
+ * yox-router.js v1.0.0-alpha.301
  * (c) 2017-2022 musicode
  * Released under the MIT License.
  */
@@ -886,34 +886,32 @@
   // 占位组件
   placeholderComponent = {
       template: templatePlaceholder
-  }, directive = {
-      bind: function(node, directive, vnode) {
-          // 当前组件如果是根组件，则没有 $root 属性
-          var $root = vnode.context.$root || vnode.context, router = $root.$router, listener = vnode.data[directive.key] = function (_) {
-              var value = directive.value;
-              var getter = directive.getter;
-              var target = value;
-              if (value && getter && Yox.string.has(value, '{')) {
-                  target = getter();
+  }, directive = function (node, directive, vnode) {
+      var currentDirective = directive;
+      var isComponent = vnode.type === 4, 
+      // 当前组件如果是根组件，则没有 $root 属性
+      $root = vnode.context.$root || vnode.context, router = $root.$router, listener = function (_) {
+          router[currentDirective.name](currentDirective.value);
+      };
+      if (isComponent) {
+          node.on(EVENT_CLICK, listener);
+      }
+      else {
+          Yox.dom.on(node, EVENT_CLICK, listener);
+      }
+      return {
+          afterUpdate: function(directive) {
+              currentDirective = directive;
+          },
+          beforeDestroy: function() {
+              if (isComponent) {
+                  node.off(EVENT_CLICK, listener);
               }
-              router[directive.name](target);
-          };
-          if (vnode.isComponent) {
-              node.on(EVENT_CLICK, listener);
+              else {
+                  Yox.dom.off(node, EVENT_CLICK, listener);
+              }
           }
-          else {
-              Yox.dom.on(node, EVENT_CLICK, listener);
-          }
-      },
-      unbind: function(node, directive, vnode) {
-          var listener = vnode.data[directive.key];
-          if (vnode.isComponent) {
-              node.off(EVENT_CLICK, listener);
-          }
-          else {
-              Yox.dom.off(node, EVENT_CLICK, listener);
-          }
-      },
+      };
   }, RouterView = {
       template: templateRouterView,
       beforeCreate: function(options) {
@@ -965,7 +963,7 @@
   /**
    * 版本
    */
-  var version = "1.0.0-alpha.300";
+  var version = "1.0.0-alpha.301";
   /**
    * 安装插件
    */

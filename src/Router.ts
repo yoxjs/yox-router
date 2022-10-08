@@ -992,39 +992,41 @@ placeholderComponent = {
   template: templatePlaceholder
 },
 
-directive = {
-  bind(node: HTMLElement | YoxInterface, directive: Directive, vnode: VNode) {
+directive = function (node: HTMLElement | YoxInterface, directive: Directive, vnode: VNode) {
 
-    // 当前组件如果是根组件，则没有 $root 属性
-    const $root = vnode.context.$root || vnode.context,
+  let currentDirective = directive
 
-    router = $root.$router as Router,
+  const isComponent = vnode.type === 4,
 
-    listener = vnode.data[directive.key] = function (_: any) {
-      let { value, getter } = directive, target: any = value
-      if (value && getter && Yox.string.has(value as string, '{')) {
-        target = getter()
+  // 当前组件如果是根组件，则没有 $root 属性
+  $root = vnode.context.$root || vnode.context,
+
+  router = $root.$router as Router,
+
+  listener = function (_: any) {
+    router[currentDirective.name](currentDirective.value)
+  }
+
+  if (isComponent) {
+    (node as YoxInterface).on(EVENT_CLICK, listener)
+  }
+  else {
+    Yox.dom.on(node as HTMLElement, EVENT_CLICK, listener)
+  }
+
+  return {
+    afterUpdate(directive: Directive) {
+      currentDirective = directive
+    },
+    beforeDestroy() {
+      if (isComponent) {
+        (node as YoxInterface).off(EVENT_CLICK, listener)
       }
-      router[directive.name](target)
+      else {
+        Yox.dom.off(node as HTMLElement, EVENT_CLICK, listener)
+      }
     }
-
-    if (vnode.isComponent) {
-      (node as YoxInterface).on(EVENT_CLICK, listener)
-    }
-    else {
-      Yox.dom.on(node as HTMLElement, EVENT_CLICK, listener)
-    }
-
-  },
-  unbind(node: HTMLElement | YoxInterface, directive: Directive, vnode: VNode) {
-    const listener = vnode.data[directive.key]
-    if (vnode.isComponent) {
-      (node as YoxInterface).off(EVENT_CLICK, listener)
-    }
-    else {
-      Yox.dom.off(node as HTMLElement, EVENT_CLICK, listener)
-    }
-  },
+  }
 },
 
 RouterView: ComponentOptions = {
