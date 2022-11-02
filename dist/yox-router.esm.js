@@ -1,5 +1,5 @@
 /**
- * yox-router.js v1.0.0-alpha.301
+ * yox-router.js v1.0.0-alpha.302
  * (c) 2017-2022 musicode
  * Released under the MIT License.
  */
@@ -940,7 +940,7 @@ Yox.lifeCycle
 /**
  * 版本
  */
-const version = "1.0.0-alpha.301";
+const version = "1.0.0-alpha.302";
 /**
  * 安装插件
  */
